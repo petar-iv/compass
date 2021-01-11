@@ -28,6 +28,7 @@ type Config struct {
 	SecretName        string        `mapstructure:"secret_name"`
 	SecretNamespace   string        `mapstructure:"secret_namespace"`
 	WaitSecretTimeout time.Duration `mapstructure:"wait_secret_timeout"`
+	Scopes            string        `mapstructure:"scopes"`
 }
 
 func DefaultConfig() *Config {
@@ -37,6 +38,7 @@ func DefaultConfig() *Config {
 		SecretName:        "compass-system-broker-credentials",
 		SecretNamespace:   "compass-system",
 		WaitSecretTimeout: time.Minute,
+		Scopes:            scopes,
 	}
 }
 

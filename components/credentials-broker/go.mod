@@ -9,7 +9,7 @@ require (
 	github.com/google/uuid v1.1.4 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/kyma-incubator/compass/components/director v0.0.0-20210108160144-8593d2735a13
-	github.com/kyma-incubator/compass/components/system-broker v0.0.0-20210108104816-6f4780470b1c
+	github.com/kyma-incubator/compass/components/system-broker v0.0.0-20210111153504-3d5fe97b0153 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0
 	github.com/pivotal-cf/brokerapi/v7 v7.5.0

@@ -25,6 +25,7 @@ type OAuthTokenProvider struct {
 	waitSecretTimeout time.Duration
 	secretName        string
 	secretNamespace   string
+	scopes            string
 }
 
 type credentials struct {
@@ -40,6 +41,7 @@ func NewTokenProviderFromSecret(config *Config, httpClient httputils.Client, k8s
 		waitSecretTimeout: config.WaitSecretTimeout,
 		secretName:        config.SecretName,
 		secretNamespace:   config.SecretNamespace,
+		scopes:            config.Scopes,
 	}, nil
 }
 
@@ -82,7 +84,9 @@ func (c *OAuthTokenProvider) getAuthorizationToken(ctx context.Context, credenti
 
 	form := url.Values{}
 	form.Add(grantTypeFieldName, credentialsGrantType)
-	form.Add(scopeFieldName, scopes)
+	if len(c.scopes) > 0 {
+		form.Add(scopeFieldName, c.scopes)
+	}
 	body := strings.NewReader(form.Encode())
 	request, err := http.NewRequest(http.MethodPost, credentials.tokensEndpoint, body)
 	if err != nil {
