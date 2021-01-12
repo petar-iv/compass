@@ -40,6 +40,9 @@ global:
     system_broker:
       dir:
       version: "latest"
+    credentials_broker:
+      dir:
+      version: "latest"
     certs_setup_job:
       containerRegistry:
         path: eu.gcr.io/kyma-project
@@ -139,6 +142,19 @@ global:
     secrets:
       integrationSystemCredentials:
         name: compass-system-broker-credentials
+
+  credentials_broker:
+    port: 5001
+    root_api: /credentials-broker
+    host: compass-credentials-broker.compass-system.svc.cluster.local
+    tls:
+      host: compass-gateway
+    enabled: true
+    configmap:
+      name: compass-credentials-broker-config
+    secrets:
+      masterCredentials:
+        name: compass-credentials-broker-credentials
 
   gateway:
     port: 3000

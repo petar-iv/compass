@@ -38,6 +38,14 @@ spec:
               number: {{ .Values.global.tenantFetcher.port }}
     - match:
         - uri:
+            prefix: {{ .Values.global.credentials_broker.root_api }}
+      route:
+        - destination:
+            host: {{ .Values.global.credentials_broker.host }}
+            port:
+              number: {{ .Values.global.credentials_broker.port }}
+    - match:
+        - uri:
             exact: {{ .Values.global.director.prefix }}
       redirect:
         uri: {{ .Values.global.director.prefix }}/

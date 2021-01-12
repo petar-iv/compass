@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+    release: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.deployment.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+      release: {{ .Release.Name }}
+  strategy:
+    {{- toYaml .Values.deployment.strategy | nindent 4 }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+        release: {{ .Release.Name }}
+    spec:
+      {{ if .Values.global.isLocalEnv }}
+      # HostAliases are used by Pod to resolve kyma.local domain
+      hostAliases:
+        - ip: {{ .Values.global.minikubeIP }}
+          hostnames:
+            # Used for calls to Director
+            - "{{ .Values.global.gateway.tls.secure.oauth.host }}.{{ .Values.global.ingress.domainName }}"
+            # Used for calls for oauth token
+            - "{{ .Values.global.oauth2.host }}.{{ .Values.global.ingress.domainName }}"
+      {{ end }}
+      serviceAccountName: {{ template "fullname" . }}
+      nodeSelector:
+        {{- toYaml .Values.deployment.nodeSelector | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ .Values.global.images.containerRegistry.path }}/{{ .Values.global.images.credentials_broker.dir }}compass-credentials-broker:{{ .Values.global.images.system_broker.version }}
+          imagePullPolicy: {{ .Values.deployment.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.deployment.args.containerPort }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.deployment.securityContext }}
+          securityContext:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          env:
+            - name: SERVER_PORT
+              value: "{{ .Values.deployment.args.containerPort }}"
+            - name: SERVER_ROOT_API
+              value: "{{ .Values.global.credentials_broker.root_api }}"
+            - name: SERVER_SELF_URL
+              value: "https://{{ .Values.global.credentials_broker.tls.host }}.{{ .Values.global.ingress.domainName }}{{ .Values.global.credentials_broker.root_api }}"
+            - name: OAUTH_PROVIDER_SECRET_NAME
+              value: "{{ .Values.global.credentials_broker.secrets.masterCredentials.name }}"
+            - name: OAUTH_PROVIDER_SECRET_NAMESPACE
+              value: "{{ .Release.Namespace }}"
+            - name: OAUTH_PROVIDER_SCOPES
+              value: "uaa.resource" # TODO: Added because we cannot override the default value with empty value, since empty value means not provided, which means use default :D
+            - name: CREDENTIALS_PROVIDER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.credentials_broker.configmap.name }}
+                  key: url
+            - name: CREDENTIALS_PROVIDER_CREDENTIALS_ISSUER_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.credentials_broker.configmap.name }}
+                  key: credentials-issuer-path
+            - name: CREDENTIALS_PROVIDER_ISSUER_BODY
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.credentials_broker.configmap.name }}
+                  key: issuer-body
+            - name: CREDENTIALS_PROVIDER_CREDENTIALS_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.credentials_broker.configmap.name }}
+                  key: credentials-path
+            - name: CREDENTIALS_PROVIDER_ISSUER_NAME_QUERY_PARAM
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.credentials_broker.configmap.name }}
+                  key: issuer-name-query-param
+            - name: CREDENTIALS_PROVIDER_TENANT_ID_QUERY_PARAM
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.credentials_broker.configmap.name }}
+                  key: tenant-id-query-param
+            - name: CREDENTIALS_PROVIDER_TENANT_ID_CONTEXT_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.credentials_broker.configmap.name }}
+                  key: tenant-id-context-key
+#          livenessProbe:
+#            httpGet:
+#              path: /healthz
+#              port: {{ .Values.deployment.args.containerPort }}
+#            periodSeconds: 10
+#            timeoutSeconds: 3
+#            initialDelaySeconds: 30
+#          readinessProbe:
+#            httpGet:
+#              path: /healthz
+#              port: {{ .Values.deployment.args.containerPort }}
+#            periodSeconds: 5
+#            timeoutSeconds: 2
+#            initialDelaySeconds: 10
