@@ -22,6 +22,7 @@ type Repository interface {
 	ListForObjectGlobal(ctx context.Context, objectType model.SystemAuthReferenceObjectType, objectID string) ([]model.SystemAuth, error)
 	DeleteByIDForObject(ctx context.Context, tenant, id string, objType model.SystemAuthReferenceObjectType) error
 	DeleteByIDForObjectGlobal(ctx context.Context, id string, objType model.SystemAuthReferenceObjectType) error
+	GetByJSONValue(ctx context.Context, value map[string]interface{}) (*model.SystemAuth, error)
 }
 
 //go:generate mockery -name=UIDService -output=automock -outpkg=automock -case=underscore
@@ -115,6 +116,15 @@ func (s *service) GetGlobal(ctx context.Context, id string) (*model.SystemAuth, 
 	}
 
 	return item, nil
+}
+
+func (s *service) GetByToken(ctx context.Context, token string) (*model.SystemAuth, error) {
+	return s.repo.GetByJSONValue(ctx, map[string]interface{}{
+		"OneTimeToken": map[string]interface{}{
+			"Token": token,
+			"Used":  false,
+		},
+	})
 }
 
 func (s *service) ListForObject(ctx context.Context, objectType model.SystemAuthReferenceObjectType, objectID string) ([]model.SystemAuth, error) {

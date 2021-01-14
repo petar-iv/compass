@@ -154,7 +154,8 @@ func NewRootResolver(
 	eventingSvc := eventing.NewService(appNameNormalizer, runtimeRepo, labelRepo)
 	packageSvc := packageutil.NewService(packageRepo, apiRepo, eventAPIRepo, docRepo, fetchRequestRepo, uidSvc, fetchRequestSvc)
 	appSvc := application.NewService(appNameNormalizer, cfgProvider, applicationRepo, webhookRepo, runtimeRepo, labelRepo, intSysRepo, labelUpsertSvc, scenariosSvc, packageSvc, uidSvc)
-	tokenSvc := onetimetoken.NewTokenService(connectorGCLI, systemAuthSvc, appSvc, appConverter, tenantSvc, httpClient, oneTimeTokenCfg.ConnectorURL, pairingAdaptersMapping)
+	// TODO: Use configuration for token length
+	tokenSvc := onetimetoken.NewTokenService(connectorGCLI, systemAuthSvc, appSvc, appConverter, tenantSvc, httpClient, onetimetoken.NewTokenGenerator(70), oneTimeTokenCfg.ConnectorURL, pairingAdaptersMapping)
 	packageInstanceAuthSvc := packageinstanceauth.NewService(packageInstanceAuthRepo, uidSvc)
 
 	return &RootResolver{

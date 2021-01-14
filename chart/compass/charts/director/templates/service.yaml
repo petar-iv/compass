@@ -15,6 +15,9 @@ spec:
     - port: {{ .Values.global.istio.proxy.port }}
       protocol: TCP
       name: proxy-status
+    - port: {{ .Values.global.connector.validator.port }}
+      protocol: TCP
+      name: http-validator
   selector:
     app: {{ .Chart.Name }}
     release: {{ .Release.Name }}

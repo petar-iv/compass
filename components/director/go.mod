@@ -18,7 +18,7 @@ require (
 	github.com/go-ozzo/ozzo-validation v3.6.0+incompatible
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
-	github.com/google/uuid v1.1.1
+	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/hashicorp/go-multierror v1.0.0
@@ -27,10 +27,10 @@ require (
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
+	github.com/kyma-incubator/compass/components/connector v0.0.0-20210113114817-9cd2eac13dc0 // indirect
 	github.com/lestrrat-go/jwx v0.9.0
 	github.com/lib/pq v1.2.0
 	github.com/machinebox/graphql v0.2.3-0.20181106130121-3a9253180225
-	github.com/matryer/is v1.3.0 // indirect
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
@@ -47,7 +47,6 @@ require (
 	github.com/xeipuuv/gojsonschema v1.1.1-0.20190912152152-6a016cf16650
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/tools v0.0.0-20200323144430-8dcfad9e016e // indirect
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect

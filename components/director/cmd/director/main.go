@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kyma-incubator/compass/components/director/internal/authnmappinghandler"
+	"github.com/kyma-incubator/compass/components/director/internal/oauthkeeper"
 	httputil "github.com/kyma-incubator/compass/components/director/pkg/http"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/authenticator"
@@ -73,7 +74,8 @@ import (
 const envPrefix = "APP"
 
 type config struct {
-	Address string `envconfig:"default=127.0.0.1:3000"`
+	Address         string `envconfig:"default=127.0.0.1:3000"`
+	HydratorAddress string `envconfig:"default=127.0.0.1:8080"`
 
 	ClientTimeout time.Duration `envconfig:"default=105s"`
 	ServerTimeout time.Duration `envconfig:"default=110s"`
@@ -232,17 +234,29 @@ func main() {
 	metricsHandler := http.NewServeMux()
 	metricsHandler.Handle("/metrics", promhttp.Handler())
 
+	uidSvc := uid.NewService()
+	authConverter := auth.NewConverter()
+	systemAuthConverter := systemauth.NewConverter(authConverter)
+	systemAuthRepo := systemauth.NewRepository(systemAuthConverter)
+	systemAuthSvc := systemauth.NewService(systemAuthRepo, uidSvc)
+
+	hydratorHandler, err := PrepareHydratorHandler(cfg, systemAuthSvc, transact, correlation.AttachCorrelationIDToContext(), log.RequestLogger())
+	exitOnError(err, "Failed configuring hydrator handler")
+
 	runMetricsSrv, shutdownMetricsSrv := createServer(ctx, cfg.MetricsAddress, metricsHandler, "metrics", cfg.ServerTimeout)
+	runHydratorSrv, shutdownHydratorSrv := createServer(ctx, cfg.HydratorAddress, hydratorHandler, "hydrator", cfg.ServerTimeout)
 	runMainSrv, shutdownMainSrv := createServer(ctx, cfg.Address, mainRouter, "main", cfg.ServerTimeout)
 
 	go func() {
 		<-ctx.Done()
 		// Interrupt signal received - shut down the servers
 		shutdownMetricsSrv()
+		shutdownHydratorSrv()
 		shutdownMainSrv()
 	}()
 
 	go runMetricsSrv()
+	go runHydratorSrv()
 	runMainSrv()
 }
 
@@ -389,6 +403,29 @@ func createServer(ctx context.Context, address string, handler http.Handler, nam
 	}
 
 	return runFn, shutdownFn
+}
+
+func PrepareHydratorHandler(cfg config, tokenService oauthkeeper.Service, transact persistence.Transactioner, middlewares ...mux.MiddlewareFunc) (http.Handler, error) {
+	validationHydrator := oauthkeeper.NewValidationHydrator(tokenService, transact)
+
+	router := mux.NewRouter()
+	router.Path("/health").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	router.Use(middlewares...)
+
+	v1Router := router.PathPrefix("/v1").Subrouter()
+	v1Router.HandleFunc("/tokens/resolve", validationHydrator.ResolveConnectorTokenHeader)
+
+	router.Use(middlewares...)
+
+	handlerWithTimeout, err := timeouthandler.WithTimeout(router, cfg.ServerTimeout)
+	if err != nil {
+		return nil, err
+	}
+
+	return handlerWithTimeout, nil
 }
 
 func defaultPackageInstanceAuthRepo() packageinstanceauth.Repository {

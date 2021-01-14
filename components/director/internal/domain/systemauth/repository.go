@@ -2,6 +2,7 @@ package systemauth
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 
@@ -79,6 +80,24 @@ func (r *repository) GetByID(ctx context.Context, tenant, id string) (*model.Sys
 func (r *repository) GetByIDGlobal(ctx context.Context, id string) (*model.SystemAuth, error) {
 	var entity Entity
 	if err := r.singleGetterGlobal.GetGlobal(ctx, repo.Conditions{repo.NewEqualCondition("id", id)}, repo.NoOrderBy, &entity); err != nil {
+		return nil, err
+	}
+
+	itemModel, err := r.conv.FromEntity(entity)
+	if err != nil {
+		return nil, errors.Wrap(err, "while converting SystemAuth entity to model")
+	}
+
+	return &itemModel, nil
+}
+
+func (r *repository) GetByJSONValue(ctx context.Context, value map[string]interface{}) (*model.SystemAuth, error) {
+	valueBytes, err := json.Marshal(value)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not marshal")
+	}
+	var entity Entity
+	if err := r.singleGetterGlobal.GetGlobal(ctx, repo.Conditions{repo.NewJSONCondition("value", string(valueBytes))}, repo.NoOrderBy, &entity); err != nil {
 		return nil, err
 	}
 
