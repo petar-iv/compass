@@ -54,6 +54,12 @@ type Config struct {
 		PollTimeout time.Duration `envconfig:"default=1m"`
 		Timeout     time.Duration `envconfig:"default=95s"`
 	}
+
+	OAuth struct {
+		AdminBaseURL      string        `envconfig:"APP_OAUTH20_ADMIN_BASE_URL"`
+		PublicBaseURL     string        `envconfig:"APP_OAUTH20_PUBLIC_BASE_URL"`
+		HTTPClientTimeout time.Duration `envconfig:"default=105s,APP_OAUTH20_HTTP_CLIENT_TIMEOUT"`
+	}
 }
 
 func (c *Config) String() string {

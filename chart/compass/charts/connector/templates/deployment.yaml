@@ -97,6 +97,10 @@ spec:
               value: {{ .Values.deployment.kubernetesClient.pollInterval | quote }}
             - name: APP_KUBERNETES_CLIENT_POLL_TIMEOUT
               value: {{ .Values.deployment.kubernetesClient.pollTimeout | quote }}
+            - name: APP_OAUTH20_ADMIN_BASE_URL
+              value: http://ory-hydra-admin.kyma-system.svc.cluster.local:4445
+            - name: APP_OAUTH20_PUBLIC_BASE_URL
+              value: http://ory-hydra-public.kyma-system.svc.cluster.local:4444
           {{- with .Values.deployment.securityContext }}
           securityContext:
 {{ toYaml . | indent 12 }}

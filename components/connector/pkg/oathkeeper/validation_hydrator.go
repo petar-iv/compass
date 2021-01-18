@@ -57,7 +57,7 @@ func (tvh *validationHydrator) ResolveConnectorTokenHeader(w http.ResponseWriter
 
 	log.C(ctx).Info("Trying to resolve token...")
 
-	tokenData, err := tvh.tokenService.Resolve(connectorToken)
+	tokenData, oauthClientID, err := tvh.tokenService.Resolve(ctx, connectorToken)
 	if err != nil {
 		log.C(ctx).Infof("Invalid token provided: %s", err.Error())
 		respondWithAuthSession(ctx, w, authSession)
@@ -70,7 +70,7 @@ func (tvh *validationHydrator) ResolveConnectorTokenHeader(w http.ResponseWriter
 
 	authSession.Header.Add(ClientIdFromTokenHeader, tokenData.ClientId)
 
-	tvh.tokenService.Delete(connectorToken)
+	tvh.tokenService.Delete(ctx, oauthClientID, connectorToken)
 
 	log.C(ctx).Infof("Token for %s resolved successfully", tokenData.ClientId)
 	respondWithAuthSession(ctx, w, authSession)

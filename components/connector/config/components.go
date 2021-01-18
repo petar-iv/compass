@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/http"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -49,11 +50,12 @@ func InitInternalComponents(cfg Config, k8sClientSet kubernetes.Interface) (Comp
 		time.Second,
 	)
 
+	httpCli := &http.Client{
+		Timeout: cfg.OAuth.HTTPClientTimeout,
+	}
 	return Components{
-		Authenticator: authentication.NewAuthenticator(),
-		TokenService: tokens.NewTokenService(
-			tokens.NewTokenCache(cfg.Token.ApplicationExpiration, cfg.Token.RuntimeExpiration, cfg.Token.CSRExpiration),
-			tokens.NewTokenGenerator(cfg.Token.Length)),
+		Authenticator:          authentication.NewAuthenticator(),
+		TokenService:           tokens.NewTokenService(cfg.OAuth.AdminBaseURL, cfg.OAuth.PublicBaseURL, httpCli, cfg.Token.ApplicationExpiration, cfg.Token.RuntimeExpiration, cfg.Token.CSRExpiration),
 		CertificateService:     certsService,
 		RevokedCertsRepository: revokedCertsRepository,
 		CSRSubjectConsts:       newCSRSubjectConsts(cfg),
