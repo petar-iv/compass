@@ -55,14 +55,6 @@ spec:
               value: "0.0.0.0:{{ .Values.global.connector.validator.port }}"
             - name: APP_PLAYGROUND_API_ENDPOINT
               value: "{{ .Values.global.connector.prefix }}/graphql"
-            - name: APP_TOKEN_LENGTH
-              value: {{ .Values.deployment.args.token.length | quote }}
-            - name: APP_TOKEN_RUNTIME_EXPIRATION
-              value: {{ .Values.deployment.args.token.runtimeExpiration | quote }}
-            - name: APP_TOKEN_APPLICATION_EXPIRATION
-              value: {{ .Values.deployment.args.token.applicationExpiration | quote }}
-            - name: APP_CERTIFICATE_VALIDITY_TIME
-              value: {{ .Values.deployment.args.certificateValidityTime | quote }}
             - name: APP_CA_SECRET_NAME
               value: "{{ .Values.global.connector.secrets.ca.namespace }}/{{ .Values.global.connector.secrets.ca.name }}"
             - name: APP_CA_SECRET_CERTIFICATE_KEY
@@ -97,6 +89,8 @@ spec:
               value: {{ .Values.deployment.kubernetesClient.pollInterval | quote }}
             - name: APP_KUBERNETES_CLIENT_POLL_TIMEOUT
               value: {{ .Values.deployment.kubernetesClient.pollTimeout | quote }}
+            - name: APP_ONE_TIME_TOKEN_URL
+              value: "http://compass-director.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.global.connector.graphql.internal.port }}/graphql"
           {{- with .Values.deployment.securityContext }}
           securityContext:
 {{ toYaml . | indent 12 }}

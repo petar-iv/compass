@@ -11,6 +11,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 
 	"github.com/kyma-incubator/compass/components/director/internal/domain/client"
+	"github.com/kyma-incubator/compass/components/director/internal/tokens"
 
 	"github.com/avast/retry-go"
 	"github.com/kyma-incubator/compass/components/director/internal/model"
@@ -42,6 +43,9 @@ type GraphQLClient interface {
 //go:generate mockery -name=SystemAuthService -output=automock -outpkg=automock -case=underscore
 type SystemAuthService interface {
 	Create(ctx context.Context, objectType model.SystemAuthReferenceObjectType, objectID string, authInput *model.AuthInput) (string, error)
+	GetByToken(ctx context.Context, token string) (*model.SystemAuth, error)
+	GetByID(ctx context.Context, authID string) (*model.SystemAuth, error)
+	Update(ctx context.Context, item *model.SystemAuth) error
 }
 
 //go:generate mockery -name=ApplicationConverter -output=automock -outpkg=automock -case=underscore
@@ -76,9 +80,8 @@ type service struct {
 	tokenGenerator            TokenGenerator
 }
 
-func NewTokenService(gcli GraphQLClient, sysAuthSvc SystemAuthService, appSvc ApplicationService, appConverter ApplicationConverter, extTenantsSvc ExternalTenantsService, doer HTTPDoer, tokenGenerator TokenGenerator, connectorURL string, intSystemToAdapterMapping map[string]string) *service {
+func NewTokenService(sysAuthSvc SystemAuthService, appSvc ApplicationService, appConverter ApplicationConverter, extTenantsSvc ExternalTenantsService, doer HTTPDoer, tokenGenerator TokenGenerator, connectorURL string, intSystemToAdapterMapping map[string]string) *service {
 	return &service{
-		cli:                       gcli,
 		connectorURL:              connectorURL,
 		sysAuthSvc:                sysAuthSvc,
 		intSystemToAdapterMapping: intSystemToAdapterMapping,
@@ -99,6 +102,7 @@ func (s service) GenerateOneTimeToken(ctx context.Context, id string, tokenType 
 			return model.OneTimeToken{}, errors.Wrapf(err, "while getting application [id: %s]", id)
 		}
 
+		// TODO: Do we want to save one time token from int system?
 		if app.IntegrationSystemID != nil {
 			if adapterURL, ok := s.intSystemToAdapterMapping[*app.IntegrationSystemID]; ok {
 				oneTimeToken, err = s.getTokenFromAdapter(ctx, adapterURL, *app)
@@ -121,6 +125,12 @@ func (s service) GenerateOneTimeToken(ctx context.Context, id string, tokenType 
 		}
 	}
 
+	switch tokenType {
+	case model.ApplicationReference:
+		oneTimeToken.Type = tokens.ApplicationToken
+	case model.RuntimeReference:
+		oneTimeToken.Type = tokens.RuntimeToken
+	}
 	oneTimeToken.CreatedAt = time.Now()
 	oneTimeToken.Used = false
 	oneTimeToken.UsedAt = time.Time{}
@@ -130,6 +140,33 @@ func (s service) GenerateOneTimeToken(ctx context.Context, id string, tokenType 
 	})
 	if err != nil {
 		return model.OneTimeToken{}, errors.Wrap(err, "while creating System Auth")
+	}
+
+	return *oneTimeToken, nil
+}
+
+func (s *service) RegenerateOneTimeToken(ctx context.Context, sysAuthID string, tokenType tokens.TokenType) (model.OneTimeToken, error) {
+	sysAuth, err := s.sysAuthSvc.GetByID(ctx, sysAuthID)
+	if err != nil {
+		return model.OneTimeToken{}, err
+	}
+	var tokenString string
+	tokenString, err = s.tokenGenerator.NewToken()
+	if err != nil {
+		return model.OneTimeToken{}, errors.Wrapf(err, "while generating onetime token")
+	}
+	oneTimeToken := &model.OneTimeToken{
+		Token:        tokenString,
+		ConnectorURL: s.connectorURL,
+		Type:         tokenType,
+		CreatedAt:    time.Now(),
+		Used:         false,
+		UsedAt:       time.Time{},
+	}
+
+	sysAuth.Value.OneTimeToken = *oneTimeToken
+	if err := s.sysAuthSvc.Update(ctx, sysAuth); err != nil {
+		return model.OneTimeToken{}, err
 	}
 
 	return *oneTimeToken, nil

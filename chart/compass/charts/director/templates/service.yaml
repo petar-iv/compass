@@ -18,6 +18,9 @@ spec:
     - port: {{ .Values.global.connector.validator.port }}
       protocol: TCP
       name: http-validator
+    - port: {{ .Values.global.connector.graphql.internal.port }}
+      protocol: TCP
+      name: http-gql-int
   selector:
     app: {{ .Chart.Name }}
     release: {{ .Release.Name }}

@@ -2,10 +2,19 @@ package tokens
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kyma-incubator/compass/components/connector/internal/apperrors"
-	"github.com/kyma-incubator/compass/components/director/pkg/log"
+	gcli "github.com/machinebox/graphql"
+	"github.com/pkg/errors"
 )
+
+const requestForCSRToken = `
+		mutation { generateCSRToken (authID:"%s")
+		  {
+			token
+		  }
+		}`
 
 //go:generate mockery -name=Service
 type Service interface {
@@ -14,32 +23,26 @@ type Service interface {
 	Delete(token string)
 }
 
-type tokenService struct {
-	generator TokenGenerator
-	store     Cache
+//go:generate mockery -name=GraphQLClient -output=automock -outpkg=automock -case=underscore
+type GraphQLClient interface {
+	Run(ctx context.Context, req *gcli.Request, resp interface{}) error
 }
 
-func NewTokenService(store Cache, generator TokenGenerator) *tokenService {
+type tokenService struct {
+	cli GraphQLClient
+}
+
+func NewTokenService(cli GraphQLClient, store Cache, generator TokenGenerator) *tokenService {
 	return &tokenService{
-		store:     store,
-		generator: generator,
+		cli: cli,
 	}
 }
 
 func (svc *tokenService) CreateToken(ctx context.Context, clientId string, tokenType TokenType) (string, apperrors.AppError) {
-	token, err := svc.generator.NewToken()
+	token, err := svc.getOneTimeToken(ctx, clientId)
 	if err != nil {
-		return "", err
+		return "", apperrors.Internal("could not get one time token: %s", err)
 	}
-
-	tokenData := TokenData{
-		Type:     tokenType,
-		ClientId: clientId,
-	}
-
-	log.C(ctx).Debugf("Storing token for %s with id %s in the cache", tokenData.Type, tokenData.ClientId)
-	svc.store.Put(token, tokenData)
-
 	return token, nil
 }
 
@@ -54,4 +57,16 @@ func (svc *tokenService) Resolve(token string) (TokenData, apperrors.AppError) {
 
 func (svc *tokenService) Delete(token string) {
 	svc.store.Delete(token)
+}
+
+func (s *tokenService) getOneTimeToken(ctx context.Context, id string) (string, error) {
+	req := gcli.NewRequest(fmt.Sprintf(requestForCSRToken, id))
+
+	var resp map[string]map[string]interface{}
+	err := s.cli.Run(ctx, req, &resp)
+	if err != nil {
+		return "", errors.Wrapf(err, "while calling director for CSR one time token")
+	}
+
+	return resp["generateCSRToken"]["token"].(string), nil
 }

@@ -36,6 +36,7 @@ type repository struct {
 	listerGlobal       repo.ListerGlobal
 	deleter            repo.Deleter
 	deleterGlobal      repo.DeleterGlobal
+	updater            repo.Updater
 
 	conv Converter
 }
@@ -49,6 +50,7 @@ func NewRepository(conv Converter) *repository {
 		listerGlobal:       repo.NewListerGlobal(resource.SystemAuth, tableName, tableColumns),
 		deleter:            repo.NewDeleter(resource.SystemAuth, tableName, tenantColumn),
 		deleterGlobal:      repo.NewDeleterGlobal(resource.SystemAuth, tableName),
+		updater:            repo.NewUpdater(resource.SystemAuth, tableName, []string{"value"}, tenantColumn, []string{"id"}),
 		conv:               conv,
 	}
 }
@@ -199,6 +201,19 @@ func (r *repository) DeleteByIDForObjectGlobal(ctx context.Context, id string, o
 	objTypeCond = repo.NewNotNullCondition(column)
 
 	return r.deleterGlobal.DeleteOneGlobal(ctx, repo.Conditions{repo.NewEqualCondition("id", id), objTypeCond})
+}
+
+func (r *repository) Update(ctx context.Context, item *model.SystemAuth) error {
+	if item == nil {
+		return apperrors.NewInternalError("item cannot be nil")
+	}
+
+	entity, err := r.conv.ToEntity(*item)
+	if err != nil {
+		return errors.Wrap(err, "while converting model to entity")
+	}
+
+	return r.updater.UpdateSingle(ctx, entity)
 }
 
 func referenceObjectField(objectType model.SystemAuthReferenceObjectType) (string, error) {

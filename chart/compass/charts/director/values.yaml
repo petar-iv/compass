@@ -8,6 +8,10 @@ deployment:
     requests: {}
     limits: {}
   args:
+    token:
+      length: 64
+      runtimeExpiration: 60m
+      applicationExpiration: 5m
     containerPort: 3000
   securityContext: # Set on container level
     runAsUser: 2000

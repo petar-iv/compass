@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/kyma-incubator/compass/components/director/internal/httputils"
+	"github.com/kyma-incubator/compass/components/director/internal/tokens"
 
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
@@ -20,17 +22,24 @@ type ValidationHydrator interface {
 
 type Service interface {
 	GetByToken(ctx context.Context, token string) (*model.SystemAuth, error)
+	InvalidateToken(ctx context.Context, item *model.SystemAuth) error
 }
 
 type validationHydrator struct {
-	tokenService Service
-	transact     persistence.Transactioner
+	tokenService           Service
+	transact               persistence.Transactioner
+	csrTokenExpiration     time.Duration
+	appTokenExpiration     time.Duration
+	runtimeTokenExpiration time.Duration
 }
 
-func NewValidationHydrator(tokenService Service, transact persistence.Transactioner) ValidationHydrator {
+func NewValidationHydrator(tokenService Service, transact persistence.Transactioner, csrTokenExpiration, appTokenExpiration, runtimeTokenExpiration time.Duration) ValidationHydrator {
 	return &validationHydrator{
-		tokenService: tokenService,
-		transact:     transact,
+		csrTokenExpiration:     csrTokenExpiration,
+		appTokenExpiration:     appTokenExpiration,
+		runtimeTokenExpiration: runtimeTokenExpiration,
+		tokenService:           tokenService,
+		transact:               transact,
 	}
 }
 
@@ -68,10 +77,31 @@ func (tvh *validationHydrator) ResolveConnectorTokenHeader(w http.ResponseWriter
 
 	log.C(ctx).Info("Trying to resolve token...")
 
-	tokenData, err := tvh.tokenService.GetByToken(ctx, connectorToken)
-	// TODO: Check if token has not expired
+	systemAuth, err := tvh.tokenService.GetByToken(ctx, connectorToken)
 	if err != nil {
 		log.C(ctx).Infof("Invalid token provided: %s", err.Error())
+		respondWithAuthSession(ctx, w, authSession)
+		return
+	}
+
+	var expirationTime time.Duration
+	switch systemAuth.Value.OneTimeToken.Type {
+	case tokens.ApplicationToken:
+		expirationTime = tvh.appTokenExpiration
+	case tokens.RuntimeToken:
+		expirationTime = tvh.runtimeTokenExpiration
+	case tokens.CSRToken:
+		expirationTime = tvh.csrTokenExpiration
+	default:
+		log.C(ctx).Errorf("One Time Token for system auth id %s has no valid type", systemAuth.ID)
+		respondWithAuthSession(ctx, w, authSession)
+		return
+	}
+
+	log.C(ctx).Infof("Validity time to check for is %s...", expirationTime.String())
+
+	if systemAuth.Value.OneTimeToken.CreatedAt.Add(expirationTime).Before(time.Now()) {
+		log.C(ctx).Infof("One Time Token for system auth id %s has expired", systemAuth.ID)
 		respondWithAuthSession(ctx, w, authSession)
 		return
 	}
@@ -80,14 +110,12 @@ func (tvh *validationHydrator) ResolveConnectorTokenHeader(w http.ResponseWriter
 		authSession.Header = map[string][]string{}
 	}
 
-	// TODO: Is this the clientID?
-	authSession.Header.Add(ClientIdFromTokenHeader, tokenData.ID)
+	authSession.Header.Add(ClientIdFromTokenHeader, systemAuth.ID)
 
-	// TODO: Implement the invalidation
-	// if err := tvh.tokenService.Invalidate(connectorToken); err != nil {
-	// 	httputils.RespondWithError(ctx, w, http.StatusInternalServerError, errors.New("could not invalidate token"))
-	// 	return
-	// }
+	if err := tvh.tokenService.InvalidateToken(ctx, systemAuth); err != nil {
+		httputils.RespondWithError(ctx, w, http.StatusInternalServerError, errors.New("could not invalidate token"))
+		return
+	}
 
 	err = tx.Commit()
 	if err != nil {
@@ -96,7 +124,7 @@ func (tvh *validationHydrator) ResolveConnectorTokenHeader(w http.ResponseWriter
 		return
 	}
 
-	log.C(ctx).Infof("Token for %s resolved successfully", tokenData.ID)
+	log.C(ctx).Infof("Token for %s resolved successfully", systemAuth.ID)
 	respondWithAuthSession(ctx, w, authSession)
 }
 

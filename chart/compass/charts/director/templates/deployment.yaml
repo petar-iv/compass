@@ -56,6 +56,8 @@ spec:
           env:
             - name: APP_ADDRESS
               value: "0.0.0.0:{{ .Values.deployment.args.containerPort }}"
+            - name: APP_INTERNAL_ADDRESS
+              value: "0.0.0.0:{{ .Values.global.connector.graphql.internal.port }}"
             - name: APP_METRICS_ADDRESS
               value: "0.0.0.0:{{ .Values.metrics.port }}"
             - name: APP_PLAYGROUND_API_ENDPOINT
@@ -96,6 +98,12 @@ spec:
               value: "{{.Values.deployment.dbPool.maxOpenConnections}}"
             - name: APP_DB_MAX_IDLE_CONNECTIONS
               value: "{{.Values.deployment.dbPool.maxIdleConnections}}"
+            - name: APP_TOKEN_LENGTH
+              value: {{ .Values.deployment.args.token.length | quote }}
+            - name: APP_TOKEN_RUNTIME_EXPIRATION
+              value: {{ .Values.deployment.args.token.runtimeExpiration | quote }}
+            - name: APP_TOKEN_APPLICATION_EXPIRATION
+              value: {{ .Values.deployment.args.token.applicationExpiration | quote }}
             - name: APP_ONE_TIME_TOKEN_URL
               value: "http://compass-connector.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.global.connector.graphql.internal.port }}/graphql"
             - name: APP_CONNECTOR_URL

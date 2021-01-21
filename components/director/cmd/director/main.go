@@ -7,20 +7,26 @@ import (
 	"os"
 	"time"
 
+	graphqlAPI "github.com/kyma-incubator/compass/components/director/internal/api"
+	"github.com/kyma-incubator/compass/components/director/pkg/graphql/internalschema"
+	"github.com/vrischmann/envconfig"
+
 	"github.com/kyma-incubator/compass/components/director/internal/authnmappinghandler"
 	"github.com/kyma-incubator/compass/components/director/internal/oauthkeeper"
 	httputil "github.com/kyma-incubator/compass/components/director/pkg/http"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/authenticator"
-	"github.com/vrischmann/envconfig"
 
 	"github.com/kyma-incubator/compass/components/director/internal/domain/api"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/application"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/document"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/eventdef"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/fetchrequest"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/integrationsystem"
 	mp_package "github.com/kyma-incubator/compass/components/director/internal/domain/package"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/packageinstanceauth"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/version"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/webhook"
 	"github.com/kyma-incubator/compass/components/director/pkg/correlation"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/kyma-incubator/compass/components/director/pkg/normalizer"
@@ -75,6 +81,7 @@ const envPrefix = "APP"
 
 type config struct {
 	Address         string `envconfig:"default=127.0.0.1:3000"`
+	InternalAddress string `envconfig:"default=127.0.0.1:3001"`
 	HydratorAddress string `envconfig:"default=127.0.0.1:8080"`
 
 	ClientTimeout time.Duration `envconfig:"default=105s"`
@@ -109,6 +116,13 @@ type config struct {
 	Features features.Config
 
 	ProtectedLabelPattern string `envconfig:"default=.*_defaultEventing"`
+
+	Token struct {
+		Length                int           `envconfig:"default=64"`
+		RuntimeExpiration     time.Duration `envconfig:"default=60m"`
+		ApplicationExpiration time.Duration `envconfig:"default=5m"`
+		CSRExpiration         time.Duration `envconfig:"default=5m"`
+	}
 }
 
 func main() {
@@ -165,6 +179,7 @@ func main() {
 			metricsCollector,
 			httpClient,
 			cfg.ProtectedLabelPattern,
+			cfg.Token.Length,
 		),
 		Directives: graphql.DirectiveRoot{
 			HasScenario: scenario.NewDirective(transact, label.NewRepository(label.NewConverter()), defaultPackageRepo(), defaultPackageInstanceAuthRepo()).HasScenario,
@@ -239,12 +254,47 @@ func main() {
 	systemAuthConverter := systemauth.NewConverter(authConverter)
 	systemAuthRepo := systemauth.NewRepository(systemAuthConverter)
 	systemAuthSvc := systemauth.NewService(systemAuthRepo, uidSvc)
+	labelConverter := label.NewConverter()
+	frConverter := fetchrequest.NewConverter(authConverter)
+	versionConverter := version.NewConverter()
+
+	intSysConverter := integrationsystem.NewConverter()
+	intSysRepo := integrationsystem.NewRepository(intSysConverter)
+	tenantConverter := tenant.NewConverter()
+	tenantRepo := tenant.NewRepository(tenantConverter)
+	tenantSvc := tenant.NewService(tenantRepo, uidSvc)
+	webhookConverter := webhook.NewConverter(authConverter)
+	eventAPIConverter := eventdef.NewConverter(frConverter, versionConverter)
+	apiConverter := api.NewConverter(frConverter, versionConverter)
+	docConverter := document.NewConverter(frConverter)
+	packageConverter := mp_package.NewConverter(authConverter, apiConverter, eventAPIConverter, docConverter)
+	appConverter := application.NewConverter(webhookConverter, packageConverter)
+	applicationRepo := application.NewRepository(appConverter)
+	webhookRepo := webhook.NewRepository(webhookConverter)
+	runtimeRepo := runtime.NewRepository()
+	labelRepo := label.NewRepository(labelConverter)
+	labelDefConverter := labeldef.NewConverter()
+	labelDefRepo := labeldef.NewRepository(labelDefConverter)
+	labelUpsertSvc := label.NewLabelUpsertService(labelRepo, labelDefRepo, uidSvc)
+	scenariosSvc := labeldef.NewScenariosService(labelDefRepo, uidSvc, cfg.Features.DefaultScenarioEnabled)
+	packageRepo := mp_package.NewRepository(packageConverter)
+	apiRepo := api.NewRepository(apiConverter)
+	docRepo := document.NewRepository(docConverter)
+	fetchRequestRepo := fetchrequest.NewRepository(frConverter)
+	fetchRequestSvc := fetchrequest.NewService(fetchRequestRepo, httpClient)
+	eventAPIRepo := eventdef.NewRepository(eventAPIConverter)
+	packageSvc := mp_package.NewService(packageRepo, apiRepo, eventAPIRepo, docRepo, fetchRequestRepo, uidSvc, fetchRequestSvc)
+	appSvc := application.NewService(&normalizer.DefaultNormalizator{}, cfgProvider, applicationRepo, webhookRepo, runtimeRepo, labelRepo, intSysRepo, labelUpsertSvc, scenariosSvc, packageSvc, uidSvc)
+	tokenSvc := onetimetoken.NewTokenService(systemAuthSvc, appSvc, appConverter, tenantSvc, httpClient, onetimetoken.NewTokenGenerator(cfg.Token.Length), cfg.OneTimeToken.ConnectorURL, pairingAdapters)
+	internalGQLHandler, err := PrepareInternalGraphQLServer(cfg, graphqlAPI.NewTokenResolver(transact, tokenSvc), correlation.AttachCorrelationIDToContext(), log.RequestLogger())
+	exitOnError(err, "Failed configuring internal graphQL handler")
 
 	hydratorHandler, err := PrepareHydratorHandler(cfg, systemAuthSvc, transact, correlation.AttachCorrelationIDToContext(), log.RequestLogger())
 	exitOnError(err, "Failed configuring hydrator handler")
 
 	runMetricsSrv, shutdownMetricsSrv := createServer(ctx, cfg.MetricsAddress, metricsHandler, "metrics", cfg.ServerTimeout)
 	runHydratorSrv, shutdownHydratorSrv := createServer(ctx, cfg.HydratorAddress, hydratorHandler, "hydrator", cfg.ServerTimeout)
+	runInternalGQLSrv, shutdownInternalGQLSrv := createServer(ctx, cfg.InternalAddress, internalGQLHandler, "internal_graphql", cfg.ServerTimeout)
 	runMainSrv, shutdownMainSrv := createServer(ctx, cfg.Address, mainRouter, "main", cfg.ServerTimeout)
 
 	go func() {
@@ -252,11 +302,13 @@ func main() {
 		// Interrupt signal received - shut down the servers
 		shutdownMetricsSrv()
 		shutdownHydratorSrv()
+		shutdownInternalGQLSrv()
 		shutdownMainSrv()
 	}()
 
 	go runMetricsSrv()
 	go runHydratorSrv()
+	go runInternalGQLSrv()
 	runMainSrv()
 }
 
@@ -405,8 +457,30 @@ func createServer(ctx context.Context, address string, handler http.Handler, nam
 	return runFn, shutdownFn
 }
 
+func PrepareInternalGraphQLServer(cfg config, tokenResolver graphqlAPI.TokenResolver, middlewares ...mux.MiddlewareFunc) (http.Handler, error) {
+	gqlInternalCfg := internalschema.Config{
+		Resolvers: &graphqlAPI.InternalResolver{
+			TokenResolver: tokenResolver,
+		},
+	}
+
+	internalExecutableSchema := internalschema.NewExecutableSchema(gqlInternalCfg)
+
+	internalRouter := mux.NewRouter()
+	internalRouter.HandleFunc("/", handler.Playground("Dataloader", cfg.PlaygroundAPIEndpoint))
+	internalRouter.HandleFunc(cfg.APIEndpoint, handler.GraphQL(internalExecutableSchema))
+
+	internalRouter.Use(middlewares...)
+
+	handlerWithTimeout, err := timeouthandler.WithTimeout(internalRouter, cfg.ServerTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return handlerWithTimeout, nil
+}
+
 func PrepareHydratorHandler(cfg config, tokenService oauthkeeper.Service, transact persistence.Transactioner, middlewares ...mux.MiddlewareFunc) (http.Handler, error) {
-	validationHydrator := oauthkeeper.NewValidationHydrator(tokenService, transact)
+	validationHydrator := oauthkeeper.NewValidationHydrator(tokenService, transact, cfg.Token.CSRExpiration, cfg.Token.ApplicationExpiration, cfg.Token.RuntimeExpiration)
 
 	router := mux.NewRouter()
 	router.Path("/health").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
