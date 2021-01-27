@@ -27,7 +27,7 @@ SERVICE_ACCOUNT=admiral
 SECRET_NAME=$(kubectl get sa ${SERVICE_ACCOUNT} -n ${NAMESPACE_SYNC} -o jsonpath='{.secrets[].name}')
 CA_DATA=$(kubectl get secret ${SECRET_NAME} -n ${NAMESPACE_SYNC} -o "jsonpath={.data['ca\.crt']}")
 RAW_TOKEN=$(kubectl get secret ${SECRET_NAME} -n ${NAMESPACE_SYNC} -o "jsonpath={.data['token']}")
-TOKEN=$(kubectl get secret ${SECRET_NAME} -n ${NAMESPACE_SYNC} -o "jsonpath={.data['token']}" | base64 --decode)
+TOKEN=$(kubectl get secret ${SECRET_NAME} -n ${NAMESPACE_SYNC} -o "jsonpath={.data['token']}" | base64 -d)
 
 #echo 'TOKEN'
 #echo $TOKEN
@@ -55,18 +55,13 @@ users:
 EOF
 
 #export variables for initializing the remote cluster creds on control plane cluster
-cat <<EOF > remote_cluster_env_vars
 export CLUSTER_NAME=${CLUSTER_NAME}
 export KUBECFG_FILE=${KUBECFG_FILE}
-EOF
-
-source remote_cluster_env_vars
 
 #TBD make sure you have context switched
 #create secret on control plane cluster to connect to remote cluster
 
 #export KUBECONFIG=~/.kube/config
-#kubectx minikube
 export KUBECONFIG=$local_cluster
 
 kubectl delete secret ${CLUSTER_NAME} -n $namespace_secrets
