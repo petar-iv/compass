@@ -25,6 +25,7 @@ require (
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jmoiron/sqlx v1.2.0
+	github.com/kyma-incubator/compass/components/op-controller v0.0.0-00010101000000-000000000000
 	github.com/lestrrat-go/jwx v0.9.2
 	github.com/lib/pq v1.9.0
 	github.com/machinebox/graphql v0.2.3-0.20181106130121-3a9253180225
@@ -57,3 +58,5 @@ require (
 	k8s.io/apimachinery v0.20.2
 	k8s.io/client-go v0.20.2
 )
+
+replace github.com/kyma-incubator/compass/components/op-controller => ../op-controller

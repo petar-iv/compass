@@ -7,6 +7,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/kyma-incubator/compass/components/director/pkg/async/k8s"
+	"github.com/kyma-incubator/compass/components/op-controller/api/v1beta1"
+	"github.com/kyma-incubator/compass/components/op-controller/client"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kyma-incubator/compass/components/director/internal/packagetobundles"
 
 	"github.com/kyma-incubator/compass/components/director/internal/authnmappinghandler"
@@ -139,6 +144,20 @@ func main() {
 	}()
 
 	cfgProvider := createAndRunConfigProvider(ctx, cfg)
+
+	operationsClient, err := client.NewForConfig()
+	exitOnError(err, "Error while initiating the connection to the k8s cluster")
+
+	scheduler := k8s.NewScheduler(operationsClient.Operations("default"))
+	err = scheduler.Schedule(ctx, &v1beta1.Operation{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "asdf",
+		},
+		Spec: v1beta1.OperationSpec{
+			Foo: "fooohoo",
+		},
+	})
+	exitOnError(err, "Error while scheduling operation CRD")
 
 	logger.Infof("Registering metrics collectors...")
 	metricsCollector := metrics.NewCollector()

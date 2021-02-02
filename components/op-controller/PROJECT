@@ -1,0 +1,7 @@
+domain: compass.sap
+repo: github.com/kyma-incubator/compass/components/op-controller
+resources:
+- group: core
+  kind: Operation
+  version: v1beta1
+version: "2"
