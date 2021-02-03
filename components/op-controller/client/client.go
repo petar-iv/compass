@@ -34,7 +34,7 @@ func NewForConfig() (OperationsClientInterface, error) {
 		return nil, err
 	}
 	cfg.ContentConfig.GroupVersion = &schema.GroupVersion{Group: v1beta1.GroupVersion.Group, Version: v1beta1.GroupVersion.Version}
-	// cfg.APIPath = "/apis"
+	cfg.APIPath = "/apis"
 	cfg.NegotiatedSerializer = serializer.NewCodecFactory(rSchema)
 	cfg.UserAgent = rest.DefaultKubernetesUserAgent()
 	c, err := rest.RESTClientFor(cfg)
