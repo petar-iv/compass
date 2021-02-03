@@ -17,8 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -62,6 +60,5 @@ type OperationList struct {
 }
 
 func init() {
-	fmt.Println(">>>>>>>>Registeriiiiiing")
 	SchemeBuilder.Register(&Operation{}, &OperationList{})
 }
