@@ -5,7 +5,6 @@ import (
 
 	"github.com/kyma-incubator/compass/components/op-controller/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/watch"
@@ -29,16 +28,14 @@ func NewForConfig() (OperationsClientInterface, error) {
 		return nil, err
 	}
 
-	rSchema := runtime.NewScheme()
-	if err := scheme.AddToScheme(rSchema); err != nil {
-		return nil, err
-	}
-	if err := v1beta1.AddToScheme(rSchema); err != nil {
+	if err := v1beta1.AddToScheme(scheme.Scheme); err != nil {
 		return nil, err
 	}
 	cfg.ContentConfig.GroupVersion = &schema.GroupVersion{Group: v1beta1.GroupVersion.Group, Version: v1beta1.GroupVersion.Version}
 	cfg.APIPath = "/apis"
-	cfg.NegotiatedSerializer = serializer.NewCodecFactory(rSchema)
+	cfg.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{
+		CodecFactory: scheme.Codecs,
+	}
 	cfg.UserAgent = rest.DefaultKubernetesUserAgent()
 	c, err := rest.RESTClientFor(cfg)
 	// c, err := rest.UnversionedRESTClientFor(cfg)
