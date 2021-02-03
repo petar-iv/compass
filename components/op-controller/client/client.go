@@ -30,6 +30,9 @@ func NewForConfig() (OperationsClientInterface, error) {
 	}
 
 	rSchema := runtime.NewScheme()
+	if err := scheme.AddToScheme(rSchema); err != nil {
+		return nil, err
+	}
 	if err := v1beta1.AddToScheme(rSchema); err != nil {
 		return nil, err
 	}
