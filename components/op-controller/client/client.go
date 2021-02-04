@@ -91,6 +91,19 @@ func (c *OperationsClient) Create(ctx context.Context, operation *v1beta1.Operat
 	return &result, err
 }
 
+func (c *OperationsClient) Update(ctx context.Context, operation *v1beta1.Operation) (*v1beta1.Operation, error) {
+	err := c.restClient.
+		Put().
+		Namespace(c.namespace).
+		Resource("operations").
+		Name(operation.Name).
+		Body(operation).
+		Do(ctx).
+		Into(operation)
+
+	return operation, err
+}
+
 func (c *OperationsClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	opts.Watch = true
 	return c.restClient.
