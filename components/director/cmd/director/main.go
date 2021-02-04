@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/async/k8s"
 	"github.com/kyma-incubator/compass/components/op-controller/api/v1beta1"
 	"github.com/kyma-incubator/compass/components/op-controller/client"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kyma-incubator/compass/components/director/internal/packagetobundles"
 
@@ -148,16 +148,15 @@ func main() {
 	operationsClient, err := client.NewForConfig()
 	exitOnError(err, "Error while initiating the connection to the k8s cluster")
 
-	scheduler := k8s.NewScheduler(operationsClient.Operations("default"))
-	err = scheduler.Schedule(ctx, &v1beta1.Operation{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "asdf",
-		},
-		Spec: v1beta1.OperationSpec{
-			Foo: "fooohoo",
-		},
-	})
-	exitOnError(err, "Error while scheduling operation CRD")
+	scheduler := k8s.NewScheduler(operationsClient.Operations("compass-system"), time.Second*5)
+	go func() {
+		if err := scheduler.Watch(ctx, func(op *v1beta1.Operation) error {
+			// TODO: Implementation goes here
+			return errors.New("not implemented")
+		}); err != nil {
+			fmt.Println("Scheduler errored:", err.Error())
+		}
+	}()
 
 	logger.Infof("Registering metrics collectors...")
 	metricsCollector := metrics.NewCollector()
