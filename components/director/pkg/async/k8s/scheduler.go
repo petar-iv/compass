@@ -25,13 +25,15 @@ type Scheduler struct {
 	kcli                         k8sClient
 	lastProcessedResourceVersion string
 	restartTimeout               time.Duration
+	paralellismPool              chan struct{}
 }
 
-func NewScheduler(kcli client.OperationsInterface, restartTimeout time.Duration) *Scheduler {
+func NewScheduler(kcli client.OperationsInterface, restartTimeout time.Duration, paralellism int) *Scheduler {
 	return &Scheduler{
 		kcli:                         kcli,
 		restartTimeout:               restartTimeout,
 		lastProcessedResourceVersion: "",
+		paralellismPool:              make(chan struct{}, paralellism),
 	}
 }
 
@@ -70,16 +72,24 @@ func (s *Scheduler) Watch(ctx context.Context, processFunc async.OperationProces
 			continue
 		}
 
+		// The following goroutine is moderating the events processors
+		toStop := make(chan struct{}, 1)
+		stopCh := make(chan struct{})
+
 		go func() {
-			<-ctx.Done()
-			log.C(ctx).Info("Context cancelled. Stopping scheduler watch...")
-			w.Stop()
+			select {
+			case <-ctx.Done():
+				log.C(ctx).Info("Context cancelled. Stopping scheduler watch...")
+				w.Stop()
+			case <-toStop:
+				close(stopCh)
+			}
 		}()
 
 		ch := w.ResultChan()
 		for ev := range ch {
-			if err := s.processEvent(ctx, ev, processFunc); err != nil {
-				log.C(ctx).Errorf("Could not process operation event: %s", err)
+			if err := s.processEvent(ctx, ev, processFunc, toStop, stopCh); err != nil {
+				log.C(ctx).WithError(err).Error("while processing")
 				break
 			}
 		}
@@ -98,15 +108,54 @@ func (s *Scheduler) Watch(ctx context.Context, processFunc async.OperationProces
 	}
 }
 
-func (s *Scheduler) processEvent(ctx context.Context, ev watch.Event, processFunc async.OperationProcessor) error {
+var (
+	stopProcessingErr = fmt.Errorf("stop processing")
+)
+
+func (s *Scheduler) processEvent(ctx context.Context, ev watch.Event, processFunc async.OperationProcessor, toStop, stopCh chan struct{}) error {
 	log.C(ctx).Infof("Event received %+v", ev.Type)
+	select {
+	case <-stopCh:
+		return stopProcessingErr
+	default:
+	}
+
 	switch op := ev.Object.(type) {
 	case *v1beta1.Operation:
-		// TODO: Use operation's correlationID here
-		if err := processFunc(op); err != nil {
-			return err
-		}
+		// lock
+		// check if such op is in process
+		// set op in progress
+		// unlock
+		s.paralellismPool <- struct{}{}
+		go func() {
+			defer func() {
+				<-s.paralellismPool
+			}()
+
+			// TODO: Use operation's correlationID here
+			if err := processFunc(ctx, op); err != nil {
+				// Do not process operation that are in progress
+				// Check pg resource max(timestamp of create/update/delete) ==  operation type, then skip operation
+				// Add timestampts in operation CRD???
+				// If error is control update failed - normal
+				// If resource is not found on update - normal with log warning
+
+				// If error is smth else - set clear last processed resource version and restart watch
+				log.C(ctx).WithError(err).Errorf("Could not process event for operation %s", op.Name)
+				select {
+				case toStop <- struct{}{}:
+				default:
+				}
+			}
+			// lock
+			// delete processed
+			// unlock
+		}()
 		s.lastProcessedResourceVersion = op.ResourceVersion
+	case *metav1.Status:
+		if op.Reason == metav1.StatusReasonGone {
+			s.lastProcessedResourceVersion = ""
+		}
 	default:
 		log.C(ctx).Errorf("Unexpected scheduler event received: %+v, %T", op, op)
 	}

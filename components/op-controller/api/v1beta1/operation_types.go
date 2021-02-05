@@ -40,7 +40,7 @@ type OperationStatus struct {
 }
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:subresource:status
 // Operation is the Schema for the operations API
 type Operation struct {
 	metav1.TypeMeta   `json:",inline"`

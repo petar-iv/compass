@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -148,11 +149,21 @@ func main() {
 	operationsClient, err := client.NewForConfig()
 	exitOnError(err, "Error while initiating the connection to the k8s cluster")
 
-	scheduler := k8s.NewScheduler(operationsClient.Operations("compass-system"), time.Second*5)
+	scheduler := k8s.NewScheduler(operationsClient.Operations("compass-system"), time.Second*5, 10)
 	go func() {
-		if err := scheduler.Watch(ctx, func(op *v1beta1.Operation) error {
+		if err := scheduler.Watch(ctx, func(ctx context.Context, op *v1beta1.Operation) error {
+			fmt.Printf(">>>>> processing operation: %+v\n", op.Spec.Foo)
 			// TODO: Implementation goes here
-			return errors.New("not implemented")
+			// Get corresponding director resource
+			// 	Check operation type and update the ready field corresponding to the operation if needed
+			//
+			if rand.Int31n(50) < 10 {
+				fmt.Println(">>>>>>> FAILING ON PURPOSE")
+				return errors.New("time for error")
+			}
+			// Make k8s op control update
+			return nil
+			// return errors.New("not implemented")
 		}); err != nil {
 			fmt.Println("Scheduler errored:", err.Error())
 		}
