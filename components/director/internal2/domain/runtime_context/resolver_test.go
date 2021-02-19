@@ -4,21 +4,21 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kyma-incubator/compass/components/director/internal/consumer"
-	"github.com/kyma-incubator/compass/components/director/internal/domain/runtime_context"
-	"github.com/kyma-incubator/compass/components/director/internal/labelfilter"
+	"github.com/kyma-incubator/compass/components/director/internal2/consumer"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/runtime_context"
+	"github.com/kyma-incubator/compass/components/director/internal2/labelfilter"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/pagination"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence/txtest"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/runtime_context/automock"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/runtime_context/automock"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	persistenceautomock "github.com/kyma-incubator/compass/components/director/pkg/persistence/automock"
 	"github.com/pkg/errors"

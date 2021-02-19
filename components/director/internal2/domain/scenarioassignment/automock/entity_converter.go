@@ -3,8 +3,8 @@
 package automock
 
 import (
-	scenarioassignment "github.com/kyma-incubator/compass/components/director/internal/domain/scenarioassignment"
-	model "github.com/kyma-incubator/compass/components/director/internal/model"
+	scenarioassignment "github.com/kyma-incubator/compass/components/director/internal2/domain/scenarioassignment"
+	model "github.com/kyma-incubator/compass/components/director/internal2/model"
 	mock "github.com/stretchr/testify/mock"
 )
 

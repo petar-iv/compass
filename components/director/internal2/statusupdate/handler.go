@@ -8,7 +8,7 @@ import (
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 
-	"github.com/kyma-incubator/compass/components/director/internal/consumer"
+	"github.com/kyma-incubator/compass/components/director/internal2/consumer"
 )
 
 type update struct {

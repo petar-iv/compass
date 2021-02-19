@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/document"
-	"github.com/kyma-incubator/compass/components/director/internal/repo"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/document"
+	"github.com/kyma-incubator/compass/components/director/internal2/repo"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 )
 

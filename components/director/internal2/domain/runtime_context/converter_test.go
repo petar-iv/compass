@@ -3,9 +3,9 @@ package runtime_context_test
 import (
 	"testing"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/runtime_context"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/runtime_context"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	"github.com/stretchr/testify/assert"
 )

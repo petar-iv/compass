@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/kyma-incubator/compass/components/director/internal/repo"
+	"github.com/kyma-incubator/compass/components/director/internal2/repo"
 )
 
 type Entity struct {

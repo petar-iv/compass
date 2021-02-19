@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/client"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/client"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

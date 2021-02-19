@@ -3,8 +3,8 @@ package tombstone_test
 import (
 	"database/sql/driver"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/tombstone"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/tombstone"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 )
 
 const (

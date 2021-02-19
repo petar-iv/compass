@@ -29,9 +29,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
-	"github.com/kyma-incubator/compass/components/director/internal/oathkeeper"
-	"github.com/kyma-incubator/compass/components/director/internal/tenantmapping"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/oathkeeper"
+	"github.com/kyma-incubator/compass/components/director/internal2/tenantmapping"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

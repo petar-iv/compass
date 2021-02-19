@@ -3,9 +3,9 @@ package spec_test
 import (
 	"database/sql/driver"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/spec"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
-	"github.com/kyma-incubator/compass/components/director/internal/repo"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/spec"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/repo"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 )
 

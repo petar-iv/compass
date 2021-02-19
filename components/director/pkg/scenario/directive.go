@@ -10,17 +10,17 @@ import (
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/bundleinstanceauth"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/bundleinstanceauth"
 
-	mp_bundle "github.com/kyma-incubator/compass/components/director/internal/domain/bundle"
+	mp_bundle "github.com/kyma-incubator/compass/components/director/internal2/domain/bundle"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/label"
-	"github.com/kyma-incubator/compass/components/director/internal/domain/tenant"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/label"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/tenant"
 	"github.com/pkg/errors"
 
-	"github.com/kyma-incubator/compass/components/director/internal/consumer"
+	"github.com/kyma-incubator/compass/components/director/internal2/consumer"
 
 	"github.com/99designs/gqlgen/graphql"
 )

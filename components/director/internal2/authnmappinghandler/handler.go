@@ -31,13 +31,13 @@ import (
 
 	"github.com/kyma-incubator/compass/components/director/pkg/authenticator"
 
-	"github.com/kyma-incubator/compass/components/director/internal/tenantmapping"
+	"github.com/kyma-incubator/compass/components/director/internal2/tenantmapping"
 
 	goidc "github.com/coreos/go-oidc"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 
-	"github.com/kyma-incubator/compass/components/director/internal/oathkeeper"
+	"github.com/kyma-incubator/compass/components/director/internal2/oathkeeper"
 	"github.com/pkg/errors"
 )
 

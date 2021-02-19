@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	mp_bundle "github.com/kyma-incubator/compass/components/director/internal/domain/bundle"
-	"github.com/kyma-incubator/compass/components/director/internal/domain/bundle/automock"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	mp_bundle "github.com/kyma-incubator/compass/components/director/internal2/domain/bundle"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/bundle/automock"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	persistenceautomock "github.com/kyma-incubator/compass/components/director/pkg/persistence/automock"

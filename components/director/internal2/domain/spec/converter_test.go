@@ -3,9 +3,9 @@ package spec_test
 import (
 	"testing"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/spec"
-	"github.com/kyma-incubator/compass/components/director/internal/domain/spec/automock"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/spec"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/spec/automock"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"

@@ -6,19 +6,19 @@ import (
 
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence/txtest"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/tenant"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/tenant"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 
 	"github.com/99designs/gqlgen/graphql"
-	bndl_mock "github.com/kyma-incubator/compass/components/director/internal/domain/bundle/automock"
-	bndl_auth_mock "github.com/kyma-incubator/compass/components/director/internal/domain/bundleinstanceauth/automock"
-	lbl_mock "github.com/kyma-incubator/compass/components/director/internal/domain/label/automock"
+	bndl_mock "github.com/kyma-incubator/compass/components/director/internal2/domain/bundle/automock"
+	bndl_auth_mock "github.com/kyma-incubator/compass/components/director/internal2/domain/bundleinstanceauth/automock"
+	lbl_mock "github.com/kyma-incubator/compass/components/director/internal2/domain/label/automock"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 
-	"github.com/kyma-incubator/compass/components/director/internal/consumer"
+	"github.com/kyma-incubator/compass/components/director/internal2/consumer"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/scenario"
 	"github.com/stretchr/testify/assert"

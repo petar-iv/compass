@@ -3,8 +3,8 @@
 package automock
 
 import (
-	tombstone "github.com/kyma-incubator/compass/components/director/internal/domain/tombstone"
-	model "github.com/kyma-incubator/compass/components/director/internal/model"
+	tombstone "github.com/kyma-incubator/compass/components/director/internal2/domain/tombstone"
+	model "github.com/kyma-incubator/compass/components/director/internal2/model"
 	mock "github.com/stretchr/testify/mock"
 )
 

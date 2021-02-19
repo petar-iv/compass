@@ -3,8 +3,8 @@
 package automock
 
 import (
-	webhook "github.com/kyma-incubator/compass/components/director/internal/domain/webhook"
-	model "github.com/kyma-incubator/compass/components/director/internal/model"
+	webhook "github.com/kyma-incubator/compass/components/director/internal2/domain/webhook"
+	model "github.com/kyma-incubator/compass/components/director/internal2/model"
 	mock "github.com/stretchr/testify/mock"
 )
 

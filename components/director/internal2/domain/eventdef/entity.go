@@ -3,8 +3,8 @@ package eventdef
 import (
 	"database/sql"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/version"
-	"github.com/kyma-incubator/compass/components/director/internal/repo"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/version"
+	"github.com/kyma-incubator/compass/components/director/internal2/repo"
 )
 
 type Entity struct {

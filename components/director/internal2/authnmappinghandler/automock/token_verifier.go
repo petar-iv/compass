@@ -5,7 +5,7 @@ package automock
 import (
 	context "context"
 
-	authnmappinghandler "github.com/kyma-incubator/compass/components/director/internal/authnmappinghandler"
+	authnmappinghandler "github.com/kyma-incubator/compass/components/director/internal2/authnmappinghandler"
 
 	mock "github.com/stretchr/testify/mock"
 )

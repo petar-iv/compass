@@ -3,8 +3,8 @@
 package automock
 
 import (
-	tenant "github.com/kyma-incubator/compass/components/director/internal/domain/tenant"
-	model "github.com/kyma-incubator/compass/components/director/internal/model"
+	tenant "github.com/kyma-incubator/compass/components/director/internal2/domain/tenant"
+	model "github.com/kyma-incubator/compass/components/director/internal2/model"
 	mock "github.com/stretchr/testify/mock"
 )
 

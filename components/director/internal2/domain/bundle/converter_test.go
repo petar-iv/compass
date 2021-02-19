@@ -6,18 +6,18 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kyma-incubator/compass/components/director/internal/repo"
+	"github.com/kyma-incubator/compass/components/director/internal2/repo"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/auth"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/auth"
 
-	mp_bundle "github.com/kyma-incubator/compass/components/director/internal/domain/bundle"
+	mp_bundle "github.com/kyma-incubator/compass/components/director/internal2/domain/bundle"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/bundle/automock"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/bundle/automock"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	"github.com/stretchr/testify/assert"

@@ -26,7 +26,7 @@ import (
 
 	"github.com/kyma-incubator/compass/components/director/pkg/header"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 
 	gqlgen "github.com/99designs/gqlgen/graphql"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"

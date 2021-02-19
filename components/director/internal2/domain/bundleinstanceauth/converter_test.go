@@ -5,9 +5,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/bundleinstanceauth"
-	"github.com/kyma-incubator/compass/components/director/internal/domain/bundleinstanceauth/automock"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/bundleinstanceauth"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/bundleinstanceauth/automock"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

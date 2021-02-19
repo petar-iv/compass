@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/kyma-incubator/compass/components/director/internal/repo"
+	"github.com/kyma-incubator/compass/components/director/internal2/repo"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/webhook"
-	"github.com/kyma-incubator/compass/components/director/internal/domain/webhook/automock"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/webhook"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/webhook/automock"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	"github.com/stretchr/testify/assert"
 )

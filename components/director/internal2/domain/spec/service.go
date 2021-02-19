@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/tenant"
-	"github.com/kyma-incubator/compass/components/director/internal/timestamp"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/tenant"
+	"github.com/kyma-incubator/compass/components/director/internal2/timestamp"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/pkg/errors"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 )
 
 //go:generate mockery -name=SpecRepository -output=automock -outpkg=automock -case=underscore

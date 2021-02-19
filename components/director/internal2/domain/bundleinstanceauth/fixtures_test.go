@@ -11,11 +11,11 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/kyma-incubator/compass/components/director/internal/domain/bundleinstanceauth"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/bundleinstanceauth"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 )
 
 var (

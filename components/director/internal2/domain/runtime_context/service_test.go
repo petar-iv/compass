@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/runtime_context"
-	"github.com/kyma-incubator/compass/components/director/internal/labelfilter"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/runtime_context"
+	"github.com/kyma-incubator/compass/components/director/internal2/labelfilter"
 	"github.com/kyma-incubator/compass/components/director/pkg/pagination"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/runtime_context/automock"
-	"github.com/kyma-incubator/compass/components/director/internal/domain/tenant"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/runtime_context/automock"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/tenant"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

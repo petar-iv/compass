@@ -9,10 +9,10 @@ import (
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/client"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/client"
 
 	"github.com/avast/retry-go"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	"github.com/kyma-incubator/compass/components/director/pkg/pairing"
 	gcli "github.com/machinebox/graphql"

@@ -32,12 +32,12 @@ import (
 
 	"github.com/kyma-incubator/compass/components/director/pkg/authenticator"
 
-	authnMock "github.com/kyma-incubator/compass/components/director/internal/authnmappinghandler/automock"
+	authnMock "github.com/kyma-incubator/compass/components/director/internal2/authnmappinghandler/automock"
 
 	"github.com/form3tech-oss/jwt-go"
-	"github.com/kyma-incubator/compass/components/director/internal/authnmappinghandler"
-	"github.com/kyma-incubator/compass/components/director/internal/oathkeeper"
-	"github.com/kyma-incubator/compass/components/director/internal/tenantmapping/automock"
+	"github.com/kyma-incubator/compass/components/director/internal2/authnmappinghandler"
+	"github.com/kyma-incubator/compass/components/director/internal2/oathkeeper"
+	"github.com/kyma-incubator/compass/components/director/internal2/tenantmapping/automock"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )

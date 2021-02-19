@@ -3,8 +3,8 @@
 package automock
 
 import (
-	systemauth "github.com/kyma-incubator/compass/components/director/internal/domain/systemauth"
-	model "github.com/kyma-incubator/compass/components/director/internal/model"
+	systemauth "github.com/kyma-incubator/compass/components/director/internal2/domain/systemauth"
+	model "github.com/kyma-incubator/compass/components/director/internal2/model"
 	mock "github.com/stretchr/testify/mock"
 )
 

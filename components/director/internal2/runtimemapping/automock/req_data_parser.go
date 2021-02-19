@@ -5,7 +5,7 @@ package automock
 import (
 	http "net/http"
 
-	oathkeeper "github.com/kyma-incubator/compass/components/director/internal/oathkeeper"
+	oathkeeper "github.com/kyma-incubator/compass/components/director/internal2/oathkeeper"
 	mock "github.com/stretchr/testify/mock"
 )
 

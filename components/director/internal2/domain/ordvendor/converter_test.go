@@ -3,7 +3,7 @@ package ordvendor_test
 import (
 	"testing"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/ordvendor"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/ordvendor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

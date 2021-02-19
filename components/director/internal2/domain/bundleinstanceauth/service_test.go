@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/bundleinstanceauth"
-	"github.com/kyma-incubator/compass/components/director/internal/domain/bundleinstanceauth/automock"
-	"github.com/kyma-incubator/compass/components/director/internal/domain/tenant"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/bundleinstanceauth"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/bundleinstanceauth/automock"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/tenant"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/str"
 
 	"github.com/pkg/errors"

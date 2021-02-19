@@ -3,8 +3,8 @@
 package automock
 
 import (
-	ordvendor "github.com/kyma-incubator/compass/components/director/internal/domain/ordvendor"
-	model "github.com/kyma-incubator/compass/components/director/internal/model"
+	ordvendor "github.com/kyma-incubator/compass/components/director/internal2/domain/ordvendor"
+	model "github.com/kyma-incubator/compass/components/director/internal2/model"
 	mock "github.com/stretchr/testify/mock"
 )
 

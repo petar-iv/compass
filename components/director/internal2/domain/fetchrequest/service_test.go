@@ -13,11 +13,11 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/str"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/fetchrequest/automock"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/fetchrequest/automock"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/fetchrequest"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/fetchrequest"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/stretchr/testify/assert"
 )
 

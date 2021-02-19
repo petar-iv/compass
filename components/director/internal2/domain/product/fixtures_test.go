@@ -5,10 +5,10 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 
-	"github.com/kyma-incubator/compass/components/director/internal/repo"
+	"github.com/kyma-incubator/compass/components/director/internal2/repo"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/product"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/product"
+	"github.com/kyma-incubator/compass/components/director/internal2/model"
 )
 
 const (

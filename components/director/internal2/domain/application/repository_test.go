@@ -12,13 +12,13 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	"github.com/kyma-incubator/compass/components/director/pkg/operation"
 
-	"github.com/kyma-incubator/compass/components/director/internal/repo"
+	"github.com/kyma-incubator/compass/components/director/internal2/repo"
 
 	"github.com/pkg/errors"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/application"
-	"github.com/kyma-incubator/compass/components/director/internal/domain/application/automock"
-	"github.com/kyma-incubator/compass/components/director/internal/repo/testdb"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/application"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/application/automock"
+	"github.com/kyma-incubator/compass/components/director/internal2/repo/testdb"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"

@@ -8,16 +8,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/client"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/client"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 
-	"github.com/kyma-incubator/compass/components/director/internal/consumer"
+	"github.com/kyma-incubator/compass/components/director/internal2/consumer"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/pkg/errors"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/tenant"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/tenant"
 	"github.com/kyma-incubator/compass/components/director/pkg/scope"
 
 	"github.com/form3tech-oss/jwt-go"
