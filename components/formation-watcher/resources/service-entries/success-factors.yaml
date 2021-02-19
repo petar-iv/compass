@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: success-factors
+  namespace: default
+  labels:
+    app: formation-watcher
+spec:
+  selector:
+    none: does-not-exist
+  ports:
+    - protocol: TCP
+      port: 80
+      name: http
+      targetPort: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: success-factors-se
+  namespace: default
+spec:
+  hosts:
+  - apisalesdemo2.successfactors.eu
+  location: MESH_EXTERNAL
+  ports:
+  - name: https
+    number: 443
+    protocol: TLS
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: success-factors-vs
+  namespace: default
+spec:
+  hosts:
+  - success-factors.default.svc.cluster.local
+  http:
+  - match:
+    - port: 80
+    rewrite:
+        authority: apisalesdemo2.successfactors.eu
+    route:
+    - destination:
+        host: apisalesdemo2.successfactors.eu
+        subset: tls-origination
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: success-factors-dr
+  namespace: default
+spec:
+  host: apisalesdemo2.successfactors.eu
+  subsets:
+  - name: tls-origination
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+      portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: SIMPLE

@@ -1,0 +1,25 @@
+[ {
+    "Name" : "cg4-bupa",
+    "Type" : "HTTP",
+    "URL" : "http://qj9:443/sap/opu/odata/sap/API_BUSINESS_PARTNER",
+    "Authentication" : "PrincipalPropagation",
+    "ProxyType" : "OnPremise",
+    "Description" : "QJ9_112_TEMPL",
+    "CloudConnectorLocationId" : "DLM_MAIL",
+    "sap-client" : "112"
+  }, {
+    "Name" : "c4c-odata",
+    "Type" : "HTTP",
+    "URL" : "https://my312607.vlab.sapbydesign.com/sap/c4c/odata/v1/c4codataapi/",
+    "Authentication" : "BasicAuthentication",
+    "ProxyType" : "Internet",
+    "tokenServiceURLType" : "Dedicated",
+    "audience" : "HTTPS://my312607-sso.vlab.sapbydesign.com",
+    "authnContextClassRef" : "urn:none",
+    "User" : "sales_manager@example.com",
+    "clientKey" : "",
+    "nameIdFormat" : "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+    "scope" : "UIWC:CC_HOME",
+    "userIdSource" : "email",
+    "Password" : "Welcome1!"
+  } ]

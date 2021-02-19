@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-notification-service
+  namespace: default
+  labels:
+    app: formation-watcher
+spec:
+  selector:
+    none: does-not-exist
+  ports:
+    - protocol: TCP
+      port: 80
+      name: http
+      targetPort: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: alert-notification-service-se
+  namespace: default
+spec:
+  hosts:
+  - clm-sl-ans-live-ans-service-api.cfapps.eu10.hana.ondemand.com
+  location: MESH_EXTERNAL
+  ports:
+  - name: https
+    number: 443
+    protocol: TLS
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: alert-notification-service-vs
+  namespace: default
+spec:
+  hosts:
+  - alert-notification-service.default.svc.cluster.local
+  http:
+  - match:
+    - port: 80
+    rewrite:
+        authority: clm-sl-ans-live-ans-service-api.cfapps.eu10.hana.ondemand.com
+    route:
+    - destination:
+        host: clm-sl-ans-live-ans-service-api.cfapps.eu10.hana.ondemand.com
+        subset: tls-origination
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: alert-notification-service-dr
+  namespace: default
+spec:
+  host: clm-sl-ans-live-ans-service-api.cfapps.eu10.hana.ondemand.com
+  subsets:
+  - name: tls-origination
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+      portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: SIMPLE
