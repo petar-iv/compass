@@ -2,11 +2,11 @@ package model
 
 import (
 	"github.com/kyma-incubator/compass/components/director/pkg/pagination"
-	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 )
 
 type Document struct {
 	BundleID    string
+	ID          string
 	Tenant      string
 	Title       string
 	DisplayName string
@@ -15,11 +15,6 @@ type Document struct {
 	// for example Service Class, API etc
 	Kind *string
 	Data *string
-	*BaseEntity
-}
-
-func (_ *Document) GetType() resource.Type {
-	return resource.Document
 }
 
 type DocumentInput struct {
@@ -51,6 +46,7 @@ func (d *DocumentInput) ToDocumentWithinBundle(id, tenant string, bundleID strin
 
 	return &Document{
 		BundleID:    bundleID,
+		ID:          id,
 		Tenant:      tenant,
 		Title:       d.Title,
 		DisplayName: d.DisplayName,
@@ -58,9 +54,5 @@ func (d *DocumentInput) ToDocumentWithinBundle(id, tenant string, bundleID strin
 		Format:      d.Format,
 		Kind:        d.Kind,
 		Data:        d.Data,
-		BaseEntity: &BaseEntity{
-			ID:    id,
-			Ready: true,
-		},
 	}
 }

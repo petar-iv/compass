@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 
@@ -91,12 +90,6 @@ func (u *universalUpdater) unsafeUpdateSingle(ctx context.Context, dbEntity inte
 			preparedIDColumns = append(preparedIDColumns, fmt.Sprintf("%s = :%s", idCol, idCol))
 		}
 		stmtBuilder.WriteString(fmt.Sprintf(" %s", strings.Join(preparedIDColumns, " AND ")))
-	}
-
-	entity, ok := dbEntity.(Entity)
-	if ok && entity.GetDeletedAt().IsZero() {
-		entity.SetUpdatedAt(time.Now())
-		dbEntity = entity
 	}
 
 	log.C(ctx).Debugf("Executing DB query: %s", stmtBuilder.String())

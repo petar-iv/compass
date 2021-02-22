@@ -14,20 +14,20 @@ type APIService struct {
 	mock.Mock
 }
 
-// CreateInBundle provides a mock function with given fields: ctx, bundleID, in, spec
-func (_m *APIService) CreateInBundle(ctx context.Context, bundleID string, in model.APIDefinitionInput, spec *model.SpecInput) (string, error) {
-	ret := _m.Called(ctx, bundleID, in, spec)
+// CreateInBundle provides a mock function with given fields: ctx, bundleID, in
+func (_m *APIService) CreateInBundle(ctx context.Context, bundleID string, in model.APIDefinitionInput) (string, error) {
+	ret := _m.Called(ctx, bundleID, in)
 
 	var r0 string
-	if rf, ok := ret.Get(0).(func(context.Context, string, model.APIDefinitionInput, *model.SpecInput) string); ok {
-		r0 = rf(ctx, bundleID, in, spec)
+	if rf, ok := ret.Get(0).(func(context.Context, string, model.APIDefinitionInput) string); ok {
+		r0 = rf(ctx, bundleID, in)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, string, model.APIDefinitionInput, *model.SpecInput) error); ok {
-		r1 = rf(ctx, bundleID, in, spec)
+	if rf, ok := ret.Get(1).(func(context.Context, string, model.APIDefinitionInput) error); ok {
+		r1 = rf(ctx, bundleID, in)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -95,13 +95,36 @@ func (_m *APIService) GetFetchRequest(ctx context.Context, apiDefID string) (*mo
 	return r0, r1
 }
 
-// Update provides a mock function with given fields: ctx, id, in, spec
-func (_m *APIService) Update(ctx context.Context, id string, in model.APIDefinitionInput, spec *model.SpecInput) error {
-	ret := _m.Called(ctx, id, in, spec)
+// RefetchAPISpec provides a mock function with given fields: ctx, id
+func (_m *APIService) RefetchAPISpec(ctx context.Context, id string) (*model.APISpec, error) {
+	ret := _m.Called(ctx, id)
+
+	var r0 *model.APISpec
+	if rf, ok := ret.Get(0).(func(context.Context, string) *model.APISpec); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.APISpec)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Update provides a mock function with given fields: ctx, id, in
+func (_m *APIService) Update(ctx context.Context, id string, in model.APIDefinitionInput) error {
+	ret := _m.Called(ctx, id, in)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, model.APIDefinitionInput, *model.SpecInput) error); ok {
-		r0 = rf(ctx, id, in, spec)
+	if rf, ok := ret.Get(0).(func(context.Context, string, model.APIDefinitionInput) error); ok {
+		r0 = rf(ctx, id, in)
 	} else {
 		r0 = ret.Error(0)
 	}

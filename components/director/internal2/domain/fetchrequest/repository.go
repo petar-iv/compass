@@ -15,10 +15,11 @@ import (
 const fetchRequestTable string = `public.fetch_requests`
 
 const documentIDColumn = "document_id"
-const specIDColumn = "spec_id"
+const apiDefIDColumn = "api_def_id"
+const eventAPIDefIDColumn = "event_api_def_id"
 
 var (
-	fetchRequestColumns = []string{"id", "tenant_id", documentIDColumn, "url", "auth", "mode", "filter", "status_condition", "status_message", "status_timestamp", specIDColumn}
+	fetchRequestColumns = []string{"id", "tenant_id", apiDefIDColumn, eventAPIDefIDColumn, documentIDColumn, "url", "auth", "mode", "filter", "status_condition", "status_message", "status_timestamp"}
 	tenantColumn        = "tenant_id"
 )
 
@@ -104,8 +105,10 @@ func (r *repository) referenceObjectFieldName(objectType model.FetchRequestRefer
 	switch objectType {
 	case model.DocumentFetchRequestReference:
 		return documentIDColumn, nil
-	case model.SpecFetchRequestReference:
-		return specIDColumn, nil
+	case model.APIFetchRequestReference:
+		return apiDefIDColumn, nil
+	case model.EventAPIFetchRequestReference:
+		return eventAPIDefIDColumn, nil
 	}
 
 	return "", apperrors.NewInternalError("Invalid type of the Fetch Request reference object")

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/kyma-incubator/compass/components/director/internal2/repo"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -15,12 +13,6 @@ import (
 	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	"github.com/stretchr/testify/assert"
-)
-
-var (
-	givenAppID         = "givenApplicationID"
-	modelWebhookMode   = model.WebhookModeSync
-	graphqlWebhookMode = graphql.WebhookModeSync
 )
 
 func TestConverter_ToGraphQL(t *testing.T) {
@@ -99,32 +91,28 @@ func TestConverter_InputFromGraphQL(t *testing.T) {
 		Name     string
 		Input    *graphql.WebhookInput
 		Expected *model.WebhookInput
-		Error    error
 	}{
 		{
 			Name:     "All properties given",
-			Input:    fixGQLWebhookInput("https://test-domain.com"),
-			Expected: fixModelWebhookInput("https://test-domain.com"),
-			Error:    nil,
+			Input:    fixGQLWebhookInput("foo"),
+			Expected: fixModelWebhookInput("foo"),
 		},
 		{
 			Name:     "Empty",
 			Input:    &graphql.WebhookInput{},
 			Expected: &model.WebhookInput{},
-			Error:    nil,
 		},
 		{
 			Name:     "Nil",
 			Input:    nil,
 			Expected: nil,
-			Error:    nil,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			authConv := &automock.AuthConverter{}
-			if testCase.Input != nil && testCase.Error == nil {
+			if testCase.Input != nil {
 				authConv.On("InputFromGraphQL", testCase.Input.Auth).Return(testCase.Expected.Auth, nil)
 			}
 			converter := webhook.NewConverter(authConv)
@@ -133,12 +121,8 @@ func TestConverter_InputFromGraphQL(t *testing.T) {
 			res, err := converter.InputFromGraphQL(testCase.Input)
 
 			// then
-			if testCase.Error == nil {
-				assert.NoError(t, err)
-				assert.Equal(t, testCase.Expected, res)
-			} else {
-				assert.Error(t, err, testCase.Error)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, testCase.Expected, res)
 			authConv.AssertExpectations(t)
 		})
 	}
@@ -147,16 +131,19 @@ func TestConverter_InputFromGraphQL(t *testing.T) {
 func TestConverter_MultipleInputFromGraphQL(t *testing.T) {
 	// given
 	input := []*graphql.WebhookInput{
-		fixGQLWebhookInput("https://test-domain.com"),
-		fixGQLWebhookInput("https://test-domain.com"),
+		fixGQLWebhookInput("foo"),
+		fixGQLWebhookInput("bar"),
+		{},
 		nil,
 	}
 	expected := []*model.WebhookInput{
-		fixModelWebhookInput("https://test-domain.com"),
-		fixModelWebhookInput("https://test-domain.com"),
+		fixModelWebhookInput("foo"),
+		fixModelWebhookInput("bar"),
+		{},
 	}
 	authConv := &automock.AuthConverter{}
 	authConv.On("InputFromGraphQL", input[0].Auth).Return(expected[0].Auth, nil)
+	authConv.On("InputFromGraphQL", (*graphql.AuthInput)(nil)).Return(nil, nil)
 	converter := webhook.NewConverter(authConv)
 
 	// when
@@ -181,29 +168,19 @@ func TestConverter_ToEntity(t *testing.T) {
 	}{
 		"success when Auth not provided": {
 			in: model.Webhook{
-				ID:             "givenID",
-				ApplicationID:  &givenAppID,
-				URL:            stringPtr("https://test-domain.com"),
-				TenantID:       "givenTenant",
-				Type:           model.WebhookTypeConfigurationChanged,
-				Mode:           &modelWebhookMode,
-				URLTemplate:    &emptyTemplate,
-				InputTemplate:  &emptyTemplate,
-				HeaderTemplate: &emptyTemplate,
-				OutputTemplate: &emptyTemplate,
+				ID:            "givenID",
+				ApplicationID: "givenApplicationID",
+				URL:           "givenURL",
+				Tenant:        "givenTenant",
+				Type:          model.WebhookTypeConfigurationChanged,
 			},
 			expected: webhook.Entity{
-				ID:             "givenID",
-				ApplicationID:  repo.NewValidNullableString(givenAppID),
-				URL:            repo.NewValidNullableString("https://test-domain.com"),
-				TenantID:       "givenTenant",
-				Type:           "CONFIGURATION_CHANGED",
-				Auth:           sql.NullString{Valid: false},
-				Mode:           repo.NewValidNullableString("SYNC"),
-				URLTemplate:    repo.NewValidNullableString(emptyTemplate),
-				InputTemplate:  repo.NewValidNullableString(emptyTemplate),
-				HeaderTemplate: repo.NewValidNullableString(emptyTemplate),
-				OutputTemplate: repo.NewValidNullableString(emptyTemplate),
+				ID:       "givenID",
+				AppID:    "givenApplicationID",
+				URL:      "givenURL",
+				TenantID: "givenTenant",
+				Type:     "CONFIGURATION_CHANGED",
+				Auth:     sql.NullString{Valid: false},
 			},
 		},
 		"success when Auth provided": {
@@ -241,29 +218,19 @@ func TestConverter_FromEntity(t *testing.T) {
 	}{
 		"success when Auth not provided": {
 			inEntity: webhook.Entity{
-				ID:             "givenID",
-				TenantID:       "givenTenant",
-				Type:           "CONFIGURATION_CHANGED",
-				URL:            repo.NewValidNullableString("https://test-domain.com"),
-				ApplicationID:  repo.NewValidNullableString(givenAppID),
-				Mode:           repo.NewValidNullableString("SYNC"),
-				URLTemplate:    repo.NewValidNullableString(emptyTemplate),
-				InputTemplate:  repo.NewValidNullableString(emptyTemplate),
-				HeaderTemplate: repo.NewValidNullableString(emptyTemplate),
-				OutputTemplate: repo.NewValidNullableString(emptyTemplate),
+				ID:       "givenID",
+				TenantID: "givenTenant",
+				Type:     "CONFIGURATION_CHANGED",
+				URL:      "givenURL",
+				AppID:    "givenAppID",
 			},
 			expectedModel: model.Webhook{
-				ID:             "givenID",
-				TenantID:       "givenTenant",
-				Type:           "CONFIGURATION_CHANGED",
-				URL:            stringPtr("https://test-domain.com"),
-				ApplicationID:  &givenAppID,
-				Auth:           nil,
-				Mode:           &modelWebhookMode,
-				URLTemplate:    &emptyTemplate,
-				InputTemplate:  &emptyTemplate,
-				HeaderTemplate: &emptyTemplate,
-				OutputTemplate: &emptyTemplate,
+				ID:            "givenID",
+				Tenant:        "givenTenant",
+				Type:          "CONFIGURATION_CHANGED",
+				URL:           "givenURL",
+				ApplicationID: "givenAppID",
+				Auth:          nil,
 			},
 		},
 		"success when Auth provided": {

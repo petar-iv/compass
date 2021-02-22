@@ -1,10 +1,10 @@
 package api
 
 import (
-	"time"
+	"github.com/kyma-incubator/compass/components/director/pkg/str"
+	"github.com/pkg/errors"
 
 	"github.com/kyma-incubator/compass/components/director/internal2/domain/version"
-	"github.com/pkg/errors"
 
 	"github.com/kyma-incubator/compass/components/director/internal2/model"
 	"github.com/kyma-incubator/compass/components/director/internal2/repo"
@@ -19,102 +19,66 @@ type VersionConverter interface {
 	ToEntity(version model.Version) version.Version
 }
 
-//go:generate mockery -name=SpecConverter -output=automock -outpkg=automock -case=underscore
-type SpecConverter interface {
-	ToGraphQLAPISpec(in *model.Spec) (*graphql.APISpec, error)
-	InputFromGraphQLAPISpec(in *graphql.APISpecInput) (*model.SpecInput, error)
-}
-
 type converter struct {
-	version       VersionConverter
-	specConverter SpecConverter
+	fr      FetchRequestConverter
+	version VersionConverter
 }
 
-func NewConverter(version VersionConverter, specConverter SpecConverter) *converter {
-	return &converter{version: version, specConverter: specConverter}
+func NewConverter(fr FetchRequestConverter, version VersionConverter) *converter {
+	return &converter{fr: fr, version: version}
 }
 
-func (c *converter) ToGraphQL(in *model.APIDefinition, spec *model.Spec) (*graphql.APIDefinition, error) {
+func (c *converter) ToGraphQL(in *model.APIDefinition) *graphql.APIDefinition {
 	if in == nil {
-		return nil, nil
-	}
-
-	s, err := c.specConverter.ToGraphQLAPISpec(spec)
-	if err != nil {
-		return nil, err
-	}
-
-	var bundleID string
-	if in.BundleID != nil {
-		bundleID = *in.BundleID
+		return nil
 	}
 
 	return &graphql.APIDefinition{
-		BundleID:    bundleID,
+		ID:          in.ID,
+		BundleID:    in.BundleID,
 		Name:        in.Name,
 		Description: in.Description,
-		Spec:        s,
+		Spec:        c.SpecToGraphQL(in.ID, in.Spec),
 		TargetURL:   in.TargetURL,
 		Group:       in.Group,
 		Version:     c.version.ToGraphQL(in.Version),
-		BaseEntity: &graphql.BaseEntity{
-			ID:        in.ID,
-			Ready:     in.Ready,
-			CreatedAt: timePtrToTimestampPtr(in.CreatedAt),
-			UpdatedAt: timePtrToTimestampPtr(in.UpdatedAt),
-			DeletedAt: timePtrToTimestampPtr(in.DeletedAt),
-			Error:     in.Error,
-		},
-	}, nil
+	}
 }
 
-func (c *converter) MultipleToGraphQL(in []*model.APIDefinition, specs []*model.Spec) ([]*graphql.APIDefinition, error) {
-	if len(in) != len(specs) {
-		return nil, errors.New("different apis and specs count provided")
-	}
-
+func (c *converter) MultipleToGraphQL(in []*model.APIDefinition) []*graphql.APIDefinition {
 	var apis []*graphql.APIDefinition
-	for i, a := range in {
+	for _, a := range in {
 		if a == nil {
 			continue
 		}
+		apis = append(apis, c.ToGraphQL(a))
+	}
 
-		api, err := c.ToGraphQL(a, specs[i])
+	return apis
+}
+
+func (c *converter) MultipleInputFromGraphQL(in []*graphql.APIDefinitionInput) ([]*model.APIDefinitionInput, error) {
+	var arr []*model.APIDefinitionInput
+	for _, item := range in {
+		api, err := c.InputFromGraphQL(item)
 		if err != nil {
 			return nil, err
 		}
 
-		apis = append(apis, api)
+		arr = append(arr, api)
 	}
 
-	return apis, nil
+	return arr, nil
 }
 
-func (c *converter) MultipleInputFromGraphQL(in []*graphql.APIDefinitionInput) ([]*model.APIDefinitionInput, []*model.SpecInput, error) {
-	var apiDefs []*model.APIDefinitionInput
-	var specs []*model.SpecInput
-
-	for _, item := range in {
-		api, spec, err := c.InputFromGraphQL(item)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		apiDefs = append(apiDefs, api)
-		specs = append(specs, spec)
-	}
-
-	return apiDefs, specs, nil
-}
-
-func (c *converter) InputFromGraphQL(in *graphql.APIDefinitionInput) (*model.APIDefinitionInput, *model.SpecInput, error) {
+func (c *converter) InputFromGraphQL(in *graphql.APIDefinitionInput) (*model.APIDefinitionInput, error) {
 	if in == nil {
-		return nil, nil, nil
+		return nil, nil
 	}
 
-	spec, err := c.specConverter.InputFromGraphQLAPISpec(in.Spec)
+	spec, err := c.apiSpecInputFromGraphQL(in.Spec)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	return &model.APIDefinitionInput{
@@ -122,86 +86,76 @@ func (c *converter) InputFromGraphQL(in *graphql.APIDefinitionInput) (*model.API
 		Description: in.Description,
 		TargetURL:   in.TargetURL,
 		Group:       in.Group,
+		Spec:        spec,
 		Version:     c.version.InputFromGraphQL(in.Version),
-	}, spec, nil
+	}, nil
+}
+
+func (c *converter) SpecToGraphQL(definitionID string, in *model.APISpec) *graphql.APISpec {
+	if in == nil {
+		return nil
+	}
+
+	var data *graphql.CLOB
+	if in.Data != nil {
+		tmp := graphql.CLOB(*in.Data)
+		data = &tmp
+	}
+
+	return &graphql.APISpec{
+		Data:         data,
+		Type:         graphql.APISpecType(in.Type),
+		Format:       graphql.SpecFormat(in.Format),
+		DefinitionID: definitionID,
+	}
+}
+
+func (c *converter) apiSpecInputFromGraphQL(in *graphql.APISpecInput) (*model.APISpecInput, error) {
+	if in == nil {
+		return nil, nil
+	}
+
+	fetchReq, err := c.fr.InputFromGraphQL(in.FetchRequest)
+	if err != nil {
+		return nil, errors.Wrap(err, "while converting FetchRequest from GraphQL input")
+	}
+
+	return &model.APISpecInput{
+		Data:         (*string)(in.Data),
+		Type:         model.APISpecType(in.Type),
+		Format:       model.SpecFormat(in.Format),
+		FetchRequest: fetchReq,
+	}, nil
 }
 
 func (c *converter) FromEntity(entity Entity) model.APIDefinition {
 
 	return model.APIDefinition{
-		BundleID:            repo.StringPtrFromNullableString(entity.BndlID),
-		PackageID:           repo.StringPtrFromNullableString(entity.PackageID),
-		Tenant:              entity.TenantID,
-		Name:                entity.Name,
-		Description:         repo.StringPtrFromNullableString(entity.Description),
-		TargetURL:           entity.TargetURL,
-		Group:               repo.StringPtrFromNullableString(entity.Group),
-		OrdID:               repo.StringPtrFromNullableString(entity.OrdID),
-		ShortDescription:    repo.StringPtrFromNullableString(entity.ShortDescription),
-		SystemInstanceAware: repo.BoolPtrFromNullableBool(entity.SystemInstanceAware),
-		ApiProtocol:         repo.StringPtrFromNullableString(entity.ApiProtocol),
-		Tags:                repo.JSONRawMessageFromNullableString(entity.Tags),
-		Countries:           repo.JSONRawMessageFromNullableString(entity.Countries),
-		Links:               repo.JSONRawMessageFromNullableString(entity.Links),
-		APIResourceLinks:    repo.JSONRawMessageFromNullableString(entity.APIResourceLinks),
-		ReleaseStatus:       repo.StringPtrFromNullableString(entity.ReleaseStatus),
-		SunsetDate:          repo.StringPtrFromNullableString(entity.SunsetDate),
-		Successor:           repo.StringPtrFromNullableString(entity.Successor),
-		ChangeLogEntries:    repo.JSONRawMessageFromNullableString(entity.ChangeLogEntries),
-		Labels:              repo.JSONRawMessageFromNullableString(entity.Labels),
-		Visibility:          repo.StringPtrFromNullableString(entity.Visibility),
-		Disabled:            repo.BoolPtrFromNullableBool(entity.Disabled),
-		PartOfProducts:      repo.JSONRawMessageFromNullableString(entity.PartOfProducts),
-		LineOfBusiness:      repo.JSONRawMessageFromNullableString(entity.LineOfBusiness),
-		Industry:            repo.JSONRawMessageFromNullableString(entity.Industry),
-		Version:             c.version.FromEntity(entity.Version),
-		BaseEntity: &model.BaseEntity{
-			ID:        entity.ID,
-			Ready:     entity.Ready,
-			CreatedAt: entity.CreatedAt,
-			UpdatedAt: entity.UpdatedAt,
-			DeletedAt: entity.DeletedAt,
-			Error:     repo.StringPtrFromNullableString(entity.Error),
-		},
+		ID:          entity.ID,
+		BundleID:    entity.BndlID,
+		Name:        entity.Name,
+		TargetURL:   entity.TargetURL,
+		Tenant:      entity.TenantID,
+		Description: repo.StringPtrFromNullableString(entity.Description),
+		Group:       repo.StringPtrFromNullableString(entity.Group),
+		Spec:        c.apiSpecFromEntity(entity.EntitySpec),
+		Version:     c.version.FromEntity(entity.Version),
 	}
 }
 
-func (c *converter) ToEntity(apiModel model.APIDefinition) *Entity {
-	return &Entity{
-		TenantID:            apiModel.Tenant,
-		BndlID:              repo.NewNullableString(apiModel.BundleID),
-		PackageID:           repo.NewNullableString(apiModel.PackageID),
-		Name:                apiModel.Name,
-		Description:         repo.NewNullableString(apiModel.Description),
-		Group:               repo.NewNullableString(apiModel.Group),
-		TargetURL:           apiModel.TargetURL,
-		OrdID:               repo.NewNullableString(apiModel.OrdID),
-		ShortDescription:    repo.NewNullableString(apiModel.ShortDescription),
-		SystemInstanceAware: repo.NewNullableBool(apiModel.SystemInstanceAware),
-		ApiProtocol:         repo.NewNullableString(apiModel.ApiProtocol),
-		Tags:                repo.NewNullableStringFromJSONRawMessage(apiModel.Tags),
-		Countries:           repo.NewNullableStringFromJSONRawMessage(apiModel.Countries),
-		Links:               repo.NewNullableStringFromJSONRawMessage(apiModel.Links),
-		APIResourceLinks:    repo.NewNullableStringFromJSONRawMessage(apiModel.APIResourceLinks),
-		ReleaseStatus:       repo.NewNullableString(apiModel.ReleaseStatus),
-		SunsetDate:          repo.NewNullableString(apiModel.SunsetDate),
-		Successor:           repo.NewNullableString(apiModel.Successor),
-		ChangeLogEntries:    repo.NewNullableStringFromJSONRawMessage(apiModel.ChangeLogEntries),
-		Labels:              repo.NewNullableStringFromJSONRawMessage(apiModel.Labels),
-		Visibility:          repo.NewNullableString(apiModel.Visibility),
-		Disabled:            repo.NewNullableBool(apiModel.Disabled),
-		PartOfProducts:      repo.NewNullableStringFromJSONRawMessage(apiModel.PartOfProducts),
-		LineOfBusiness:      repo.NewNullableStringFromJSONRawMessage(apiModel.LineOfBusiness),
-		Industry:            repo.NewNullableStringFromJSONRawMessage(apiModel.Industry),
-		Version:             c.convertVersionToEntity(apiModel.Version),
-		BaseEntity: &repo.BaseEntity{
-			ID:        apiModel.ID,
-			Ready:     apiModel.Ready,
-			CreatedAt: apiModel.CreatedAt,
-			UpdatedAt: apiModel.UpdatedAt,
-			DeletedAt: apiModel.DeletedAt,
-			Error:     repo.NewNullableString(apiModel.Error),
-		},
+func (c *converter) ToEntity(apiModel model.APIDefinition) Entity {
+
+	return Entity{
+		ID:          apiModel.ID,
+		TenantID:    apiModel.Tenant,
+		BndlID:      apiModel.BundleID,
+		Name:        apiModel.Name,
+		Description: repo.NewNullableString(apiModel.Description),
+		Group:       repo.NewNullableString(apiModel.Group),
+		TargetURL:   apiModel.TargetURL,
+
+		EntitySpec: c.apiSpecToEntity(apiModel.Spec),
+		Version:    c.convertVersionToEntity(apiModel.Version),
 	}
 }
 
@@ -213,11 +167,34 @@ func (c *converter) convertVersionToEntity(inVer *model.Version) version.Version
 	return c.version.ToEntity(*inVer)
 }
 
-func timePtrToTimestampPtr(time *time.Time) *graphql.Timestamp {
-	if time == nil {
+func (c *converter) apiSpecToEntity(spec *model.APISpec) EntitySpec {
+	var apiSpecEnt EntitySpec
+	if spec != nil {
+		apiSpecEnt = EntitySpec{
+			SpecFormat: repo.NewNullableString(str.Ptr(string(spec.Format))),
+			SpecType:   repo.NewNullableString(str.Ptr(string(spec.Type))),
+			SpecData:   repo.NewNullableString(spec.Data),
+		}
+	}
+
+	return apiSpecEnt
+}
+
+func (c *converter) apiSpecFromEntity(specEnt EntitySpec) *model.APISpec {
+	if !specEnt.SpecData.Valid && !specEnt.SpecFormat.Valid && !specEnt.SpecType.Valid {
 		return nil
 	}
 
-	t := graphql.Timestamp(*time)
-	return &t
+	apiSpec := model.APISpec{}
+	specFormat := repo.StringPtrFromNullableString(specEnt.SpecFormat)
+	if specFormat != nil {
+		apiSpec.Format = model.SpecFormat(*specFormat)
+	}
+
+	specType := repo.StringPtrFromNullableString(specEnt.SpecType)
+	if specFormat != nil {
+		apiSpec.Type = model.APISpecType(*specType)
+	}
+	apiSpec.Data = repo.StringPtrFromNullableString(specEnt.SpecData)
+	return &apiSpec
 }

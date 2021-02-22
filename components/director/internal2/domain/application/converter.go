@@ -35,24 +35,15 @@ func (c *converter) ToEntity(in *model.Application) (*Entity, error) {
 	}
 
 	return &Entity{
+		ID:                  in.ID,
 		TenantID:            in.Tenant,
 		Name:                in.Name,
-		ProviderName:        repo.NewNullableString(in.ProviderName),
 		Description:         repo.NewNullableString(in.Description),
 		StatusCondition:     string(in.Status.Condition),
 		StatusTimestamp:     in.Status.Timestamp,
 		HealthCheckURL:      repo.NewNullableString(in.HealthCheckURL),
 		IntegrationSystemID: repo.NewNullableString(in.IntegrationSystemID),
-		BaseURL:             repo.NewNullableString(in.BaseURL),
-		Labels:              repo.NewNullableStringFromJSONRawMessage(in.Labels),
-		BaseEntity: &repo.BaseEntity{
-			ID:        in.ID,
-			Ready:     in.Ready,
-			CreatedAt: in.CreatedAt,
-			UpdatedAt: in.UpdatedAt,
-			DeletedAt: in.DeletedAt,
-			Error:     repo.NewNullableString(in.Error),
-		},
+		ProviderName:        repo.NewNullableString(in.ProviderName),
 	}, nil
 }
 
@@ -62,26 +53,17 @@ func (c *converter) FromEntity(entity *Entity) *model.Application {
 	}
 
 	return &model.Application{
-		ProviderName: repo.StringPtrFromNullableString(entity.ProviderName),
-		Tenant:       entity.TenantID,
-		Name:         entity.Name,
-		Description:  repo.StringPtrFromNullableString(entity.Description),
+		ID:          entity.ID,
+		Tenant:      entity.TenantID,
+		Name:        entity.Name,
+		Description: repo.StringPtrFromNullableString(entity.Description),
 		Status: &model.ApplicationStatus{
 			Condition: model.ApplicationStatusCondition(entity.StatusCondition),
 			Timestamp: entity.StatusTimestamp,
 		},
-		HealthCheckURL:      repo.StringPtrFromNullableString(entity.HealthCheckURL),
 		IntegrationSystemID: repo.StringPtrFromNullableString(entity.IntegrationSystemID),
-		BaseURL:             repo.StringPtrFromNullableString(entity.BaseURL),
-		Labels:              repo.JSONRawMessageFromNullableString(entity.Labels),
-		BaseEntity: &model.BaseEntity{
-			ID:        entity.ID,
-			Ready:     entity.Ready,
-			CreatedAt: entity.CreatedAt,
-			UpdatedAt: entity.UpdatedAt,
-			DeletedAt: entity.DeletedAt,
-			Error:     repo.StringPtrFromNullableString(entity.Error),
-		},
+		HealthCheckURL:      repo.StringPtrFromNullableString(entity.HealthCheckURL),
+		ProviderName:        repo.StringPtrFromNullableString(entity.ProviderName),
 	}
 }
 
@@ -91,20 +73,13 @@ func (c *converter) ToGraphQL(in *model.Application) *graphql.Application {
 	}
 
 	return &graphql.Application{
+		ID:                  in.ID,
 		Status:              c.statusToGraphQL(in.Status),
 		Name:                in.Name,
 		Description:         in.Description,
 		HealthCheckURL:      in.HealthCheckURL,
 		IntegrationSystemID: in.IntegrationSystemID,
 		ProviderName:        in.ProviderName,
-		BaseEntity: &graphql.BaseEntity{
-			ID:        in.ID,
-			Ready:     in.Ready,
-			CreatedAt: timePtrToTimestampPtr(in.CreatedAt),
-			UpdatedAt: timePtrToTimestampPtr(in.UpdatedAt),
-			DeletedAt: timePtrToTimestampPtr(in.DeletedAt),
-			Error:     in.Error,
-		},
 	}
 }
 
@@ -187,6 +162,7 @@ func (c *converter) GraphQLToModel(obj *graphql.Application, tenantID string) *m
 	}
 
 	return &model.Application{
+		ID:                  obj.ID,
 		ProviderName:        obj.ProviderName,
 		Tenant:              tenantID,
 		Name:                obj.Name,
@@ -194,9 +170,6 @@ func (c *converter) GraphQLToModel(obj *graphql.Application, tenantID string) *m
 		Status:              c.statusToModel(obj.Status),
 		HealthCheckURL:      obj.HealthCheckURL,
 		IntegrationSystemID: obj.IntegrationSystemID,
-		BaseEntity: &model.BaseEntity{
-			ID: obj.ID,
-		},
 	}
 }
 
@@ -265,13 +238,4 @@ func (c *converter) statusConditionToModel(in *graphql.ApplicationStatusConditio
 	}
 
 	return &condition
-}
-
-func timePtrToTimestampPtr(time *time.Time) *graphql.Timestamp {
-	if time == nil {
-		return nil
-	}
-
-	t := graphql.Timestamp(*time)
-	return &t
 }

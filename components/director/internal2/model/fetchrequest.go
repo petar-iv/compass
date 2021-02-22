@@ -20,7 +20,8 @@ type FetchRequest struct {
 type FetchRequestReferenceObjectType string
 
 const (
-	SpecFetchRequestReference     FetchRequestReferenceObjectType = "Spec"
+	APIFetchRequestReference      FetchRequestReferenceObjectType = "API"
+	EventAPIFetchRequestReference FetchRequestReferenceObjectType = "EventAPI"
 	DocumentFetchRequestReference FetchRequestReferenceObjectType = "Document"
 )
 

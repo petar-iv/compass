@@ -15,20 +15,20 @@ type EventDefService struct {
 	mock.Mock
 }
 
-// CreateInBundle provides a mock function with given fields: ctx, bundleID, in, spec
-func (_m *EventDefService) CreateInBundle(ctx context.Context, bundleID string, in model.EventDefinitionInput, spec *model.SpecInput) (string, error) {
-	ret := _m.Called(ctx, bundleID, in, spec)
+// CreateInBundle provides a mock function with given fields: ctx, bundleID, in
+func (_m *EventDefService) CreateInBundle(ctx context.Context, bundleID string, in model.EventDefinitionInput) (string, error) {
+	ret := _m.Called(ctx, bundleID, in)
 
 	var r0 string
-	if rf, ok := ret.Get(0).(func(context.Context, string, model.EventDefinitionInput, *model.SpecInput) string); ok {
-		r0 = rf(ctx, bundleID, in, spec)
+	if rf, ok := ret.Get(0).(func(context.Context, string, model.EventDefinitionInput) string); ok {
+		r0 = rf(ctx, bundleID, in)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, string, model.EventDefinitionInput, *model.SpecInput) error); ok {
-		r1 = rf(ctx, bundleID, in, spec)
+	if rf, ok := ret.Get(1).(func(context.Context, string, model.EventDefinitionInput) error); ok {
+		r1 = rf(ctx, bundleID, in)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -96,13 +96,36 @@ func (_m *EventDefService) GetFetchRequest(ctx context.Context, eventAPIDefID st
 	return r0, r1
 }
 
-// Update provides a mock function with given fields: ctx, id, in, spec
-func (_m *EventDefService) Update(ctx context.Context, id string, in model.EventDefinitionInput, spec *model.SpecInput) error {
-	ret := _m.Called(ctx, id, in, spec)
+// RefetchAPISpec provides a mock function with given fields: ctx, id
+func (_m *EventDefService) RefetchAPISpec(ctx context.Context, id string) (*model.EventSpec, error) {
+	ret := _m.Called(ctx, id)
+
+	var r0 *model.EventSpec
+	if rf, ok := ret.Get(0).(func(context.Context, string) *model.EventSpec); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.EventSpec)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Update provides a mock function with given fields: ctx, id, in
+func (_m *EventDefService) Update(ctx context.Context, id string, in model.EventDefinitionInput) error {
+	ret := _m.Called(ctx, id, in)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, model.EventDefinitionInput, *model.SpecInput) error); ok {
-		r0 = rf(ctx, id, in, spec)
+	if rf, ok := ret.Get(0).(func(context.Context, string, model.EventDefinitionInput) error); ok {
+		r0 = rf(ctx, id, in)
 	} else {
 		r0 = ret.Error(0)
 	}

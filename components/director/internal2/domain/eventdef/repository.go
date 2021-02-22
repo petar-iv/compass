@@ -17,24 +17,21 @@ import (
 const eventAPIDefTable string = `"public"."event_api_definitions"`
 
 var (
-	idColumn        = "id"
-	tenantColumn    = "tenant_id"
-	bundleColumn    = "bundle_id"
-	eventDefColumns = []string{idColumn, tenantColumn, bundleColumn, "package_id", "name", "description", "group_name", "ord_id",
-		"short_description", "system_instance_aware", "changelog_entries", "links", "tags", "countries", "release_status",
-		"sunset_date", "successor", "labels", "visibility", "disabled", "part_of_products", "line_of_business", "industry", "version_value", "version_deprecated", "version_deprecated_since",
-		"version_for_removal", "ready", "created_at", "updated_at", "deleted_at", "error"}
-	idColumns        = []string{idColumn}
-	updatableColumns = []string{bundleColumn, "package_id", "name", "description", "group_name", "ord_id",
-		"short_description", "system_instance_aware", "changelog_entries", "links", "tags", "countries", "release_status",
-		"sunset_date", "successor", "labels", "visibility", "disabled", "part_of_products", "line_of_business", "industry", "version_value", "version_deprecated", "version_deprecated_since",
-		"version_for_removal", "ready", "created_at", "updated_at", "deleted_at", "error"}
+	idColumn      = "id"
+	tenantColumn  = "tenant_id"
+	bundleColumn  = "bundle_id"
+	apiDefColumns = []string{idColumn, tenantColumn, bundleColumn, "name", "description", "group_name", "spec_data",
+		"spec_format", "spec_type", "version_value", "version_deprecated", "version_deprecated_since",
+		"version_for_removal"}
+	idColumns        = []string{"id"}
+	updatableColumns = []string{"name", "description", "group_name", "spec_data", "spec_format", "spec_type",
+		"version_value", "version_deprecated", "version_deprecated_since", "version_for_removal"}
 )
 
 //go:generate mockery -name=EventAPIDefinitionConverter -output=automock -outpkg=automock -case=underscore
 type EventAPIDefinitionConverter interface {
-	FromEntity(entity Entity) model.EventDefinition
-	ToEntity(apiModel model.EventDefinition) Entity
+	FromEntity(entity Entity) (model.EventDefinition, error)
+	ToEntity(apiModel model.EventDefinition) (Entity, error)
 }
 
 type pgRepository struct {
@@ -49,9 +46,9 @@ type pgRepository struct {
 
 func NewRepository(conv EventAPIDefinitionConverter) *pgRepository {
 	return &pgRepository{
-		singleGetter:    repo.NewSingleGetter(resource.EventDefinition, eventAPIDefTable, tenantColumn, eventDefColumns),
-		pageableQuerier: repo.NewPageableQuerier(resource.EventDefinition, eventAPIDefTable, tenantColumn, eventDefColumns),
-		creator:         repo.NewCreator(resource.EventDefinition, eventAPIDefTable, eventDefColumns),
+		singleGetter:    repo.NewSingleGetter(resource.EventDefinition, eventAPIDefTable, tenantColumn, apiDefColumns),
+		pageableQuerier: repo.NewPageableQuerier(resource.EventDefinition, eventAPIDefTable, tenantColumn, apiDefColumns),
+		creator:         repo.NewCreator(resource.EventDefinition, eventAPIDefTable, apiDefColumns),
 		updater:         repo.NewUpdater(resource.EventDefinition, eventAPIDefTable, updatableColumns, tenantColumn, idColumns),
 		deleter:         repo.NewDeleter(resource.EventDefinition, eventAPIDefTable, tenantColumn),
 		existQuerier:    repo.NewExistQuerier(resource.EventDefinition, eventAPIDefTable, tenantColumn),
@@ -72,7 +69,11 @@ func (r *pgRepository) GetByID(ctx context.Context, tenantID string, id string) 
 		return nil, errors.Wrapf(err, "while getting EventDefinition with id %s", id)
 	}
 
-	eventAPIDefModel := r.conv.FromEntity(eventAPIDefEntity)
+	eventAPIDefModel, err := r.conv.FromEntity(eventAPIDefEntity)
+	if err != nil {
+		return nil, errors.Wrap(err, "while creating EventDefinition entity to model")
+	}
+
 	return &eventAPIDefModel, nil
 }
 
@@ -87,7 +88,11 @@ func (r *pgRepository) GetForBundle(ctx context.Context, tenant string, id strin
 		return nil, err
 	}
 
-	eventAPIModel := r.conv.FromEntity(ent)
+	eventAPIModel, err := r.conv.FromEntity(ent)
+	if err != nil {
+		return nil, errors.Wrap(err, "while creating event definition model from entity")
+	}
+
 	return &eventAPIModel, nil
 }
 
@@ -109,7 +114,10 @@ func (r *pgRepository) list(ctx context.Context, tenant string, pageSize int, cu
 	var items []*model.EventDefinition
 
 	for _, eventEnt := range eventCollection {
-		m := r.conv.FromEntity(eventEnt)
+		m, err := r.conv.FromEntity(eventEnt)
+		if err != nil {
+			return nil, errors.Wrap(err, "while creating APIDefinition model from entity")
+		}
 		items = append(items, &m)
 	}
 
@@ -125,10 +133,13 @@ func (r *pgRepository) Create(ctx context.Context, item *model.EventDefinition) 
 		return apperrors.NewInternalError("item cannot be nil")
 	}
 
-	entity := r.conv.ToEntity(*item)
+	entity, err := r.conv.ToEntity(*item)
+	if err != nil {
+		return errors.Wrap(err, "while creating EventDefinition model to entity")
+	}
 
 	log.C(ctx).Debugf("Persisting Event-Definition entity with id %s to db", item.ID)
-	err := r.creator.Create(ctx, entity)
+	err = r.creator.Create(ctx, entity)
 	if err != nil {
 		return errors.Wrap(err, "while saving entity to db")
 	}
@@ -138,8 +149,11 @@ func (r *pgRepository) Create(ctx context.Context, item *model.EventDefinition) 
 
 func (r *pgRepository) CreateMany(ctx context.Context, items []*model.EventDefinition) error {
 	for index, item := range items {
-		entity := r.conv.ToEntity(*item)
-		err := r.creator.Create(ctx, entity)
+		entity, err := r.conv.ToEntity(*item)
+		if err != nil {
+			return errors.Wrapf(err, "while creating %d item", index)
+		}
+		err = r.creator.Create(ctx, entity)
 		if err != nil {
 			return errors.Wrapf(err, "while persisting %d item", index)
 		}
@@ -153,7 +167,10 @@ func (r *pgRepository) Update(ctx context.Context, item *model.EventDefinition) 
 		return apperrors.NewInternalError("item cannot be nil")
 	}
 
-	entity := r.conv.ToEntity(*item)
+	entity, err := r.conv.ToEntity(*item)
+	if err != nil {
+		return errors.Wrap(err, "while converting model to entity")
+	}
 
 	return r.updater.UpdateSingle(ctx, entity)
 }

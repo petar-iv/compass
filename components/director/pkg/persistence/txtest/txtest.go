@@ -43,16 +43,12 @@ func NewTransactionContextGenerator(potentialError error) *txCtxGenerator {
 }
 
 func (g txCtxGenerator) ThatSucceeds() (*automock.PersistenceTx, *automock.Transactioner) {
-	return g.ThatSucceedsMultipleTimes(1)
-}
-
-func (g txCtxGenerator) ThatSucceedsMultipleTimes(times int) (*automock.PersistenceTx, *automock.Transactioner) {
 	persistTx := &automock.PersistenceTx{}
-	persistTx.On("Commit").Return(nil).Times(times)
+	persistTx.On("Commit").Return(nil).Once()
 
 	transact := &automock.Transactioner{}
-	transact.On("Begin").Return(persistTx, nil).Times(times)
-	transact.On("RollbackUnlessCommitted", mock.Anything, persistTx).Return().Times(times)
+	transact.On("Begin").Return(persistTx, nil).Once()
+	transact.On("RollbackUnlessCommitted", mock.Anything, persistTx).Return().Once()
 
 	return persistTx, transact
 }

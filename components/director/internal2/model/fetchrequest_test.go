@@ -27,7 +27,7 @@ func TestFetchRequestInput_ToFetchRequest(t *testing.T) {
 			Name:                     "All properties given",
 			InputID:                  "input-id",
 			InputReferenceObjectID:   "ref-id",
-			InputReferenceObjectType: model.SpecFetchRequestReference,
+			InputReferenceObjectType: model.APIFetchRequestReference,
 			InputFRInput: &model.FetchRequestInput{
 				URL: "foourl",
 				Auth: &model.AuthInput{
@@ -42,7 +42,7 @@ func TestFetchRequestInput_ToFetchRequest(t *testing.T) {
 			Expected: &model.FetchRequest{
 				ID:         "input-id",
 				ObjectID:   "ref-id",
-				ObjectType: model.SpecFetchRequestReference,
+				ObjectType: model.APIFetchRequestReference,
 				Tenant:     tenant,
 				URL:        "foourl",
 				Auth: &model.Auth{
@@ -62,14 +62,14 @@ func TestFetchRequestInput_ToFetchRequest(t *testing.T) {
 		{
 			Name:                     "Empty",
 			InputID:                  "input-id",
-			InputReferenceObjectType: model.SpecFetchRequestReference,
+			InputReferenceObjectType: model.EventAPIFetchRequestReference,
 			InputReferenceObjectID:   "ref-id-2",
 			InputFRInput:             &model.FetchRequestInput{},
 			Expected: &model.FetchRequest{
 				ID:         "input-id",
 				Tenant:     tenant,
 				ObjectID:   "ref-id-2",
-				ObjectType: model.SpecFetchRequestReference,
+				ObjectType: model.EventAPIFetchRequestReference,
 				Mode:       model.FetchModeSingle,
 				Status: &model.FetchRequestStatus{
 					Condition: model.FetchRequestStatusConditionInitial,

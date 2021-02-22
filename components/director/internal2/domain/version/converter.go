@@ -39,29 +39,29 @@ func (c *converter) InputFromGraphQL(in *graphql.VersionInput) *model.VersionInp
 }
 
 func (c *converter) FromEntity(version Version) *model.Version {
-	value := repo.StringPtrFromNullableString(version.Value)
+	value := repo.StringPtrFromNullableString(version.VersionValue)
 	versionValue := ""
 	if value != nil {
 		versionValue = *value
 	}
 
-	if !version.ForRemoval.Valid && !version.Value.Valid && !version.Deprecated.Valid && !version.DeprecatedSince.Valid {
+	if !version.VersionForRemoval.Valid && !version.VersionValue.Valid && !version.VersionDepracated.Valid && !version.VersionDepracatedSince.Valid {
 		return nil
 	}
 
 	return &model.Version{
 		Value:           versionValue,
-		Deprecated:      repo.BoolPtrFromNullableBool(version.Deprecated),
-		DeprecatedSince: repo.StringPtrFromNullableString(version.DeprecatedSince),
-		ForRemoval:      repo.BoolPtrFromNullableBool(version.ForRemoval),
+		Deprecated:      repo.BoolPtrFromNullableBool(version.VersionDepracated),
+		DeprecatedSince: repo.StringPtrFromNullableString(version.VersionDepracatedSince),
+		ForRemoval:      repo.BoolPtrFromNullableBool(version.VersionForRemoval),
 	}
 }
 
 func (c *converter) ToEntity(version model.Version) Version {
 	return Version{
-		Value:           repo.NewNullableString(&version.Value),
-		Deprecated:      repo.NewNullableBool(version.Deprecated),
-		DeprecatedSince: repo.NewNullableString(version.DeprecatedSince),
-		ForRemoval:      repo.NewNullableBool(version.ForRemoval),
+		VersionValue:           repo.NewNullableString(&version.Value),
+		VersionDepracated:      repo.NewNullableBool(version.Deprecated),
+		VersionDepracatedSince: repo.NewNullableString(version.DeprecatedSince),
+		VersionForRemoval:      repo.NewNullableBool(version.ForRemoval),
 	}
 }
