@@ -82,6 +82,9 @@ func main() {
 	err = proxyRequestsForComponent(ctx, router, "/director", cfg.DirectorOrigin, tr)
 	exitOnError(err, "Error while initializing proxy for Director")
 
+	err = proxyRequestsForComponent(ctx, router, "/director", cfg.DirectorOrigin, tr)
+	exitOnError(err, "Error while initializing proxy for Director")
+
 	router.HandleFunc("/healthz", func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(200)
 		_, err := writer.Write([]byte("ok"))

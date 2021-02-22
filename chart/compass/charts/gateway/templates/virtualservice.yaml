@@ -32,10 +32,10 @@ spec:
       - uri:
           prefix: {{ .Values.global.tenantFetcher.prefix }}
       route:
-      - destination:
-          host: {{ .Values.global.tenantFetcher.host }}
+      - destination: #TODO: Add checks for HTTP method (Allow PUT/DELETE only) and probably specify some regex for origins
+          host: compass-gateway.{{ .Release.Namespace }}.svc.cluster.local
           port:
-            number: {{ .Values.global.tenantFetcher.port }}
+            number: {{ .Values.global.gateway.port }}
     - match:
       - uri:
           prefix:  {{ .Values.global.ordService.docsPrefix }}
