@@ -82,13 +82,13 @@ func main() {
 	tr := proxy.NewTransport(auditlogSink, auditlogSvc, correlationTr)
 	tr2 := proxy.NewTenantFetcherTransport(auditlogSink, auditlogSvc, correlationTr, cfg.TenantProvider, cfg.TenantProviderTenantIdProperty)
 
-	err = proxyRequestsForComponent(ctx, router, "/connector", cfg.ConnectorOrigin, tr)
+	err = proxyRequestsForComponent(ctx, router, "/connector", cfg.ConnectorOrigin, tr, true)
 	exitOnError(err, "Error while initializing proxy for Connector")
 
-	err = proxyRequestsForComponent(ctx, router, "/director", cfg.DirectorOrigin, tr)
+	err = proxyRequestsForComponent(ctx, router, "/director", cfg.DirectorOrigin, tr, true)
 	exitOnError(err, "Error while initializing proxy for Director")
 
-	err = proxyRequestsForComponent(ctx, router, "/tenants", cfg.TenantFetcherOrigin, tr2)
+	err = proxyRequestsForComponent(ctx, router, "/tenants", cfg.TenantFetcherOrigin, tr2, false)
 	exitOnError(err, "Error while initializing proxy for TenantFetcher")
 
 	router.HandleFunc("/healthz", func(writer http.ResponseWriter, request *http.Request) {
@@ -114,9 +114,9 @@ func main() {
 	wg.Wait()
 }
 
-func proxyRequestsForComponent(ctx context.Context, router *mux.Router, path string, targetOrigin string, transport http.RoundTripper, middleware ...mux.MiddlewareFunc) error {
+func proxyRequestsForComponent(ctx context.Context, router *mux.Router, path string, targetOrigin string, transport http.RoundTripper, stripProxyPath bool, middleware ...mux.MiddlewareFunc) error {
 	log.C(ctx).Infof("Proxying requests on path `%s` to `%s`", path, targetOrigin)
-	componentProxy, err := proxy.New(targetOrigin, path, transport)
+	componentProxy, err := proxy.New(targetOrigin, path, transport, stripProxyPath)
 	if err != nil {
 		return errors.Wrapf(err, "while initializing proxy for component")
 	}

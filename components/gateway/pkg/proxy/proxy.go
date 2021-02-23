@@ -14,17 +14,19 @@ type Proxy struct {
 	reverseProxy *httputil.ReverseProxy
 }
 
-func New(targetOrigin, proxyPath string, transport http.RoundTripper) (*httputil.ReverseProxy, error) {
+func New(targetOrigin, proxyPath string, transport http.RoundTripper, stripProxyPath bool) (*httputil.ReverseProxy, error) {
 	targetURL, err := url.Parse(targetOrigin)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while parsing URL %s", targetOrigin)
 	}
-
 	targetQuery := targetURL.RawQuery
 	director := func(req *http.Request) {
+
 		req.URL.Scheme = targetURL.Scheme
 		req.URL.Host = targetURL.Host
-		req.URL.Path = requestURL(req.URL.Path, proxyPath)
+		if stripProxyPath {
+			req.URL.Path = requestURL(req.URL.Path, proxyPath)
+		}
 		req.Host = targetURL.Host
 		if targetQuery == "" || req.URL.RawQuery == "" {
 			req.URL.RawQuery = targetQuery + req.URL.RawQuery
