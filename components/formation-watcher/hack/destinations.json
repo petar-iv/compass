@@ -16,7 +16,7 @@
     "tokenServiceURLType" : "Dedicated",
     "audience" : "HTTPS://my312607-sso.vlab.sapbydesign.com",
     "authnContextClassRef" : "urn:none",
-    "User" : "sales_manager@example.com",
+    "User" : "Administrator",
     "clientKey" : "",
     "nameIdFormat" : "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
     "scope" : "UIWC:CC_HOME",

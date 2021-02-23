@@ -13,9 +13,9 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 	"github.com/kyma-incubator/compass/components/formation-watcher/pkg/destination"
 	"github.com/kyma-incubator/compass/components/formation-watcher/pkg/log"
-	"github.com/kyma-incubator/compass/components/formation-watcher/script"
 )
 
+const tenantID = "32a59d21-92b2-446e-9047-a46b589909ea"
 const runtimeName = "sap-graph"
 const commerceMockName = "commerce-mock"
 
@@ -65,6 +65,11 @@ func (a *AppLabelNotificationHandler) handle(ctx context.Context, label Label) e
 	defer a.Transact.RollbackUnlessCommitted(ctx, tx)
 
 	ctx = persistence.SaveToContext(ctx, tx)
+	if label.TenantID != tenantID {
+		log.C(ctx).Infof("Change not for the right tenant")
+		return nil
+	}
+
 	ctx = tenant.SaveToContext(ctx, label.TenantID, "")
 	query := `$[*] ? ( `
 	queryEnd := ` )`
@@ -168,7 +173,7 @@ func (a *AppLabelNotificationHandler) syncDestinations(ctx context.Context, appD
 	}
 	destsMap := destsToMap(currentDests)
 	expectedBundles := make([]*model.Bundle, 0)
-	fmt.Printf(">>>>>>\n%+v\n>>>>>>>>\n", destsMap)
+
 	for _, app := range appData {
 		bundles, err := a.BundleGetter.ListByApplicationID(ctx, app.ID, 100, "")
 		if err != nil {
@@ -176,7 +181,7 @@ func (a *AppLabelNotificationHandler) syncDestinations(ctx context.Context, appD
 		}
 		// bundleName := bundles.Data[0].Name
 		if len(bundles.Data) > 0 {
-			expectedBundles = append(expectedBundles, bundles.Data[0])
+			expectedBundles = append(expectedBundles, bundles.Data...)
 		}
 		// TODO: Get destination by bundle Name
 	}
@@ -190,10 +195,11 @@ func (a *AppLabelNotificationHandler) syncDestinations(ctx context.Context, appD
 	}
 
 	for _, destName := range destsToCreate {
-		fmt.Printf("Destination to create: %s\n", destName)
+		log.C(ctx).Infof("Destination to create: %s", destName)
 		destToCreate, found := a.findDestinationToCreate(destName)
 		if !found {
-			return fmt.Errorf("Could not find data for destination with name %s", destName)
+			log.C(ctx).Infof("could not find data for destination with name %s", destName)
+			continue
 		}
 		if err := a.DestinationCient.CreateDestination(ctx, destToCreate); err != nil {
 			return err
@@ -201,8 +207,9 @@ func (a *AppLabelNotificationHandler) syncDestinations(ctx context.Context, appD
 	}
 
 	for name := range destsMap {
-		fmt.Printf("Destination to delete: %s\n", name)
+		log.C(ctx).Infof("Destination to delete: %s", name)
 		if err := a.DestinationCient.DeleteDestination(ctx, name); err != nil {
+			log.C(ctx).Errorf("could not delete destination with name %s", name)
 			return err
 		}
 	}
@@ -225,61 +232,6 @@ func destsToMap(dests []destination.Destination) map[string]destination.Destinat
 		result[dest["Name"].(string)] = dest
 	}
 	return result
-}
-
-func syncServiceEntries(ctx context.Context, scriptRunner script.Runner, expectedAppNames []string) error {
-	existingAppNames, err := scriptRunner.GetExistingServices(ctx)
-	if err != nil {
-		return err
-	}
-
-	appsToDelete := make([]string, 0)
-	for _, app := range existingAppNames {
-		if stringsAnyEquals(expectedAppNames, app) {
-			continue
-		} else {
-			appsToDelete = append(appsToDelete, app)
-		}
-	}
-
-	appsToCreate := make([]string, 0)
-	for _, app := range expectedAppNames {
-		if stringsAnyEquals(existingAppNames, app) {
-			continue
-		} else {
-			appsToCreate = append(appsToCreate, app)
-		}
-	}
-
-	// delete all resources for systems removed from scenario
-	for _, appName := range appsToDelete {
-		if appName == commerceMockName {
-			log.C(ctx).Infof("service resources won't be edited for the %q application", appName)
-			continue
-		}
-
-		if err := scriptRunner.DeleteResource(ctx, fmt.Sprintf("service-entries/%s.yaml", appName)); err != nil {
-			return err
-		}
-	}
-
-	// apply resources for systems added to scenario
-	for _, appName := range appsToCreate {
-		if appName == commerceMockName {
-			log.C(ctx).Infof("service resources won't be edited for the %q application", appName)
-			continue
-		}
-
-		if err := scriptRunner.ApplyResource(ctx, fmt.Sprintf("service-entries/%s.yaml", appName)); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func cleanupServiceEntries(ctx context.Context, scriptRunner script.Runner) error {
-	return scriptRunner.DeleteResource(ctx, "service-entries/")
 }
 
 // stringsAnyEquals returns true if any of the strings in the slice equal the given string.

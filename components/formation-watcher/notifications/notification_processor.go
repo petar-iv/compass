@@ -112,7 +112,7 @@ func (np *NotificationProcessor) processLoop(ctx context.Context) {
 				return
 			}
 		case n := <-np.listener.NotificationChannel():
-			log.C(ctx).Infof("Received data from channel [%s]", n.Channel)
+			// log.C(ctx).Infof("Received data from channel [%s]", n.Channel)
 			var prettyJSON bytes.Buffer
 			err := json.Indent(&prettyJSON, []byte(n.Extra), "", "\t")
 			if err != nil {
@@ -120,7 +120,7 @@ func (np *NotificationProcessor) processLoop(ctx context.Context) {
 				continue
 			}
 
-			log.C(ctx).Infof("Received data from channel %s: %s", n.Channel, string(prettyJSON.Bytes()))
+			// log.C(ctx).Infof("Received data from channel %s: %s", n.Channel, string(prettyJSON.Bytes()))
 
 			notification := &Notification{}
 			if err := json.Unmarshal([]byte(n.Extra), notification); err != nil {
@@ -168,7 +168,7 @@ func (np *NotificationProcessor) processLoop(ctx context.Context) {
 				}
 			}
 
-			log.C(ctx).Info("Successfully processed notification %s", string(prettyJSON.Bytes()))
+			// log.C(ctx).Info("Successfully processed notification %s", string(prettyJSON.Bytes()))
 		case <-time.After(90 * time.Second):
 			log.C(ctx).Warn("Received no events for 90 seconds, checking connection")
 			go func() {

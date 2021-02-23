@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  formations-watcher
+  namespace: compass-system
+  labels:
+    app:  formations-watcher
+spec:
+  selector:
+    matchLabels:
+      app:  formations-watcher
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app:  formations-watcher
+      annotations:
+        sidecar.istio.io/inject: “false”
+    spec:
+      imagePullSecrets:
+        - name: gcr-reader-secret
+      containers:
+      - image: eu.gcr.io/sap-cp-cmp-dev/formation-watcher:latest
+        name:  formations-watcher
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 1
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 256Mi
+        env:
+        - name: APP_DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: compass-postgresql
+              key: postgresql-director-username
+        - name: APP_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: compass-postgresql
+              key: postgresql-director-password
+        - name: APP_DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: compass-postgresql
+              key: postgresql-serviceName
+        - name: APP_DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: compass-postgresql
+              key: postgresql-servicePort
+        - name: APP_DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: compass-postgresql
+              key: postgresql-director-db-name
+        - name: APP_DB_SSL
+          valueFrom:
+            secretKeyRef:
+              name: compass-postgresql
+              key: postgresql-sslMode
+        - name: APP_DB_MAX_OPEN_CONNECTIONS
+          value: "10"
+        - name: APP_DB_MAX_IDLE_CONNECTIONS
+          value: "4"
+        volumeMounts:
+          - name: destinations
+            mountPath: /app/hack
+            readOnly: true
+      - name: cloudsql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.18.0-alpine
+        command: ["/cloud_sql_proxy",
+                  "-instances=sap-cp-cmp-stage:europe-west1:cmp-stage-5281=tcp:5432",
+                  "-credential_file=/secrets/cloudsql-instance-credentials/credentials.json",
+                  "-term_timeout=2s"]
+        resources:
+          limits:
+            cpu: 1
+            memory: 512Mi
+          requests:
+            cpu: 600m
+            memory: 128Mi
+        volumeMounts:
+          - name: cloudsql-instance-credentials
+            mountPath: /secrets/cloudsql-instance-credentials
+            readOnly: true
+      volumes:
+        - name: cloudsql-instance-credentials
+          secret:
+            secretName: cloudsql-instance-credentials
+        - name: destinations
+          secret:
+            secretName: destinations
+      restartPolicy: Always

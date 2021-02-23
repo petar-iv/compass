@@ -27,6 +27,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/vrischmann/envconfig"
+
 	mp_bundle "github.com/kyma-incubator/compass/components/director/internal2/domain/bundle"
 	"golang.org/x/oauth2/clientcredentials"
 
@@ -45,7 +47,6 @@ import (
 	"github.com/kyma-incubator/compass/components/director/internal2/domain/labeldef"
 	rt "github.com/kyma-incubator/compass/components/director/internal2/domain/runtime"
 	"github.com/kyma-incubator/compass/components/director/internal2/domain/scenarioassignment"
-	"github.com/kyma-incubator/compass/components/director/internal2/domain/spec"
 	"github.com/kyma-incubator/compass/components/director/internal2/domain/version"
 	"github.com/kyma-incubator/compass/components/director/internal2/domain/webhook"
 	"github.com/kyma-incubator/compass/components/director/internal2/uid"
@@ -70,10 +71,10 @@ func main() {
 	signal.HandleInterrupts(ctx, cancel, term)
 
 	cfg := config.DefaultConfig()
-	// err := envconfig.InitWithPrefix(&cfg, "APP")
-	// fatalOnError(err)
+	err := envconfig.InitWithPrefix(&cfg.Database, "APP")
+	fatalOnError(err)
 
-	err := cfg.Validate()
+	err = cfg.Validate()
 	fatalOnError(err)
 
 	ctx, err = log.Configure(ctx, cfg.Log)
@@ -88,11 +89,12 @@ func main() {
 	authConverter := auth.NewConverter()
 	frConverter := fetchrequest.NewConverter(authConverter)
 	versionConverter := version.NewConverter()
-	specConverter := spec.NewConverter(frConverter)
+	// specConverter := spec.NewConverter(frConverter)
 	docConverter := document.NewConverter(frConverter)
 	webhookConverter := webhook.NewConverter(authConverter)
-	apiConverter := api.NewConverter(versionConverter, specConverter)
-	eventAPIConverter := eventdef.NewConverter(versionConverter, specConverter)
+	apiConverter := api.NewConverter(frConverter, versionConverter)
+
+	eventAPIConverter := eventdef.NewConverter(frConverter, versionConverter)
 	labelDefConverter := labeldef.NewConverter()
 	labelConverter := label.NewConverter()
 	intSysConverter := integrationsystem.NewConverter()
@@ -121,12 +123,10 @@ func main() {
 
 	scenarioAssignmentEngine := scenarioassignment.NewEngine(labelUpsertSvc, labelRepo, scenarioAssignmentRepo)
 	fetchRequestSvc := fetchrequest.NewService(fetchRequestRepo, httpClient)
-	specRepo := spec.NewRepository(specConverter)
-	specSvc := spec.NewService(specRepo, fetchRequestRepo, uidSvc, fetchRequestSvc)
-	apiSvc := api.NewService(apiRepo, uidSvc, specSvc)
-	eventSvc := eventdef.NewService(eventAPIRepo, uidSvc, specSvc)
-	docSvc := document.NewService(docRepo, fetchRequestRepo, uidSvc)
-	bundleSvc := mp_bundle.NewService(bndlRepo, apiSvc, eventSvc, docSvc, uidSvc)
+	// apiSvc := api.NewService(apiRepo, fetchRequestRepo, uidSvc, fetchRequestSvc)
+	// eventSvc := eventdef.NewService(eventAPIRepo, fetchRequestRepo, uidSvc, fetchRequestSvc)
+	// docSvc := document.NewService(docRepo, fetchRequestRepo, uidSvc)
+	bundleSvc := mp_bundle.NewService(bndlRepo, apiRepo, eventAPIRepo, docRepo, fetchRequestRepo, uidSvc, fetchRequestSvc)
 
 	runtimeSvc := rt.NewService(runtimeRepo, labelRepo, scenariosSvc, labelUpsertSvc, uidSvc, scenarioAssignmentEngine, "")
 	normalizer := &normalizer.DefaultNormalizator{}
@@ -223,5 +223,6 @@ func readDestinations(destinationsReader io.Reader) ([]destination.Destination, 
 	if err := json.Unmarshal(bytes, &result); err != nil {
 		return nil, err
 	}
+	log.D().Infof("Successfully read %d destinations", len(result))
 	return result, nil
 }

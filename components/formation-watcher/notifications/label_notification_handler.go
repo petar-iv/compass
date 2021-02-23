@@ -3,6 +3,7 @@ package notifications
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
@@ -24,6 +25,10 @@ type LabelNotificationHandler struct {
 }
 
 func (l *LabelNotificationHandler) HandleCreate(ctx context.Context, data []byte) error {
+	if ok := checkLabel(ctx, data); !ok {
+		return nil
+	}
+	fmt.Printf(">>>>>>> %s\n", string(data))
 	label := Label{}
 	if err := json.Unmarshal(data, &label); err != nil {
 		return errors.Errorf("could not unmarshal label: %s", err)
@@ -66,6 +71,9 @@ func (l *LabelNotificationHandler) HandleCreate(ctx context.Context, data []byte
 }
 
 func (l *LabelNotificationHandler) HandleUpdate(ctx context.Context, data []byte) error {
+	if ok := checkLabel(ctx, data); !ok {
+		return nil
+	}
 	label := Label{}
 	if err := json.Unmarshal(data, &label); err != nil {
 		return errors.Errorf("could not unmarshal label: %s", err)
@@ -103,6 +111,9 @@ func (l *LabelNotificationHandler) HandleUpdate(ctx context.Context, data []byte
 }
 
 func (l *LabelNotificationHandler) HandleDelete(ctx context.Context, data []byte) error {
+	if ok := checkLabel(ctx, data); !ok {
+		return nil
+	}
 	label := Label{}
 	if err := json.Unmarshal(data, &label); err != nil {
 		return errors.Errorf("could not unmarshal label: %s", err)
@@ -142,4 +153,17 @@ func (l *LabelNotificationHandler) HandleDelete(ctx context.Context, data []byte
 
 	log.C(ctx).Infof("Successfully handled delete event for label %v", label)
 	return nil
+}
+
+func checkLabel(ctx context.Context, data []byte) bool {
+	var temp map[string]interface{}
+	if err := json.Unmarshal(data, &temp); err != nil {
+		log.C(ctx).Errorf("could not unmarshal label: %s", err)
+		return false
+	}
+	if temp["tenant_id"] != tenantID {
+		// log.C(ctx).Infof("Will not process label for this tenant")
+		return false
+	}
+	return true
 }
