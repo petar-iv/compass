@@ -35,10 +35,15 @@ type config struct {
 
 	Log log.Config
 
-	DirectorOrigin  string `envconfig:"default=http://127.0.0.1:3001"`
-	ConnectorOrigin string `envconfig:"default=http://127.0.0.1:3002"`
+	DirectorOrigin      string `envconfig:"default=http://127.0.0.1:3001"`
+	ConnectorOrigin     string `envconfig:"default=http://127.0.0.1:3002"`
+	TenantFetcherOrigin string `envconfig:"default=http://127.0.0.1:3003"`
+
 	MetricsAddress  string `envconfig:"default=127.0.0.1:3003"`
 	AuditlogEnabled bool   `envconfig:"default=false"`
+
+	TenantProviderTenantIdProperty string `envconfig:"default=tenantId"`
+	TenantProvider                 string `envconfig:"default=provider"`
 }
 
 func main() {
@@ -75,6 +80,7 @@ func main() {
 
 	correlationTr := httputil.NewCorrelationIDTransport(http.DefaultTransport)
 	tr := proxy.NewTransport(auditlogSink, auditlogSvc, correlationTr)
+	tr2 := proxy.NewTenantFetcherTransport(auditlogSink, auditlogSvc, correlationTr, cfg.TenantProvider, cfg.TenantProviderTenantIdProperty)
 
 	err = proxyRequestsForComponent(ctx, router, "/connector", cfg.ConnectorOrigin, tr)
 	exitOnError(err, "Error while initializing proxy for Connector")
@@ -82,8 +88,8 @@ func main() {
 	err = proxyRequestsForComponent(ctx, router, "/director", cfg.DirectorOrigin, tr)
 	exitOnError(err, "Error while initializing proxy for Director")
 
-	err = proxyRequestsForComponent(ctx, router, "/director", cfg.DirectorOrigin, tr)
-	exitOnError(err, "Error while initializing proxy for Director")
+	err = proxyRequestsForComponent(ctx, router, "/tenants", cfg.TenantFetcherOrigin, tr2)
+	exitOnError(err, "Error while initializing proxy for TenantFetcher")
 
 	router.HandleFunc("/healthz", func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(200)

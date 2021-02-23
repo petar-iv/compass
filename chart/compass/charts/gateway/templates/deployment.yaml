@@ -40,6 +40,8 @@ spec:
               value: "0.0.0.0:{{ .Values.global.gateway.port }}"
             - name: APP_DIRECTOR_ORIGIN
               value: "http://compass-director.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.global.director.port }}"
+            - name: APP_TENANT_FETCHER_ORIGIN
+              value: "http://{{ .Values.global.tenantFetcher.host }}:{{ .Values.global.tenantFetcher.port }}"
             - name: APP_METRICS_ADDRESS
               value: "0.0.0.0:{{ .Values.metrics.port }}"
             - name: APP_CONNECTOR_ORIGIN
@@ -123,6 +125,10 @@ spec:
                   name: {{ .Values.global.auditlog.configMapName }}
                   key: auditlog-channel-timeout
                   optional: true
+            - name: APP_TENANT_PROVIDER_TENANT_ID_PROPERTY
+              value: {{ .Values.global.tenantFetcher.tenantProvider.tenantIdProperty }}
+            - name: APP_TENANT_PROVIDER
+              value: {{ .Values.global.tenantFetcher.tenantProvider.name }}
 {{ end }}
 {{- with .Values.deployment.securityContext }}
           securityContext:

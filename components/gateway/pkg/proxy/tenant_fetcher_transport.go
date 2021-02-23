@@ -3,9 +3,12 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	tenantpkg "github.com/kyma-incubator/compass/components/director/pkg/tenant"
 
 	"github.com/tidwall/gjson"
 
@@ -22,16 +25,27 @@ import (
 //RoundTrip for tenant-fetcher and director/connector structs which embed the CommonTransport
 type TenantFetcherTransport struct {
 	http.RoundTripper
-	auditlogSink AuditlogService
-	auditlogSvc  AuditlogService
+	auditlogSink                   AuditlogService
+	auditlogSvc                    AuditlogService
+	TenantProviderTenantIdProperty string
+	TenantProvider                 string
 }
 
-func NewTenantFetcherTransport(sink AuditlogService, svc AuditlogService, trip RoundTrip) *Transport {
-	return &Transport{
-		RoundTripper: trip,
-		auditlogSink: sink,
-		auditlogSvc:  svc,
+func NewTenantFetcherTransport(sink AuditlogService, svc AuditlogService, trip RoundTrip, tenantProvider, tenantProviderProperty string) *TenantFetcherTransport {
+	return &TenantFetcherTransport{
+		RoundTripper:                   trip,
+		auditlogSink:                   sink,
+		auditlogSvc:                    svc,
+		TenantProviderTenantIdProperty: tenantProviderProperty,
+		TenantProvider:                 tenantProvider,
 	}
+}
+
+type TenantBody struct {
+	Method         string                 `json:"method"`
+	TenantId       string                 `json:"tenant_id"`
+	TenantProvider string                 `json:"tenant_provider"`
+	Status         tenantpkg.TenantStatus `json:"tenant_status"`
 }
 
 func (t *TenantFetcherTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
@@ -39,7 +53,7 @@ func (t *TenantFetcherTransport) RoundTrip(req *http.Request) (resp *http.Respon
 	if err != nil {
 		return nil, err
 	}
-	tenant := gjson.GetBytes(requestBody, "globalAccountGUID").String()
+	tenant := gjson.GetBytes(requestBody, t.TenantProviderTenantIdProperty).String()
 
 	req.Body = ioutil.NopCloser(bytes.NewBuffer(requestBody))
 	defer httpcommon.CloseBody(req.Context(), req.Body)
@@ -56,10 +70,22 @@ func (t *TenantFetcherTransport) RoundTrip(req *http.Request) (resp *http.Respon
 		return nil, errors.Wrap(err, "while parsing JWT")
 	}
 
+	body := TenantBody{
+		Method:         req.Method,
+		TenantId:       tenant,
+		TenantProvider: t.TenantProvider,
+		Status:         tenantpkg.Active,
+	}
+
+	marshaledBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, errors.Wrap(err, "while marshaling tenant body")
+	}
+
 	ctx := context.WithValue(req.Context(), correlation.RequestIDHeaderKey, correlationHeaders)
 	err = preAuditLogger.PreLog(ctx, AuditlogMessage{
 		CorrelationIDHeaders: correlationHeaders,
-		Request:              string(requestBody),
+		Request:              string(marshaledBody),
 		Response:             "",
 		Claims:               claims,
 	})
@@ -81,7 +107,7 @@ func (t *TenantFetcherTransport) RoundTrip(req *http.Request) (resp *http.Respon
 
 	err = t.auditlogSink.Log(req.Context(), AuditlogMessage{
 		CorrelationIDHeaders: correlationHeaders,
-		Request:              string(requestBody),
+		Request:              string(marshaledBody),
 		Response:             string(responseBody),
 		Claims:               claims,
 	})
