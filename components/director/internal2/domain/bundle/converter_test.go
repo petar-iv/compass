@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kyma-incubator/compass/components/director/internal2/repo"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/kyma-incubator/compass/components/director/internal2/domain/auth"
@@ -27,7 +28,9 @@ func TestEntityConverter_ToEntity(t *testing.T) {
 		//GIVEN
 		name := "foo"
 		desc := "bar"
-		bndlModel := fixBundleModel(t, name, desc)
+		bndlModel := fixBundleModel(name, desc)
+		testErrMsg := "test-err"
+		bndlModel.Error = &testErrMsg
 		require.NotNil(t, bndlModel)
 		authConv := auth.NewConverter()
 		conv := mp_bundle.NewConverter(authConv, nil, nil, nil)
@@ -35,29 +38,35 @@ func TestEntityConverter_ToEntity(t *testing.T) {
 		entity, err := conv.ToEntity(bndlModel)
 		//THEN
 		require.NoError(t, err)
-		assert.Equal(t, fixEntityBundle(bundleID, name, desc), entity)
+
+		expectedBndl := fixEntityBundle(bundleID, name, desc)
+		expectedBndl.Error = sql.NullString{
+			String: testErrMsg,
+			Valid:  true,
+		}
+		assert.Equal(t, expectedBndl, entity)
 	})
 	t.Run("success all nullable properties empty", func(t *testing.T) {
 		//GIVEN
 		name := "foo"
 		bndlModel := &model.Bundle{
-			ID:                             bundleID,
 			TenantID:                       tenantID,
 			ApplicationID:                  appID,
 			Name:                           name,
 			Description:                    nil,
 			InstanceAuthRequestInputSchema: nil,
 			DefaultInstanceAuth:            nil,
+			BaseEntity:                     &model.BaseEntity{ID: bundleID},
 		}
 
 		expectedEntity := &mp_bundle.Entity{
-			ID:                            bundleID,
 			TenantID:                      tenantID,
 			ApplicationID:                 appID,
 			Name:                          name,
 			Description:                   sql.NullString{},
 			InstanceAuthRequestJSONSchema: sql.NullString{},
 			DefaultInstanceAuth:           sql.NullString{},
+			BaseEntity:                    &repo.BaseEntity{ID: bundleID},
 		}
 
 		require.NotNil(t, bndlModel)
@@ -76,35 +85,42 @@ func TestEntityConverter_FromEntity(t *testing.T) {
 		//GIVEN
 		name := "foo"
 		desc := "bar"
+		testErrMsg := "test-err"
 		entity := fixEntityBundle(bundleID, name, desc)
+		entity.Error = sql.NullString{
+			String: testErrMsg,
+			Valid:  true,
+		}
 		authConv := auth.NewConverter()
 		conv := mp_bundle.NewConverter(authConv, nil, nil, nil)
 		//WHEN
 		bndlModel, err := conv.FromEntity(entity)
 		//THEN
 		require.NoError(t, err)
-		assert.Equal(t, fixBundleModel(t, name, desc), bndlModel)
+		expectedBdnl := fixBundleModel(name, desc)
+		expectedBdnl.Error = &testErrMsg
+		assert.Equal(t, expectedBdnl, bndlModel)
 	})
 	t.Run("success all nullable properties empty", func(t *testing.T) {
 		//GIVEN
 		name := "foo"
 		entity := &mp_bundle.Entity{
-			ID:                            bundleID,
 			TenantID:                      tenantID,
 			ApplicationID:                 appID,
 			Name:                          name,
 			Description:                   sql.NullString{},
 			InstanceAuthRequestJSONSchema: sql.NullString{},
 			DefaultInstanceAuth:           sql.NullString{},
+			BaseEntity:                    &repo.BaseEntity{ID: bundleID},
 		}
 		expectedModel := &model.Bundle{
-			ID:                             bundleID,
 			TenantID:                       tenantID,
 			ApplicationID:                  appID,
 			Name:                           name,
 			Description:                    nil,
 			InstanceAuthRequestInputSchema: nil,
 			DefaultInstanceAuth:            nil,
+			BaseEntity:                     &model.BaseEntity{ID: bundleID},
 		}
 		authConv := auth.NewConverter()
 		conv := mp_bundle.NewConverter(authConv, nil, nil, nil)
@@ -122,10 +138,10 @@ func TestConverter_ToGraphQL(t *testing.T) {
 	id := bundleID
 	name := "foo"
 	desc := "bar"
-	modelBundle := fixBundleModel(t, name, desc)
+	modelBundle := fixBundleModel(name, desc)
 	gqlBundle := fixGQLBundle(id, name, desc)
-	emptyModelBundle := &model.Bundle{}
-	emptyGraphQLBundle := &graphql.Bundle{}
+	emptyModelBundle := &model.Bundle{BaseEntity: &model.BaseEntity{}}
+	emptyGraphQLBundle := &graphql.Bundle{BaseEntity: &graphql.BaseEntity{}}
 
 	testCases := []struct {
 		Name            string
@@ -194,16 +210,16 @@ func TestConverter_MultipleToGraphQL(t *testing.T) {
 	name2 := "bar"
 	desc := "1"
 	input := []*model.Bundle{
-		fixBundleModel(t, name1, desc),
-		fixBundleModel(t, name2, desc),
-		{},
+		fixBundleModel(name1, desc),
+		fixBundleModel(name2, desc),
+		{BaseEntity: &model.BaseEntity{}},
 		nil,
 	}
 
 	expected := []*graphql.Bundle{
 		fixGQLBundle(bundleID, name1, desc),
 		fixGQLBundle(bundleID, name2, desc),
-		{},
+		{BaseEntity: &graphql.BaseEntity{}},
 	}
 
 	authConverter := &automock.AuthConverter{}
@@ -249,12 +265,12 @@ func TestConverter_CreateInputFromGraphQL(t *testing.T) {
 			Expected: modelBundleCreateInput,
 			APIConverterFn: func() *automock.APIConverter {
 				conv := &automock.APIConverter{}
-				conv.On("MultipleInputFromGraphQL", gqlBundleCreateInput.APIDefinitions).Return(modelBundleCreateInput.APIDefinitions, nil)
+				conv.On("MultipleInputFromGraphQL", gqlBundleCreateInput.APIDefinitions).Return(modelBundleCreateInput.APIDefinitions, modelBundleCreateInput.APISpecs, nil)
 				return conv
 			},
 			EventAPIConverterFn: func() *automock.EventConverter {
 				conv := &automock.EventConverter{}
-				conv.On("MultipleInputFromGraphQL", gqlBundleCreateInput.EventDefinitions).Return(modelBundleCreateInput.EventDefinitions, nil)
+				conv.On("MultipleInputFromGraphQL", gqlBundleCreateInput.EventDefinitions).Return(modelBundleCreateInput.EventDefinitions, modelBundleCreateInput.EventSpecs, nil)
 				return conv
 			},
 			DocumentConverterFn: func() *automock.DocumentConverter {
@@ -274,12 +290,12 @@ func TestConverter_CreateInputFromGraphQL(t *testing.T) {
 			Expected: model.BundleCreateInput{},
 			APIConverterFn: func() *automock.APIConverter {
 				conv := &automock.APIConverter{}
-				conv.On("MultipleInputFromGraphQL", emptyGQLBundleCreateInput.APIDefinitions).Return(emptyModelBundleCreateInput.APIDefinitions, nil)
+				conv.On("MultipleInputFromGraphQL", emptyGQLBundleCreateInput.APIDefinitions).Return(emptyModelBundleCreateInput.APIDefinitions, emptyModelBundleCreateInput.APISpecs, nil)
 				return conv
 			},
 			EventAPIConverterFn: func() *automock.EventConverter {
 				conv := &automock.EventConverter{}
-				conv.On("MultipleInputFromGraphQL", emptyGQLBundleCreateInput.EventDefinitions).Return(emptyModelBundleCreateInput.EventDefinitions, nil)
+				conv.On("MultipleInputFromGraphQL", emptyGQLBundleCreateInput.EventDefinitions).Return(emptyModelBundleCreateInput.EventDefinitions, emptyModelBundleCreateInput.EventSpecs, nil)
 				return conv
 			},
 			DocumentConverterFn: func() *automock.DocumentConverter {
@@ -331,12 +347,12 @@ func TestConverter_MultipleCreateInputFromGraphQL(t *testing.T) {
 	}
 
 	apiConv := &automock.APIConverter{}
-	apiConv.On("MultipleInputFromGraphQL", gqlBndl1.APIDefinitions).Return(modBndl1.APIDefinitions, nil).Once()
-	apiConv.On("MultipleInputFromGraphQL", gqlBndl2.APIDefinitions).Return(modBndl2.APIDefinitions, nil).Once()
+	apiConv.On("MultipleInputFromGraphQL", gqlBndl1.APIDefinitions).Return(modBndl1.APIDefinitions, modBndl1.APISpecs, nil).Once()
+	apiConv.On("MultipleInputFromGraphQL", gqlBndl2.APIDefinitions).Return(modBndl2.APIDefinitions, modBndl2.APISpecs, nil).Once()
 
 	eventConv := &automock.EventConverter{}
-	eventConv.On("MultipleInputFromGraphQL", gqlBndl1.EventDefinitions).Return(modBndl1.EventDefinitions, nil).Once()
-	eventConv.On("MultipleInputFromGraphQL", gqlBndl2.EventDefinitions).Return(modBndl2.EventDefinitions, nil).Once()
+	eventConv.On("MultipleInputFromGraphQL", gqlBndl1.EventDefinitions).Return(modBndl1.EventDefinitions, modBndl1.EventSpecs, nil).Once()
+	eventConv.On("MultipleInputFromGraphQL", gqlBndl2.EventDefinitions).Return(modBndl2.EventDefinitions, modBndl2.EventSpecs, nil).Once()
 
 	docConv := &automock.DocumentConverter{}
 	docConv.On("MultipleInputFromGraphQL", gqlBndl1.Documents).Return(modBndl1.Documents, nil).Once()
@@ -362,7 +378,7 @@ func TestConverter_UpdateInputFromGraphQL(t *testing.T) {
 	name := "foo"
 	desc := "Lorem ipsum"
 	gqlBundleCreateInput := fixGQLBundleUpdateInput(name, desc)
-	modelBundleCreateInput := fixModelBundleUpdateInput(t, name, desc)
+	modelBundleCreateInput := fixModelBundleUpdateInput(name, desc)
 	emptyGQLBundleCreateInput := &graphql.BundleCreateInput{}
 	emptyModelBundleCreateInput := &model.BundleCreateInput{}
 	testCases := []struct {

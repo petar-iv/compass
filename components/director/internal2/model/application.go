@@ -1,13 +1,15 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
+
+	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/pagination"
 )
 
 type Application struct {
-	ID                  string
 	ProviderName        *string
 	Tenant              string
 	Name                string
@@ -15,6 +17,13 @@ type Application struct {
 	Status              *ApplicationStatus
 	HealthCheckURL      *string
 	IntegrationSystemID *string
+	BaseURL             *string
+	Labels              json.RawMessage
+	*BaseEntity
+}
+
+func (_ *Application) GetType() resource.Type {
+	return resource.Application
 }
 
 func (app *Application) SetFromUpdateInput(update ApplicationUpdateInput, timestamp time.Time) {
@@ -35,6 +44,12 @@ func (app *Application) SetFromUpdateInput(update ApplicationUpdateInput, timest
 	}
 	app.Status.Condition = getApplicationStatusConditionOrDefault(update.StatusCondition)
 	app.Status.Timestamp = timestamp
+	if update.BaseURL != nil {
+		app.BaseURL = update.BaseURL
+	}
+	if update.Labels != nil {
+		app.Labels = update.Labels
+	}
 }
 
 type ApplicationStatus struct {
@@ -66,6 +81,8 @@ type ApplicationRegisterInput struct {
 	Bundles             []*BundleCreateInput
 	IntegrationSystemID *string
 	StatusCondition     *ApplicationStatusCondition
+	BaseURL             *string
+	OrdLabels           json.RawMessage
 }
 
 func (i *ApplicationRegisterInput) ToApplication(timestamp time.Time, id, tenant string) *Application {
@@ -74,7 +91,6 @@ func (i *ApplicationRegisterInput) ToApplication(timestamp time.Time, id, tenant
 	}
 
 	return &Application{
-		ID:                  id,
 		Name:                i.Name,
 		Description:         i.Description,
 		Tenant:              tenant,
@@ -84,6 +100,12 @@ func (i *ApplicationRegisterInput) ToApplication(timestamp time.Time, id, tenant
 		Status: &ApplicationStatus{
 			Condition: getApplicationStatusConditionOrDefault(i.StatusCondition),
 			Timestamp: timestamp,
+		},
+		BaseURL: i.BaseURL,
+		Labels:  i.OrdLabels,
+		BaseEntity: &BaseEntity{
+			ID:    id,
+			Ready: true,
 		},
 	}
 }
@@ -103,4 +125,6 @@ type ApplicationUpdateInput struct {
 	HealthCheckURL      *string
 	IntegrationSystemID *string
 	StatusCondition     *ApplicationStatusCondition
+	BaseURL             *string
+	Labels              json.RawMessage
 }

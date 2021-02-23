@@ -3,8 +3,11 @@ package mp_bundle_test
 import (
 	"database/sql"
 	"database/sql/driver"
-	"testing"
+	"encoding/json"
 	"time"
+
+	"github.com/kyma-incubator/compass/components/director/internal2/repo"
+	"github.com/kyma-incubator/compass/components/director/pkg/str"
 
 	mp_bundle "github.com/kyma-incubator/compass/components/director/internal2/domain/bundle"
 
@@ -13,19 +16,23 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/pagination"
 )
 
+var fixedTimestamp = time.Now()
+
 func fixModelAPIDefinition(id string, bndlID string, name, description string, group string) *model.APIDefinition {
 	return &model.APIDefinition{
-		ID:          id,
-		BundleID:    bndlID,
+		BundleID:    &bndlID,
 		Name:        name,
 		Description: &description,
 		Group:       &group,
+		BaseEntity:  &model.BaseEntity{ID: id},
 	}
 }
 
 func fixGQLAPIDefinition(id string, bndlID string, name, description string, group string) *graphql.APIDefinition {
 	return &graphql.APIDefinition{
-		ID:          id,
+		BaseEntity: &graphql.BaseEntity{
+			ID: id,
+		},
 		BundleID:    bndlID,
 		Name:        name,
 		Description: &description,
@@ -59,20 +66,19 @@ func fixGQLAPIDefinitionPage(apiDefinitions []*graphql.APIDefinition) *graphql.A
 
 func fixModelEventAPIDefinition(id string, bundleID string, name, description string, group string) *model.EventDefinition {
 	return &model.EventDefinition{
-		ID:          id,
-		BundleID:    bundleID,
+		BundleID:    &bundleID,
 		Name:        name,
 		Description: &description,
 		Group:       &group,
+		BaseEntity:  &model.BaseEntity{ID: id},
 	}
 }
-func fixMinModelEventAPIDefinition(id, placeholder string) *model.EventDefinition {
-	return &model.EventDefinition{ID: id, Tenant: "ttttttttt-tttt-tttt-tttt-tttttttttttt",
-		BundleID: "ppppppppp-pppp-pppp-pppp-pppppppppppp", Name: placeholder}
-}
+
 func fixGQLEventDefinition(id string, bundleID string, name, description string, group string) *graphql.EventDefinition {
 	return &graphql.EventDefinition{
-		ID:          id,
+		BaseEntity: &graphql.BaseEntity{
+			ID: id,
+		},
 		BundleID:    bundleID,
 		Name:        name,
 		Description: &description,
@@ -114,12 +120,12 @@ var (
 
 func fixModelDocument(bundleID, id string) *model.Document {
 	return &model.Document{
-		BundleID: bundleID,
-		ID:       id,
-		Title:    docTitle,
-		Format:   model.DocumentFormatMarkdown,
-		Kind:     &docKind,
-		Data:     &docData,
+		BundleID:   bundleID,
+		Title:      docTitle,
+		Format:     model.DocumentFormatMarkdown,
+		Kind:       &docKind,
+		Data:       &docData,
+		BaseEntity: &model.BaseEntity{ID: id},
 	}
 }
 
@@ -137,7 +143,9 @@ func fixModelDocumentPage(documents []*model.Document) *model.DocumentPage {
 
 func fixGQLDocument(id string) *graphql.Document {
 	return &graphql.Document{
-		ID:     id,
+		BaseEntity: &graphql.BaseEntity{
+			ID: id,
+		},
 		Title:  docTitle,
 		Format: graphql.DocumentFormatMarkdown,
 		Kind:   &docKind,
@@ -162,28 +170,48 @@ const (
 	appID            = "aaaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 	tenantID         = "ttttttttt-tttt-tttt-tttt-tttttttttttt"
 	externalTenantID = "eeeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+	ordID            = "com.compass.v1"
 )
 
-func fixBundleModel(t *testing.T, name, desc string) *model.Bundle {
+func fixBundleModel(name, desc string) *model.Bundle {
 	return &model.Bundle{
-		ID:                             bundleID,
 		TenantID:                       tenantID,
 		ApplicationID:                  appID,
 		Name:                           name,
 		Description:                    &desc,
 		InstanceAuthRequestInputSchema: fixBasicSchema(),
 		DefaultInstanceAuth:            fixModelAuth(),
+		OrdID:                          str.Ptr(ordID),
+		ShortDescription:               str.Ptr("short_description"),
+		Links:                          json.RawMessage("[]"),
+		Labels:                         json.RawMessage("[]"),
+		CredentialExchangeStrategies:   json.RawMessage("[]"),
+		BaseEntity: &model.BaseEntity{
+			ID:        bundleID,
+			Ready:     true,
+			Error:     nil,
+			CreatedAt: &fixedTimestamp,
+			UpdatedAt: &time.Time{},
+			DeletedAt: &time.Time{},
+		},
 	}
 }
 
 func fixGQLBundle(id, name, desc string) *graphql.Bundle {
 	schema := graphql.JSONSchema(`{"$id":"https://example.com/person.schema.json","$schema":"http://json-schema.org/draft-07/schema#","properties":{"age":{"description":"Age in years which must be equal to or greater than zero.","minimum":0,"type":"integer"},"firstName":{"description":"The person's first name.","type":"string"},"lastName":{"description":"The person's last name.","type":"string"}},"title":"Person","type":"object"}`)
 	return &graphql.Bundle{
-		ID:                             id,
 		Name:                           name,
 		Description:                    &desc,
 		InstanceAuthRequestInputSchema: &schema,
 		DefaultInstanceAuth:            fixGQLAuth(),
+		BaseEntity: &graphql.BaseEntity{
+			ID:        id,
+			Ready:     true,
+			Error:     nil,
+			CreatedAt: timeToTimestampPtr(fixedTimestamp),
+			UpdatedAt: timeToTimestampPtr(time.Time{}),
+			DeletedAt: timeToTimestampPtr(time.Time{}),
+		},
 	}
 }
 
@@ -227,6 +255,9 @@ func fixModelBundleCreateInput(name, description string) model.BundleCreateInput
 		Credential: &model.CredentialDataInput{Basic: &basicCredentialDataInput},
 	}
 
+	specData1 := "spec_data1"
+	specData2 := "spec_data2"
+
 	return model.BundleCreateInput{
 		Name:                           name,
 		Description:                    &description,
@@ -236,9 +267,17 @@ func fixModelBundleCreateInput(name, description string) model.BundleCreateInput
 			{Name: "api1", TargetURL: "foo.bar"},
 			{Name: "api2", TargetURL: "foo.bar2"},
 		},
+		APISpecs: []*model.SpecInput{
+			{Data: &specData1},
+			{Data: &specData2},
+		},
 		EventDefinitions: []*model.EventDefinitionInput{
 			{Name: "event1", Description: &desc},
 			{Name: "event2", Description: &desc},
+		},
+		EventSpecs: []*model.SpecInput{
+			{Data: &specData1},
+			{Data: &specData2},
 		},
 		Documents: []*model.DocumentInput{
 			{DisplayName: "doc1", Kind: &docKind},
@@ -266,7 +305,7 @@ func fixGQLBundleUpdateInput(name, description string) graphql.BundleUpdateInput
 	}
 }
 
-func fixModelBundleUpdateInput(t *testing.T, name, description string) model.BundleUpdateInput {
+func fixModelBundleUpdateInput(name, description string) model.BundleUpdateInput {
 	basicCredentialDataInput := model.BasicCredentialDataInput{
 		Username: "test",
 		Password: "pwd",
@@ -280,12 +319,6 @@ func fixModelBundleUpdateInput(t *testing.T, name, description string) model.Bun
 		Description:                    &description,
 		InstanceAuthRequestInputSchema: fixBasicSchema(),
 		DefaultInstanceAuth:            &authInput,
-	}
-}
-
-func fixModelAuthInput(headers map[string][]string) *model.AuthInput {
-	return &model.AuthInput{
-		AdditionalHeaders: headers,
 	}
 }
 
@@ -349,26 +382,38 @@ func fixEntityBundle(id, name, desc string) *mp_bundle.Entity {
 	}
 
 	return &mp_bundle.Entity{
-		ID:                            id,
 		TenantID:                      tenantID,
 		ApplicationID:                 appID,
 		Name:                          name,
 		Description:                   descSQL,
 		InstanceAuthRequestJSONSchema: schemaSQL,
 		DefaultInstanceAuth:           authSQL,
+		OrdID:                         repo.NewValidNullableString(ordID),
+		ShortDescription:              repo.NewValidNullableString("short_description"),
+		Links:                         repo.NewValidNullableString("[]"),
+		Labels:                        repo.NewValidNullableString("[]"),
+		CredentialExchangeStrategies:  repo.NewValidNullableString("[]"),
+		BaseEntity: &repo.BaseEntity{
+			ID:        id,
+			Ready:     true,
+			Error:     sql.NullString{},
+			CreatedAt: &fixedTimestamp,
+			UpdatedAt: &time.Time{},
+			DeletedAt: &time.Time{},
+		},
 	}
 }
 
 func fixBundleColumns() []string {
-	return []string{"id", "tenant_id", "app_id", "name", "description", "instance_auth_request_json_schema", "default_instance_auth"}
+	return []string{"id", "tenant_id", "app_id", "name", "description", "instance_auth_request_json_schema", "default_instance_auth", "ord_id", "short_description", "links", "labels", "credential_exchange_strategies", "ready", "created_at", "updated_at", "deleted_at", "error"}
 }
 
 func fixBundleRow(id, placeholder string) []driver.Value {
-	return []driver.Value{id, tenantID, appID, "foo", "bar", fixSchema(), fixDefaultAuth()}
+	return []driver.Value{id, tenantID, appID, "foo", "bar", fixSchema(), fixDefaultAuth(), ordID, str.Ptr("short_description"), repo.NewValidNullableString("[]"), repo.NewValidNullableString("[]"), repo.NewValidNullableString("[]"), true, fixedTimestamp, time.Time{}, time.Time{}, nil}
 }
 
 func fixBundleCreateArgs(defAuth, schema string, bndl *model.Bundle) []driver.Value {
-	return []driver.Value{bundleID, tenantID, appID, bndl.Name, bndl.Description, schema, defAuth}
+	return []driver.Value{bundleID, tenantID, appID, bndl.Name, bndl.Description, schema, defAuth, ordID, bndl.ShortDescription, repo.NewNullableStringFromJSONRawMessage(bndl.Links), repo.NewNullableStringFromJSONRawMessage(bndl.Labels), repo.NewNullableStringFromJSONRawMessage(bndl.CredentialExchangeStrategies), bndl.Ready, bndl.CreatedAt, bndl.UpdatedAt, bndl.DeletedAt, bndl.Error}
 }
 
 func fixDefaultAuth() string {
@@ -436,36 +481,7 @@ func fixGQLBundleInstanceAuth(id string) *graphql.BundleInstanceAuth {
 	}
 }
 
-func fixFetchRequest(url string, objectType model.FetchRequestReferenceObjectType, timestamp time.Time) *model.FetchRequest {
-	return &model.FetchRequest{
-		ID:     "foo",
-		Tenant: tenantID,
-		URL:    url,
-		Auth:   nil,
-		Mode:   "SINGLE",
-		Filter: nil,
-		Status: &model.FetchRequestStatus{
-			Condition: model.FetchRequestStatusConditionInitial,
-			Timestamp: timestamp,
-		},
-		ObjectType: objectType,
-		ObjectID:   "foo",
-	}
-}
-
-func fixFetchRequestWithCondition(url string, objectType model.FetchRequestReferenceObjectType, timestamp time.Time, condition model.FetchRequestStatusCondition) *model.FetchRequest {
-	return &model.FetchRequest{
-		ID:     "foo",
-		Tenant: tenantID,
-		URL:    url,
-		Auth:   nil,
-		Mode:   "SINGLE",
-		Filter: nil,
-		Status: &model.FetchRequestStatus{
-			Condition: condition,
-			Timestamp: timestamp,
-		},
-		ObjectType: objectType,
-		ObjectID:   "foo",
-	}
+func timeToTimestampPtr(time time.Time) *graphql.Timestamp {
+	t := graphql.Timestamp(time)
+	return &t
 }

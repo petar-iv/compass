@@ -3,6 +3,7 @@ package mp_bundle
 import (
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 
@@ -47,13 +48,25 @@ func (c *converter) ToEntity(in *model.Bundle) (*Entity, error) {
 	}
 
 	output := &Entity{
-		ID:                            in.ID,
 		TenantID:                      in.TenantID,
 		ApplicationID:                 in.ApplicationID,
 		Name:                          in.Name,
 		Description:                   repo.NewNullableString(in.Description),
-		DefaultInstanceAuth:           repo.NewNullableString(defaultInstanceAuth),
 		InstanceAuthRequestJSONSchema: repo.NewNullableString(in.InstanceAuthRequestInputSchema),
+		DefaultInstanceAuth:           repo.NewNullableString(defaultInstanceAuth),
+		OrdID:                         repo.NewNullableString(in.OrdID),
+		ShortDescription:              repo.NewNullableString(in.ShortDescription),
+		Links:                         repo.NewNullableStringFromJSONRawMessage(in.Links),
+		Labels:                        repo.NewNullableStringFromJSONRawMessage(in.Labels),
+		CredentialExchangeStrategies:  repo.NewNullableStringFromJSONRawMessage(in.CredentialExchangeStrategies),
+		BaseEntity: &repo.BaseEntity{
+			ID:        in.ID,
+			Ready:     in.Ready,
+			CreatedAt: in.CreatedAt,
+			UpdatedAt: in.UpdatedAt,
+			DeletedAt: in.DeletedAt,
+			Error:     repo.NewNullableString(in.Error),
+		},
 	}
 
 	return output, nil
@@ -70,13 +83,25 @@ func (c *converter) FromEntity(entity *Entity) (*model.Bundle, error) {
 	}
 
 	output := &model.Bundle{
-		ID:                             entity.ID,
 		TenantID:                       entity.TenantID,
 		ApplicationID:                  entity.ApplicationID,
 		Name:                           entity.Name,
 		Description:                    repo.StringPtrFromNullableString(entity.Description),
-		DefaultInstanceAuth:            defaultInstanceAuth,
 		InstanceAuthRequestInputSchema: repo.StringPtrFromNullableString(entity.InstanceAuthRequestJSONSchema),
+		DefaultInstanceAuth:            defaultInstanceAuth,
+		OrdID:                          repo.StringPtrFromNullableString(entity.OrdID),
+		ShortDescription:               repo.StringPtrFromNullableString(entity.ShortDescription),
+		Links:                          repo.JSONRawMessageFromNullableString(entity.Links),
+		Labels:                         repo.JSONRawMessageFromNullableString(entity.Labels),
+		CredentialExchangeStrategies:   repo.JSONRawMessageFromNullableString(entity.CredentialExchangeStrategies),
+		BaseEntity: &model.BaseEntity{
+			ID:        entity.ID,
+			Ready:     entity.Ready,
+			CreatedAt: entity.CreatedAt,
+			UpdatedAt: entity.UpdatedAt,
+			DeletedAt: entity.DeletedAt,
+			Error:     repo.StringPtrFromNullableString(entity.Error),
+		},
 	}
 
 	return output, nil
@@ -93,11 +118,18 @@ func (c *converter) ToGraphQL(in *model.Bundle) (*graphql.Bundle, error) {
 	}
 
 	return &graphql.Bundle{
-		ID:                             in.ID,
 		Name:                           in.Name,
 		Description:                    in.Description,
 		InstanceAuthRequestInputSchema: c.strPtrToJSONSchemaPtr(in.InstanceAuthRequestInputSchema),
 		DefaultInstanceAuth:            auth,
+		BaseEntity: &graphql.BaseEntity{
+			ID:        in.ID,
+			Ready:     in.Ready,
+			CreatedAt: timePtrToTimestampPtr(in.CreatedAt),
+			UpdatedAt: timePtrToTimestampPtr(in.UpdatedAt),
+			DeletedAt: timePtrToTimestampPtr(in.DeletedAt),
+			Error:     in.Error,
+		},
 	}, nil
 }
 
@@ -123,7 +155,7 @@ func (c *converter) CreateInputFromGraphQL(in graphql.BundleCreateInput) (model.
 		return model.BundleCreateInput{}, errors.Wrap(err, "while converting DefaultInstanceAuth input")
 	}
 
-	apiDefs, err := c.api.MultipleInputFromGraphQL(in.APIDefinitions)
+	apiDefs, apiSpecs, err := c.api.MultipleInputFromGraphQL(in.APIDefinitions)
 	if err != nil {
 		return model.BundleCreateInput{}, errors.Wrap(err, "while converting APIDefinitions input")
 	}
@@ -133,7 +165,7 @@ func (c *converter) CreateInputFromGraphQL(in graphql.BundleCreateInput) (model.
 		return model.BundleCreateInput{}, errors.Wrap(err, "while converting Documents input")
 	}
 
-	eventDefs, err := c.event.MultipleInputFromGraphQL(in.EventDefinitions)
+	eventDefs, eventSpecs, err := c.event.MultipleInputFromGraphQL(in.EventDefinitions)
 	if err != nil {
 		return model.BundleCreateInput{}, errors.Wrap(err, "while converting EventDefinitions input")
 	}
@@ -144,7 +176,9 @@ func (c *converter) CreateInputFromGraphQL(in graphql.BundleCreateInput) (model.
 		InstanceAuthRequestInputSchema: c.jsonSchemaPtrToStrPtr(in.InstanceAuthRequestInputSchema),
 		DefaultInstanceAuth:            auth,
 		APIDefinitions:                 apiDefs,
+		APISpecs:                       apiSpecs,
 		EventDefinitions:               eventDefs,
+		EventSpecs:                     eventSpecs,
 		Documents:                      documents,
 	}, nil
 }
@@ -218,4 +252,13 @@ func (c *converter) jsonSchemaPtrToStrPtr(in *graphql.JSONSchema) *string {
 	}
 	out := string(*in)
 	return &out
+}
+
+func timePtrToTimestampPtr(time *time.Time) *graphql.Timestamp {
+	if time == nil {
+		return nil
+	}
+
+	t := graphql.Timestamp(*time)
+	return &t
 }
