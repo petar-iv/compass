@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strings"
 
@@ -20,6 +21,11 @@ import (
 	"github.com/kyma-incubator/compass/components/gateway/pkg/httpcommon"
 	"github.com/pkg/errors"
 )
+
+type RestAuditlogService interface {
+	AuditlogService
+	LogRest(ctx context.Context, msg AuditlogMessage, responseStatus int, ip *net.IP) error
+}
 
 //TODO: Create a single CommonTransport struct and provide implementations of
 //RoundTrip for tenant-fetcher and director/connector structs which embed the CommonTransport
@@ -105,12 +111,19 @@ func (t *TenantFetcherTransport) RoundTrip(req *http.Request) (resp *http.Respon
 	resp.Body = ioutil.NopCloser(bytes.NewReader(responseBody))
 	defer httpcommon.CloseBody(req.Context(), resp.Body)
 
-	err = t.auditlogSink.Log(req.Context(), AuditlogMessage{
+	restAuditLogger, ok := t.auditlogSvc.(RestAuditlogService)
+	if !ok {
+		return nil, errors.New("Failed to type cast PreAuditlogService")
+	}
+
+	ip := net.ParseIP(req.RemoteAddr)
+
+	err = restAuditLogger.LogRest(req.Context(), AuditlogMessage{
 		CorrelationIDHeaders: correlationHeaders,
 		Request:              string(marshaledBody),
 		Response:             string(responseBody),
 		Claims:               claims,
-	})
+	}, resp.StatusCode, &ip)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("failed to send a post-change auditlog message to auditlog service")
 	}

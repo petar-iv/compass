@@ -3,6 +3,8 @@ package auditlog
 import (
 	"context"
 	"encoding/json"
+	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -148,6 +150,55 @@ func (svc *Service) Log(ctx context.Context, msg proxy.AuditlogMessage) error {
 	}
 
 	err = svc.client.LogConfigurationChange(ctx, configChangeMsg)
+	return errors.Wrap(err, "while sending configuration change")
+}
+
+func (svc *Service) LogRest(ctx context.Context, msg proxy.AuditlogMessage, responseStatus int, requestAddr *net.IP) error {
+
+	correlationID := msg.CorrelationIDHeaders[correlation.RequestIDHeaderKey]
+
+	if responseStatus == http.StatusOK {
+		configChangeMsg := svc.createConfigChangeMsg(msg.Claims, msg.Request, correlationID, PostAuditlogOperation)
+		configChangeMsg.Attributes = append(configChangeMsg.Attributes,
+			model.Attribute{
+				Name: "response",
+				Old:  "",
+				New:  "success",
+			})
+
+		err := svc.client.LogConfigurationChange(ctx, configChangeMsg)
+		return errors.Wrap(err, "while sending to auditlog")
+	}
+
+	if responseStatus == http.StatusUnauthorized {
+		securityEventMsg := svc.msgFactory.CreateSecurityEvent()
+		eventData := model.SecurityEventData{
+			ID:            fillID(msg.Claims, "Security Event"),
+			CorrelationID: correlationID,
+			Reason: []model.ErrorMessage{{
+				Message: msg.Response,
+			}},
+		}
+		data, err := json.Marshal(&eventData)
+		if err != nil {
+			return errors.Wrap(err, "while marshalling security event data")
+		}
+
+		securityEventMsg.Data = string(data)
+		securityEventMsg.IP = requestAddr
+		err = svc.client.LogSecurityEvent(ctx, securityEventMsg)
+		return errors.Wrap(err, "while sending security event to auditlog")
+	}
+
+	configChangeMsg := svc.createConfigChangeMsg(msg.Claims, msg.Request, correlationID, PostAuditlogOperation)
+	configChangeMsg.Attributes = append(configChangeMsg.Attributes,
+		model.Attribute{
+			Name: "response",
+			Old:  "",
+			New:  msg.Response,
+		})
+
+	err := svc.client.LogConfigurationChange(ctx, configChangeMsg)
 	return errors.Wrap(err, "while sending configuration change")
 }
 

@@ -7,5 +7,5 @@ type GraphqlResponse struct {
 
 type ErrorMessage struct {
 	Message string        `json:"message"`
-	Path    []interface{} `json:"path"`
+	Path    []interface{} `json:"path,omitempty"`
 }
