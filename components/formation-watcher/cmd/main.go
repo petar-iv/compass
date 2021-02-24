@@ -30,6 +30,7 @@ import (
 	"github.com/vrischmann/envconfig"
 
 	mp_bundle "github.com/kyma-incubator/compass/components/director/internal2/domain/bundle"
+	"github.com/kyma-incubator/compass/components/director/internal2/domain/spec"
 	"golang.org/x/oauth2/clientcredentials"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/normalizer"
@@ -89,12 +90,12 @@ func main() {
 	authConverter := auth.NewConverter()
 	frConverter := fetchrequest.NewConverter(authConverter)
 	versionConverter := version.NewConverter()
-	// specConverter := spec.NewConverter(frConverter)
+	specConverter := spec.NewConverter(frConverter)
 	docConverter := document.NewConverter(frConverter)
 	webhookConverter := webhook.NewConverter(authConverter)
-	apiConverter := api.NewConverter(frConverter, versionConverter)
+	apiConverter := api.NewConverter(versionConverter, specConverter)
 
-	eventAPIConverter := eventdef.NewConverter(frConverter, versionConverter)
+	eventAPIConverter := eventdef.NewConverter(versionConverter, specConverter)
 	labelDefConverter := labeldef.NewConverter()
 	labelConverter := label.NewConverter()
 	intSysConverter := integrationsystem.NewConverter()
@@ -123,10 +124,12 @@ func main() {
 
 	scenarioAssignmentEngine := scenarioassignment.NewEngine(labelUpsertSvc, labelRepo, scenarioAssignmentRepo)
 	fetchRequestSvc := fetchrequest.NewService(fetchRequestRepo, httpClient)
-	// apiSvc := api.NewService(apiRepo, fetchRequestRepo, uidSvc, fetchRequestSvc)
-	// eventSvc := eventdef.NewService(eventAPIRepo, fetchRequestRepo, uidSvc, fetchRequestSvc)
-	// docSvc := document.NewService(docRepo, fetchRequestRepo, uidSvc)
-	bundleSvc := mp_bundle.NewService(bndlRepo, apiRepo, eventAPIRepo, docRepo, fetchRequestRepo, uidSvc, fetchRequestSvc)
+	specRepo := spec.NewRepository(specConverter)
+	specSvc := spec.NewService(specRepo, fetchRequestRepo, uidSvc, fetchRequestSvc)
+	apiSvc := api.NewService(apiRepo, uidSvc, specSvc)
+	eventSvc := eventdef.NewService(eventAPIRepo, uidSvc, specSvc)
+	docSvc := document.NewService(docRepo, fetchRequestRepo, uidSvc)
+	bundleSvc := mp_bundle.NewService(bndlRepo, apiSvc, eventSvc, docSvc, uidSvc)
 
 	runtimeSvc := rt.NewService(runtimeRepo, labelRepo, scenariosSvc, labelUpsertSvc, uidSvc, scenarioAssignmentEngine, "")
 	normalizer := &normalizer.DefaultNormalizator{}

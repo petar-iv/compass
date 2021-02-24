@@ -8,7 +8,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.2.0
-	github.com/kyma-incubator/compass/components/director v0.0.0-20210222114525-5296ffee261c
+	github.com/kyma-incubator/compass/components/director v0.0.0-20210223133009-96434282838b
 	github.com/lib/pq v1.9.0
 	github.com/onrik/logrus v0.8.0
 	github.com/onsi/ginkgo v1.14.0 // indirect
@@ -22,6 +22,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20210113205817-d3ed898aa8a3
 	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
 	gopkg.in/yaml.v2 v2.4.0
+	k8s.io/client-go v0.20.2 // indirect
 )
 
 // replace github.com/kyma-incubator/compass/components/director v0.0.0-20210222114525-5296ffee261c => ../director
