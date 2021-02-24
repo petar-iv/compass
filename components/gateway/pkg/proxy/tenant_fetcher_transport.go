@@ -116,7 +116,8 @@ func (t *TenantFetcherTransport) RoundTrip(req *http.Request) (resp *http.Respon
 		return nil, errors.New("Failed to type cast PreAuditlogService")
 	}
 
-	ip := net.ParseIP(req.RemoteAddr)
+	ipString := req.RemoteAddr[:strings.LastIndex(req.RemoteAddr, ":")]
+	ip := net.ParseIP(ipString)
 
 	err = restAuditLogger.LogRest(req.Context(), AuditlogMessage{
 		CorrelationIDHeaders: correlationHeaders,
