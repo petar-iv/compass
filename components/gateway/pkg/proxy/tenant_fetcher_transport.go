@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"strings"
 
@@ -24,7 +23,7 @@ import (
 
 type RestAuditlogService interface {
 	AuditlogService
-	LogRest(ctx context.Context, msg AuditlogMessage, responseStatus int, ip *net.IP) error
+	LogRest(ctx context.Context, msg AuditlogMessage, responseStatus int) error
 }
 
 //TODO: Create a single CommonTransport struct and provide implementations of
@@ -116,15 +115,12 @@ func (t *TenantFetcherTransport) RoundTrip(req *http.Request) (resp *http.Respon
 		return nil, errors.New("Failed to type cast PreAuditlogService")
 	}
 
-	ipString := req.RemoteAddr[:strings.LastIndex(req.RemoteAddr, ":")]
-	ip := net.ParseIP(ipString)
-
 	err = restAuditLogger.LogRest(req.Context(), AuditlogMessage{
 		CorrelationIDHeaders: correlationHeaders,
 		Request:              string(marshaledBody),
 		Response:             string(responseBody),
 		Claims:               claims,
-	}, resp.StatusCode, &ip)
+	}, resp.StatusCode)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("failed to send a post-change auditlog message to auditlog service")
 	}

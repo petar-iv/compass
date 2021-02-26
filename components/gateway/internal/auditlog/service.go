@@ -3,7 +3,6 @@ package auditlog
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -153,7 +152,7 @@ func (svc *Service) Log(ctx context.Context, msg proxy.AuditlogMessage) error {
 	return errors.Wrap(err, "while sending configuration change")
 }
 
-func (svc *Service) LogRest(ctx context.Context, msg proxy.AuditlogMessage, responseStatus int, requestAddr *net.IP) error {
+func (svc *Service) LogRest(ctx context.Context, msg proxy.AuditlogMessage, responseStatus int) error {
 
 	correlationID := msg.CorrelationIDHeaders[correlation.RequestIDHeaderKey]
 
@@ -185,7 +184,6 @@ func (svc *Service) LogRest(ctx context.Context, msg proxy.AuditlogMessage, resp
 		}
 
 		securityEventMsg.Data = string(data)
-		securityEventMsg.IP = requestAddr
 		err = svc.client.LogSecurityEvent(ctx, securityEventMsg)
 		return errors.Wrap(err, "while sending security event to auditlog")
 	}
