@@ -44,7 +44,7 @@ type RequestObject struct {
 
 // ResponseObject struct contains parts of response that might be needed for later processing of Webhook response
 type ResponseObject struct {
-	Body    map[string]string
+	Body    map[string]interface{}
 	Headers map[string]string
 }
 
