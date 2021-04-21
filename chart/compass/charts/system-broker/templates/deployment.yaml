@@ -36,6 +36,14 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           image: {{ .Values.global.images.containerRegistry.path }}/{{ .Values.global.images.system_broker.dir }}compass-system-broker:{{ .Values.global.images.system_broker.version }}
+          command:
+            - "/bin/sh"
+          args:
+            - "-c"
+            - "/app/system-broker -test.coverprofile /coverage/coverage.test"
+          volumeMounts:
+            - mountPath: /coverage
+              name: test-coverage
           imagePullPolicy: {{ .Values.deployment.image.pullPolicy }}
           ports:
             - name: http
@@ -77,3 +85,6 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 2
             initialDelaySeconds: 10
+      volumes:
+        - name: test-coverage
+          emptyDir: {}
