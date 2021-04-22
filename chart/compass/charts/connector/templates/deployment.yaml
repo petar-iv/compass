@@ -89,6 +89,8 @@ spec:
               value: {{ .Values.deployment.kubernetesClient.pollTimeout | quote }}
             - name: APP_ONE_TIME_TOKEN_URL
               value: "http://compass-director.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.global.director.graphql.internal.port }}/graphql"
+            - name: APP_COVERAGE_PORT
+              value: {{ .Values.coverage.port }}
           {{- with .Values.deployment.securityContext }}
           securityContext:
 {{ toYaml . | indent 12 }}

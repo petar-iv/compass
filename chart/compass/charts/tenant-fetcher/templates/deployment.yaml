@@ -114,6 +114,8 @@ spec:
               value: {{ $config.attributes | quote }}
             {{- end }}
             {{- end }}
+            - name: APP_COVERAGE_PORT
+              value: {{ .Values.coverage.port }}
           livenessProbe:
             httpGet:
               port: {{.Values.deployment.args.containerPort }}

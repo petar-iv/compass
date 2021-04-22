@@ -75,6 +75,8 @@ spec:
               value: "https://{{ .Values.global.gateway.mtls.host }}.{{ .Values.global.ingress.domainName }}"
             - name: ORD_STATIC_PATH
               value: "{{ .Values.global.ordService.staticPrefix }}"
+            - name: APP_COVERAGE_PORT
+              value: {{ .Values.coverage.port }}
           livenessProbe:
             httpGet:
               path: /healthz

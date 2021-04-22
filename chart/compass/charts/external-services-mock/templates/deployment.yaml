@@ -44,6 +44,8 @@ spec:
                   secretKeyRef:
                     name: {{ .Values.global.testCredentials.secretName }}
                     key: password
+              - name: APP_COVERAGE_PORT
+                value: {{ .Values.coverage.port }}
               ports:
               - name: http
                 containerPort: {{ .Values.deployment.port }}

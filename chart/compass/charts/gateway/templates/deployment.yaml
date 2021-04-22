@@ -123,6 +123,8 @@ spec:
                   name: {{ .Values.global.auditlog.configMapName }}
                   key: auditlog-channel-timeout
                   optional: true
+            - name: APP_COVERAGE_PORT
+              value: {{ .Values.coverage.port }}
 {{ end }}
 {{- with .Values.deployment.securityContext }}
           securityContext:
