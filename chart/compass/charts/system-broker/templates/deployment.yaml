@@ -77,6 +77,8 @@ spec:
               value: "{{ .Values.global.ordService.staticPrefix }}"
             - name: APP_COVERAGE_PORT
               value: {{ .Values.coverage.port }}
+            - name: METRICS_PORT
+              value: "{{ .Values.metrics.port }}"
           livenessProbe:
             httpGet:
               path: /healthz
