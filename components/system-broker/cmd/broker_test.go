@@ -30,6 +30,7 @@ func TestRunMain(t *testing.T) {
 			defer cancelFunc()
 			err := srv.Shutdown(ctx)
 			if err != nil {
+				fmt.Println(err.Error())
 			}
 		}()
 	})
@@ -39,6 +40,4 @@ func TestRunMain(t *testing.T) {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-
-	fmt.Println("TEST TEST")
 }
