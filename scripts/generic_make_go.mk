@@ -96,9 +96,12 @@ release: verify build-image push-image
 .PHONY: build-image push-image
 build-image: pull-licenses
 	docker build -t $(IMG_NAME) .
+	docker build -t $(IMG_NAME)-coverage . --build-arg WITH_COVERAGE=1
 push-image:
 	docker tag $(IMG_NAME) $(IMG_NAME):$(TAG)
 	docker push $(IMG_NAME):$(TAG)
+	docker tag $(IMG_NAME) $(IMG_NAME)-coverage:$(TAG)
+	docker push $(IMG_NAME)-coverage:$(TAG)
 docker-create-opts:
 	@echo $(DOCKER_CREATE_OPTS)
 
@@ -108,7 +111,7 @@ $(foreach t,$(MOUNT_TARGETS),$(eval $(call buildpack-mount,$(t))))
 
 # Builds new Docker image into Minikube's Docker Registry
 build-to-minikube: pull-licenses
-	@eval $$(minikube docker-env) && docker build -t $(IMG_NAME) .
+	@eval $$(minikube docker-env) && docker build -t $(IMG_NAME) . --build-arg WITH_COVERAGE=1
 
 build-local:
 	env CGO_ENABLED=0 go build -o $(APP_NAME) ./$(ENTRYPOINT)
