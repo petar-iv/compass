@@ -19,8 +19,9 @@ COPY . .
 #
 # Build app
 #
+ARG WITH_COVERAGE
 
-RUN go build -v -o tenant-fetcher ./cmd/main.go
+RUN if [[ -z "$WITH_COVERAGE" ]]; then go build -v -o tenant-fetcher ./cmd/main.go; else CGO_ENABLED="0" go test -c -cover -covermode=set -coverpkg ./...  -tags testrunmain -v -o tenant-fetcher ./cmd/; fi
 RUN mkdir /app && mv ./tenant-fetcher /app/tenant-fetcher \
   && mv ./licenses /app/licenses
 

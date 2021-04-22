@@ -16,7 +16,9 @@ COPY controllers/ controllers/
 COPY internal/ internal/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager cmd/main.go
+ARG WITH_COVERAGE
+
+RUN if [[ -z "$WITH_COVERAGE" ]]; CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager cmd/main.go; else CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go test -c -cover -covermode=set -coverpkg ./...  -tags testrunmain -v -o manager cmd/; fi
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details

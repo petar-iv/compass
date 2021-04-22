@@ -8,7 +8,9 @@ RUN go mod download -x
 
 COPY . ${BASE_APP_DIR}
 
-RUN CGO_ENABLED="0" go test -c -cover -covermode=set -coverpkg ./...  -tags testrunmain -v -o /app/system-broker ./cmd/
+ARG WITH_COVERAGE
+
+RUN if [[ -z "$WITH_COVERAGE" ]]; then go build -v -o /app/system-broker ./cmd/main.go; else CGO_ENABLED="0" go test -c -cover -covermode=set -coverpkg ./...  -tags testrunmain -v -o /app/system-broker ./cmd/; fi
 
 FROM alpine:3.13.5
 LABEL source = git@github.com:kyma-incubator/compass.git

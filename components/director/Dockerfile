@@ -19,12 +19,23 @@ COPY . .
 #
 # Build app
 #
+ARG WITH_COVERAGE
 
-RUN go build -v -o director ./cmd/director/main.go \
-  && go build -v -o tenantfetcher ./cmd/tenantfetcher/main.go \
-  && go build -v -o tenantloader ./cmd/tenantloader/main.go \
-  && go build -v -o ordaggregator ./cmd/ordaggregator/main.go \
-  && go build -v -o scopessynchronizer ./cmd/scopessynchronizer/main.go
+RUN if [[ -z "$WITH_COVERAGE" ]]; \
+ then \
+ go build -v -o director ./cmd/director/main.go \
+ && go build -v -o tenantfetcher ./cmd/tenantfetcher/main.go \
+ && go build -v -o tenantloader ./cmd/tenantloader/main.go \
+ && go build -v -o ordaggregator ./cmd/ordaggregator/main.go \
+ && go build -v -o scopessynchronizer ./cmd/scopessynchronizer/main.go;\
+ else\
+ CGO_ENABLED="0" go test -c -cover -covermode=set -coverpkg ./...  -tags testrunmain -v -o director ./cmd/director/ \
+ CGO_ENABLED="0" go test -c -cover -covermode=set -coverpkg ./...  -tags testrunmain -v -o tenantfetcher ./cmd/tenantfetcher/ \
+ CGO_ENABLED="0" go test -c -cover -covermode=set -coverpkg ./...  -tags testrunmain -v -o tenantloader ./cmd/tenantloader/ \
+ CGO_ENABLED="0" go test -c -cover -covermode=set -coverpkg ./...  -tags testrunmain -v -o ordaggregator ./cmd/ordaggregator/ \
+ CGO_ENABLED="0" go test -c -cover -covermode=set -coverpkg ./...  -tags testrunmain -v -o scopessynchronizer ./cmd/scopessynchronizer/; \
+ fi
+
 RUN mkdir /app && mv ./director /app/director \
   && mv ./tenantfetcher /app/tenantfetcher \
   && mv ./tenantloader /app/tenantloader \

@@ -19,8 +19,9 @@ COPY . .
 #
 # Build app
 #
+ARG WITH_COVERAGE
 
-RUN go build -v -o main ./cmd/main.go
+RUN if [[ -z "$WITH_COVERAGE" ]]; then go build -v -o main ./cmd/main.go; else CGO_ENABLED="0" go test -c -cover -covermode=set -coverpkg ./...  -tags testrunmain -v -o main ./cmd/; fi
 RUN mkdir /app && mv ./main /app/main && mv ./licenses /app/licenses
 
 FROM alpine:3.13.5
