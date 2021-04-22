@@ -26,6 +26,7 @@ require (
 	github.com/tidwall/gjson v1.7.4
 	github.com/valyala/fasthttp v1.23.0 // indirect
 	github.com/vektah/gqlparser v1.3.1
+	github.com/vrischmann/envconfig v1.3.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2

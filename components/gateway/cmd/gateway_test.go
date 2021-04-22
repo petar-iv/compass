@@ -11,7 +11,7 @@ import (
 )
 
 type Config struct {
-	Port string `envconfig:"default=:5003,APP_COVERAGE_PORT"`
+	Port string `envconfig:"default=:3002,APP_COVERAGE_PORT"`
 }
 
 type Server struct {
