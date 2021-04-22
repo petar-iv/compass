@@ -25,3 +25,8 @@ database:
 server:
   handlerEndpoint: "/v1/callback/{tenantId}"
   tenantPathParam: "tenantId"
+
+coverage:
+  gatewayHost: compass-tenant-fetcher-coverage
+  host: compass-tenant-fetcher-coverage.compass-system.svc.cluster.local
+  port: 3001

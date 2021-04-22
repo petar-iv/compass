@@ -16,3 +16,8 @@ deployment:
 
 metrics:
   port: 5002
+
+coverage:
+  gatewayHost: compass-system-broker-coverage
+  host: compass-system-broker-coverage.compass-system.svc.cluster.local
+  port: 5003

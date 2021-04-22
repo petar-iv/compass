@@ -42,3 +42,7 @@ istio:
       compassDirector: cluster.local/ns/{{ .Release.Namespace }}/sa/compass-director
       compassConnectorTests: cluster.local/ns/{{ .Values.global.tests.namespace }}/sa/compass-connector-tests
 
+coverage:
+  gatewayHost: compass-connector-coverage
+  host: compass-connector-coverage.compass-system.svc.cluster.local
+  port: 8082

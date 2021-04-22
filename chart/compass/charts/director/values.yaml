@@ -41,3 +41,7 @@ istio:
     directorInternalApi:
       compassConnector: cluster.local/ns/{{ .Release.Namespace }}/sa/compass-connector
       compassOperationsController: cluster.local/ns/{{ .Release.Namespace }}/sa/compass-operations-controller
+coverage:
+  gatewayHost: compass-director-coverage
+  host: compass-director-coverage.compass-system.svc.cluster.local
+  port: 8083

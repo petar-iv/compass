@@ -9,3 +9,8 @@ deployment:
 
 service:
   port: 8080
+
+coverage:
+  gatewayHost: compass-external-services-mock-coverage
+  host: compass-external-services-mock-coverage.compass-system.svc.cluster.local
+  port: 8081

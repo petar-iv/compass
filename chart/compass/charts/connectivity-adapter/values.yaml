@@ -12,3 +12,8 @@ deployment:
   nodeSelector: {}
 tests:
   skipTLSVerify: true
+
+coverage:
+  gatewayHost: compass-connectivity-adapter-coverage
+  host: compass-connectivity-adapter-coverage.compass-system.svc.cluster.local
+  port: 8081

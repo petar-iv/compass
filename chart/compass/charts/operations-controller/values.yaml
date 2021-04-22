@@ -3,3 +3,8 @@ manager:
 
 metrics:
   port: 3001
+
+coverage:
+  gatewayHost: compass-operations-controller-coverage
+  host: compass-connector-coverage.compass-system.svc.cluster.local
+  port: 3002

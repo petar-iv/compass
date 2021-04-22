@@ -35,7 +35,10 @@ spec:
         {{- toYaml .Values.deployment.nodeSelector | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
+          {{ if eq .Values.global.isLocalEnv false}}
           image: {{ .Values.global.images.containerRegistry.path }}/{{ .Values.global.images.system_broker.dir }}compass-system-broker:{{ .Values.global.images.system_broker.version }}
+          {{ else }}
+          image: {{ .Values.global.images.containerRegistry.path }}/{{ .Values.global.images.system_broker.dir }}compass-system-broker-cverage:{{ .Values.global.images.system_broker.version }}
           command:
             - "/bin/sh"
           args:
@@ -44,6 +47,7 @@ spec:
           volumeMounts:
             - mountPath: /coverage
               name: test-coverage
+          {{ end }}
           imagePullPolicy: {{ .Values.deployment.image.pullPolicy }}
           ports:
             - name: http
@@ -85,6 +89,8 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 2
             initialDelaySeconds: 10
+      {{ if .Values.global.isLocalEnv }}
       volumes:
         - name: test-coverage
           emptyDir: {}
+      {{ end }}
