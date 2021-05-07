@@ -2,6 +2,7 @@ package bundleinstanceauth
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 
@@ -33,6 +34,7 @@ type Converter interface {
 type BundleService interface {
 	Get(ctx context.Context, id string) (*model.Bundle, error)
 	GetByInstanceAuthID(ctx context.Context, instanceAuthID string) (*model.Bundle, error)
+	ListByApplicationIDNoPaging(ctx context.Context, appID string) ([]*model.Bundle, error)
 }
 
 //go:generate mockery --name=BundleConverter --output=automock --outpkg=automock --case=underscore
@@ -187,32 +189,7 @@ func (r *Resolver) RequestBundleInstanceAuthCreation(ctx context.Context, bundle
 	defer r.transact.RollbackUnlessCommitted(ctx, tx)
 	ctx = persistence.SaveToContext(ctx, tx)
 
-	log.C(ctx).Infof("Requesting BundleInstanceAuth creation for Bundle with id %s", bundleID)
-
-	bndl, err := r.bndlSvc.Get(ctx, bundleID)
-	if err != nil {
-		return nil, err
-	}
-
-	convertedIn := r.conv.RequestInputFromGraphQL(in)
-
-	instanceAuthID, err := r.svc.Create(ctx, bundleID, convertedIn, bndl.DefaultInstanceAuth, bndl.InstanceAuthRequestInputSchema)
-	if err != nil {
-		return nil, err
-	}
-
-	instanceAuth, err := r.svc.Get(ctx, instanceAuthID)
-	if err != nil {
-		return nil, err
-	}
-	log.C(ctx).Infof("Successfully created BundleInstanceAuth with id %s for Bundle with id %s", instanceAuthID, bundleID)
-
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
-	}
-
-	return r.conv.ToGraphQL(instanceAuth)
+	return r.requestBundleInstanceAuth(ctx, err, bundleID, in, tx)
 }
 
 func (r *Resolver) RequestBundleInstanceAuthDeletion(ctx context.Context, authID string) (*graphql.BundleInstanceAuth, error) {
@@ -252,6 +229,56 @@ func (r *Resolver) RequestBundleInstanceAuthDeletion(ctx context.Context, authID
 
 	err = tx.Commit()
 	if err != nil {
+		return nil, err
+	}
+
+	return r.conv.ToGraphQL(instanceAuth)
+}
+
+func (r *Resolver) RequestBundleInstanceAuthCreationForApp(ctx context.Context, appID string, in graphql.BundleInstanceAuthRequestInput) (*graphql.BundleInstanceAuth, error) {
+	tx, err := r.transact.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	defer r.transact.RollbackUnlessCommitted(ctx, tx)
+	ctx = persistence.SaveToContext(ctx, tx)
+
+	bndls, err := r.bndlSvc.ListByApplicationIDNoPaging(ctx, appID)
+	if err != nil {
+		log.C(ctx).Errorf("Failed to list bundles for application with ID %s: %v", appID, err)
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to list bundles for application with ID %s", appID))
+	}
+	if len(bndls) == 0 {
+		log.C(ctx).Errorf("No bundles found for application with ID %s", appID)
+		return nil, errors.New(fmt.Sprintf("No bundles found for application with ID %s", appID))
+	}
+
+	bundleID := bndls[0].ID
+	return r.requestBundleInstanceAuth(ctx, err, bundleID, in, tx)
+}
+
+func (r *Resolver) requestBundleInstanceAuth(ctx context.Context, err error, bundleID string, in graphql.BundleInstanceAuthRequestInput, tx persistence.PersistenceTx) (*graphql.BundleInstanceAuth, error) {
+	log.C(ctx).Infof("Requesting BundleInstanceAuth creation for Bundle with id %s", bundleID)
+	bndl, err := r.bndlSvc.Get(ctx, bundleID)
+	if err != nil {
+		return nil, err
+	}
+
+	convertedIn := r.conv.RequestInputFromGraphQL(in)
+
+	instanceAuthID, err := r.svc.Create(ctx, bundleID, convertedIn, bndl.DefaultInstanceAuth, bndl.InstanceAuthRequestInputSchema)
+	if err != nil {
+		return nil, err
+	}
+
+	instanceAuth, err := r.svc.Get(ctx, instanceAuthID)
+	if err != nil {
+		return nil, err
+	}
+	log.C(ctx).Infof("Successfully created BundleInstanceAuth with id %s for Bundle with id %s", instanceAuthID, bundleID)
+
+	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
 

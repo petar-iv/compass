@@ -505,6 +505,10 @@ func (r *mutationResolver) DeleteBundleInstanceAuth(ctx context.Context, authID 
 func (r *mutationResolver) RequestBundleInstanceAuthCreation(ctx context.Context, bundleID string, in graphql.BundleInstanceAuthRequestInput, _ *graphql.OperationMode) (*graphql.BundleInstanceAuth, error) {
 	return r.bundleInstanceAuth.RequestBundleInstanceAuthCreation(ctx, bundleID, in)
 }
+// RequestBundleInstanceAuthCreationForApp(ctx context.Context, appID string, in BundleInstanceAuthRequestInput, mode *OperationMode) (*BundleInstanceAuth, error)
+func (r *mutationResolver) RequestBundleInstanceAuthCreationForApp(ctx context.Context, appID string, in graphql.BundleInstanceAuthRequestInput, _ *graphql.OperationMode) (*graphql.BundleInstanceAuth, error) {
+	return r.bundleInstanceAuth.RequestBundleInstanceAuthCreationForApp(ctx, appID, in)
+}
 func (r *mutationResolver) RequestBundleInstanceAuthDeletion(ctx context.Context, authID string, _ *graphql.OperationMode) (*graphql.BundleInstanceAuth, error) {
 	return r.bundleInstanceAuth.RequestBundleInstanceAuthDeletion(ctx, authID)
 }
