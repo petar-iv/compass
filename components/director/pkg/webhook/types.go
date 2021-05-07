@@ -24,6 +24,7 @@ import (
 	"text/template"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/inputvalidation"
+	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 
 	"github.com/pkg/errors"
 )
@@ -33,18 +34,22 @@ type Mode string
 // Resource is used to identify entities which can be part of a webhook's request data
 type Resource interface {
 	Sentinel()
+	Template() map[string]interface{}
 }
 
 // RequestObject struct contains parts of request that might be needed for later processing of a Webhook request
 type RequestObject struct {
-	Application Resource
-	TenantID    string
-	Headers     map[string]string
+	Application        Resource
+	BundleInstanceAuth Resource
+	Type               resource.Type
+	TenantID           string
+	ExternalTenantID   string
+	Headers            map[string]string
 }
 
 // ResponseObject struct contains parts of response that might be needed for later processing of Webhook response
 type ResponseObject struct {
-	Body    map[string]string
+	Body    map[string]interface{}
 	Headers map[string]string
 }
 
@@ -63,6 +68,7 @@ type Response struct {
 
 // ResponseStatus defines the schema for Webhook status templates when dealing with async webhooks
 type ResponseStatus struct {
+	Location                   *string `json:"location"`
 	Status                     *string `json:"status"`
 	SuccessStatusCode          *int    `json:"success_status_code"`
 	SuccessStatusIdentifier    *string `json:"success_status_identifier"`
@@ -139,7 +145,22 @@ func (rd *RequestObject) ParseURLTemplate(tmpl *string) (*URL, error) {
 
 func (rd *RequestObject) ParseInputTemplate(tmpl *string) ([]byte, error) {
 	res := json.RawMessage{}
-	return res, parseTemplate(tmpl, *rd, &res)
+	temp := struct {
+		Application        map[string]interface{}
+		BundleInstanceAuth map[string]interface{}
+		Type               resource.Type
+		TenantID           string
+		ExternalTenantID   string
+		Headers            map[string]string
+	}{
+		Application:        rd.Application.Template(),
+		BundleInstanceAuth: rd.BundleInstanceAuth.Template(),
+		Type:               rd.Type,
+		TenantID:           rd.TenantID,
+		ExternalTenantID:   rd.ExternalTenantID,
+		Headers:            rd.Headers,
+	}
+	return res, parseTemplate(tmpl, temp, &res)
 }
 
 func (rd *RequestObject) ParseHeadersTemplate(tmpl *string) (http.Header, error) {
@@ -155,6 +176,27 @@ func (rd *ResponseObject) ParseOutputTemplate(tmpl *string) (*Response, error) {
 func (rd *ResponseObject) ParseStatusTemplate(tmpl *string) (*ResponseStatus, error) {
 	var respStatus ResponseStatus
 	return &respStatus, parseTemplate(tmpl, *rd, &respStatus)
+}
+
+type CredentialsResponse struct {
+	SuccessStatusCode *int    `json:"success_status_code"`
+	Error             *string `json:"error"`
+	URL               *string `json:"url"`
+	APIKey            *string `json:"api_key"`
+	ClientID          *string `json:"client_id"`
+	ClientSecret      *string `json:"client_secret"`
+	Username          *string `json:"username"`
+	Password          *string `json:"password"`
+}
+
+// TODO implement
+func (cr *CredentialsResponse) Validate() error {
+	return nil
+}
+
+func (rd *ResponseObject) ParseCredentialsResultTemplate(tmpl *string) (*CredentialsResponse, error) {
+	var resp CredentialsResponse
+	return &resp, parseTemplate(tmpl, *rd, &resp)
 }
 
 func parseTemplate(tmpl *string, data interface{}, dest interface{}) error {

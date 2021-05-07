@@ -71,6 +71,7 @@ type Operation struct {
 	CreationTime      time.Time     `json:"creation_time,omitempty"`
 	CorrelationID     string        `json:"correlation_id,omitempty"`
 	WebhookIDs        []string      `json:"webhook_ids,omitempty"`
+	WebhookProviderID string        `json:"webhook_provider_id"`
 	RequestObject     string        `json:"request_object,omitempty"`
 }
 

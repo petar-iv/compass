@@ -61,6 +61,7 @@ func (c *converter) ToGraphQL(in *model.Webhook) (*graphql.Webhook, error) {
 		HeaderTemplate:        in.HeaderTemplate,
 		OutputTemplate:        in.OutputTemplate,
 		StatusTemplate:        in.StatusTemplate,
+		ResultTemplate:        in.ResultTemplate,
 	}, nil
 }
 
@@ -111,6 +112,7 @@ func (c *converter) InputFromGraphQL(in *graphql.WebhookInput) (*model.WebhookIn
 		HeaderTemplate:   in.HeaderTemplate,
 		OutputTemplate:   in.OutputTemplate,
 		StatusTemplate:   in.StatusTemplate,
+		ResultTemplate:   in.ResultTemplate,
 	}, nil
 }
 
@@ -162,6 +164,7 @@ func (c *converter) ToEntity(in model.Webhook) (Entity, error) {
 		HeaderTemplate:        repo.NewNullableString(in.HeaderTemplate),
 		OutputTemplate:        repo.NewNullableString(in.OutputTemplate),
 		StatusTemplate:        repo.NewNullableString(in.StatusTemplate),
+		ResultTemplate:        repo.NewNullableString(in.ResultTemplate),
 	}, nil
 }
 
@@ -213,6 +216,7 @@ func (c *converter) FromEntity(in Entity) (model.Webhook, error) {
 		HeaderTemplate:        repo.StringPtrFromNullableString(in.HeaderTemplate),
 		OutputTemplate:        repo.StringPtrFromNullableString(in.OutputTemplate),
 		StatusTemplate:        repo.StringPtrFromNullableString(in.StatusTemplate),
+		ResultTemplate:        repo.StringPtrFromNullableString(in.ResultTemplate),
 	}, nil
 }
 

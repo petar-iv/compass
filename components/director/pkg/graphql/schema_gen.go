@@ -79,6 +79,11 @@ type ComplexityRoot struct {
 		TotalCount func(childComplexity int) int
 	}
 
+	APIKeyCredentialData struct {
+		APIKey         func(childComplexity int) int
+		TokenServerURL func(childComplexity int) int
+	}
+
 	APISpec struct {
 		Data         func(childComplexity int) int
 		FetchRequest func(childComplexity int) int
@@ -95,6 +100,7 @@ type ComplexityRoot struct {
 	Application struct {
 		ApplicationTemplateID func(childComplexity int) int
 		Auths                 func(childComplexity int) int
+		BaseURL               func(childComplexity int) int
 		Bundle                func(childComplexity int, id string) int
 		Bundles               func(childComplexity int, first *int, after *PageCursor) int
 		CreatedAt             func(childComplexity int) int
@@ -359,8 +365,8 @@ type ComplexityRoot struct {
 		RegisterIntegrationSystem                     func(childComplexity int, in IntegrationSystemInput) int
 		RegisterRuntime                               func(childComplexity int, in RuntimeInput) int
 		RegisterRuntimeContext                        func(childComplexity int, in RuntimeContextInput) int
-		RequestBundleInstanceAuthCreation             func(childComplexity int, bundleID string, in BundleInstanceAuthRequestInput) int
-		RequestBundleInstanceAuthDeletion             func(childComplexity int, authID string) int
+		RequestBundleInstanceAuthCreation             func(childComplexity int, bundleID string, in BundleInstanceAuthRequestInput, mode *OperationMode) int
+		RequestBundleInstanceAuthDeletion             func(childComplexity int, authID string, mode *OperationMode) int
 		RequestClientCredentialsForApplication        func(childComplexity int, id string) int
 		RequestClientCredentialsForIntegrationSystem  func(childComplexity int, id string) int
 		RequestClientCredentialsForRuntime            func(childComplexity int, id string) int
@@ -520,6 +526,7 @@ type ComplexityRoot struct {
 		IntegrationSystemID   func(childComplexity int) int
 		Mode                  func(childComplexity int) int
 		OutputTemplate        func(childComplexity int) int
+		ResultTemplate        func(childComplexity int) int
 		RetryInterval         func(childComplexity int) int
 		RuntimeID             func(childComplexity int) int
 		StatusTemplate        func(childComplexity int) int
@@ -615,8 +622,8 @@ type MutationResolver interface {
 	DeleteDefaultEventingForApplication(ctx context.Context, appID string) (*ApplicationEventingConfiguration, error)
 	SetBundleInstanceAuth(ctx context.Context, authID string, in BundleInstanceAuthSetInput) (*BundleInstanceAuth, error)
 	DeleteBundleInstanceAuth(ctx context.Context, authID string) (*BundleInstanceAuth, error)
-	RequestBundleInstanceAuthCreation(ctx context.Context, bundleID string, in BundleInstanceAuthRequestInput) (*BundleInstanceAuth, error)
-	RequestBundleInstanceAuthDeletion(ctx context.Context, authID string) (*BundleInstanceAuth, error)
+	RequestBundleInstanceAuthCreation(ctx context.Context, bundleID string, in BundleInstanceAuthRequestInput, mode *OperationMode) (*BundleInstanceAuth, error)
+	RequestBundleInstanceAuthDeletion(ctx context.Context, authID string, mode *OperationMode) (*BundleInstanceAuth, error)
 	AddBundle(ctx context.Context, applicationID string, in BundleCreateInput) (*Bundle, error)
 	UpdateBundle(ctx context.Context, id string, in BundleUpdateInput) (*Bundle, error)
 	DeleteBundle(ctx context.Context, id string) (*Bundle, error)
@@ -778,6 +785,20 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.APIDefinitionPage.TotalCount(childComplexity), true
 
+	case "APIKeyCredentialData.apiKey":
+		if e.complexity.APIKeyCredentialData.APIKey == nil {
+			break
+		}
+
+		return e.complexity.APIKeyCredentialData.APIKey(childComplexity), true
+
+	case "APIKeyCredentialData.tokenServerURL":
+		if e.complexity.APIKeyCredentialData.TokenServerURL == nil {
+			break
+		}
+
+		return e.complexity.APIKeyCredentialData.TokenServerURL(childComplexity), true
+
 	case "APISpec.data":
 		if e.complexity.APISpec.Data == nil {
 			break
@@ -840,6 +861,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Application.Auths(childComplexity), true
+
+	case "Application.baseURL":
+		if e.complexity.Application.BaseURL == nil {
+			break
+		}
+
+		return e.complexity.Application.BaseURL(childComplexity), true
 
 	case "Application.bundle":
 		if e.complexity.Application.Bundle == nil {
@@ -2274,7 +2302,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.RequestBundleInstanceAuthCreation(childComplexity, args["bundleID"].(string), args["in"].(BundleInstanceAuthRequestInput)), true
+		return e.complexity.Mutation.RequestBundleInstanceAuthCreation(childComplexity, args["bundleID"].(string), args["in"].(BundleInstanceAuthRequestInput), args["mode"].(*OperationMode)), true
 
 	case "Mutation.requestBundleInstanceAuthDeletion":
 		if e.complexity.Mutation.RequestBundleInstanceAuthDeletion == nil {
@@ -2286,7 +2314,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.RequestBundleInstanceAuthDeletion(childComplexity, args["authID"].(string)), true
+		return e.complexity.Mutation.RequestBundleInstanceAuthDeletion(childComplexity, args["authID"].(string), args["mode"].(*OperationMode)), true
 
 	case "Mutation.requestClientCredentialsForApplication":
 		if e.complexity.Mutation.RequestClientCredentialsForApplication == nil {
@@ -3238,6 +3266,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Webhook.OutputTemplate(childComplexity), true
 
+	case "Webhook.resultTemplate":
+		if e.complexity.Webhook.ResultTemplate == nil {
+			break
+		}
+
+		return e.complexity.Webhook.ResultTemplate(childComplexity), true
+
 	case "Webhook.retryInterval":
 		if e.complexity.Webhook.RetryInterval == nil {
 			break
@@ -3511,6 +3546,8 @@ enum WebhookType {
 	REGISTER_APPLICATION
 	UNREGISTER_APPLICATION
 	OPEN_RESOURCE_DISCOVERY
+	BUNDLE_INSTANCE_AUTH_CREATION
+	BUNDLE_INSTANCE_AUTH_DELETION
 }
 
 interface OneTimeToken {
@@ -3536,7 +3573,7 @@ interface SystemAuth {
 	auth: Auth
 }
 
-union CredentialData = BasicCredentialData | OAuthCredentialData
+union CredentialData = BasicCredentialData | OAuthCredentialData | APIKeyCredentialData
 
 input APIDefinitionInput {
 	"""
@@ -3557,6 +3594,14 @@ input APIDefinitionInput {
 	group: String
 	spec: APISpecInput
 	version: VersionInput
+}
+
+input APIKeyCredentialDataInput {
+	apiKey: String!
+	"""
+	**Validation:** valid URL
+	"""
+	tokenServerURL: String!
 }
 
 """
@@ -3607,6 +3652,7 @@ input ApplicationRegisterInput {
 	bundles: [BundleCreateInput!]
 	integrationSystemID: ID
 	statusCondition: ApplicationStatusCondition
+	baseURL: String
 }
 
 """
@@ -3656,6 +3702,7 @@ input ApplicationUpdateInput {
 	healthCheckURL: String
 	integrationSystemID: ID
 	statusCondition: ApplicationStatusCondition
+	baseURL: String
 }
 
 input AuthInput {
@@ -3785,6 +3832,7 @@ input CSRFTokenCredentialRequestAuthInput {
 input CredentialDataInput {
 	basic: BasicCredentialDataInput
 	oauth: OAuthCredentialDataInput
+	apiKey: APIKeyCredentialDataInput
 }
 
 input CredentialRequestAuthInput {
@@ -3994,6 +4042,7 @@ input WebhookInput {
 	headerTemplate: String
 	outputTemplate: String
 	statusTemplate: String
+	resultTemplate: String
 }
 
 type APIDefinition {
@@ -4017,6 +4066,11 @@ type APIDefinitionPage implements Pageable {
 	data: [APIDefinition!]!
 	pageInfo: PageInfo!
 	totalCount: Int!
+}
+
+type APIKeyCredentialData {
+	apiKey: String!
+	tokenServerURL: String!
 }
 
 type APISpec {
@@ -4054,6 +4108,7 @@ type Application {
 	updatedAt: Timestamp
 	deletedAt: Timestamp
 	error: String
+	baseURL: String
 }
 
 type ApplicationEventingConfiguration {
@@ -4432,6 +4487,7 @@ type Webhook {
 	headerTemplate: String
 	outputTemplate: String
 	statusTemplate: String
+	resultTemplate: String
 }
 
 type Query {
@@ -4727,14 +4783,14 @@ type Mutation {
 	**Examples**
 	- [request bundle instance auth creation](examples/request-bundle-instance-auth-creation/request-bundle-instance-auth-creation.graphql)
 	"""
-	requestBundleInstanceAuthCreation(bundleID: ID!, in: BundleInstanceAuthRequestInput! @validate): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationIDByBundle", idField: "bundleID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreation")
+	requestBundleInstanceAuthCreation(bundleID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationIDByBundle", idField: "bundleID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreation") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
 	"""
 	When defaultInstanceAuth is set, it fires "deleteBundleInstanceAuth" mutation. Otherwise, the status of the BundleInstanceAuth is set to UNUSED.
 	
 	**Examples**
 	- [request bundle instance auth deletion](examples/request-bundle-instance-auth-deletion/request-bundle-instance-auth-deletion.graphql)
 	"""
-	requestBundleInstanceAuthDeletion(authID: ID!): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationIDByBundleInstanceAuth", idField: "authID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthDeletion")
+	requestBundleInstanceAuthDeletion(authID: ID!, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationIDByBundleInstanceAuth", idField: "authID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthDeletion") @async(operationType: DELETE, idField: "authID", webhookType: BUNDLE_INSTANCE_AUTH_DELETION)
 	"""
 	**Examples**
 	- [add bundle](examples/add-bundle/add-bundle.graphql)
@@ -5771,6 +5827,14 @@ func (ec *executionContext) field_Mutation_requestBundleInstanceAuthCreation_arg
 		}
 	}
 	args["in"] = arg1
+	var arg2 *OperationMode
+	if tmp, ok := rawArgs["mode"]; ok {
+		arg2, err = ec.unmarshalOOperationMode2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐOperationMode(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["mode"] = arg2
 	return args, nil
 }
 
@@ -5785,6 +5849,14 @@ func (ec *executionContext) field_Mutation_requestBundleInstanceAuthDeletion_arg
 		}
 	}
 	args["authID"] = arg0
+	var arg1 *OperationMode
+	if tmp, ok := rawArgs["mode"]; ok {
+		arg1, err = ec.unmarshalOOperationMode2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐOperationMode(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["mode"] = arg1
 	return args, nil
 }
 
@@ -7297,6 +7369,74 @@ func (ec *executionContext) _APIDefinitionPage_totalCount(ctx context.Context, f
 	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _APIKeyCredentialData_apiKey(ctx context.Context, field graphql.CollectedField, obj *APIKeyCredentialData) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "APIKeyCredentialData",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.APIKey, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _APIKeyCredentialData_tokenServerURL(ctx context.Context, field graphql.CollectedField, obj *APIKeyCredentialData) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "APIKeyCredentialData",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TokenServerURL, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _APISpec_id(ctx context.Context, field graphql.CollectedField, obj *APISpec) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -8173,6 +8313,37 @@ func (ec *executionContext) _Application_error(ctx context.Context, field graphq
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Error, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Application_baseURL(ctx context.Context, field graphql.CollectedField, obj *Application) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Application",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.BaseURL, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -15762,7 +15933,7 @@ func (ec *executionContext) _Mutation_requestBundleInstanceAuthCreation(ctx cont
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Mutation().RequestBundleInstanceAuthCreation(rctx, args["bundleID"].(string), args["in"].(BundleInstanceAuthRequestInput))
+			return ec.resolvers.Mutation().RequestBundleInstanceAuthCreation(rctx, args["bundleID"].(string), args["in"].(BundleInstanceAuthRequestInput), args["mode"].(*OperationMode))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			applicationProvider, err := ec.unmarshalNString2string(ctx, "GetApplicationIDByBundle")
@@ -15788,8 +15959,22 @@ func (ec *executionContext) _Mutation_requestBundleInstanceAuthCreation(ctx cont
 			}
 			return ec.directives.HasScopes(ctx, nil, directive1, path)
 		}
+		directive3 := func(ctx context.Context) (interface{}, error) {
+			operationType, err := ec.unmarshalNOperationType2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐOperationType(ctx, "CREATE")
+			if err != nil {
+				return nil, err
+			}
+			webhookType, err := ec.unmarshalOWebhookType2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐWebhookType(ctx, "BUNDLE_INSTANCE_AUTH_CREATION")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.Async == nil {
+				return nil, errors.New("directive async is not implemented")
+			}
+			return ec.directives.Async(ctx, nil, directive2, operationType, webhookType, nil)
+		}
 
-		tmp, err := directive2(rctx)
+		tmp, err := directive3(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -15841,7 +16026,7 @@ func (ec *executionContext) _Mutation_requestBundleInstanceAuthDeletion(ctx cont
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Mutation().RequestBundleInstanceAuthDeletion(rctx, args["authID"].(string))
+			return ec.resolvers.Mutation().RequestBundleInstanceAuthDeletion(rctx, args["authID"].(string), args["mode"].(*OperationMode))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			applicationProvider, err := ec.unmarshalNString2string(ctx, "GetApplicationIDByBundleInstanceAuth")
@@ -15867,8 +16052,26 @@ func (ec *executionContext) _Mutation_requestBundleInstanceAuthDeletion(ctx cont
 			}
 			return ec.directives.HasScopes(ctx, nil, directive1, path)
 		}
+		directive3 := func(ctx context.Context) (interface{}, error) {
+			operationType, err := ec.unmarshalNOperationType2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐOperationType(ctx, "DELETE")
+			if err != nil {
+				return nil, err
+			}
+			webhookType, err := ec.unmarshalOWebhookType2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐWebhookType(ctx, "BUNDLE_INSTANCE_AUTH_DELETION")
+			if err != nil {
+				return nil, err
+			}
+			idField, err := ec.unmarshalOString2ᚖstring(ctx, "authID")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.Async == nil {
+				return nil, errors.New("directive async is not implemented")
+			}
+			return ec.directives.Async(ctx, nil, directive2, operationType, webhookType, idField)
+		}
 
-		tmp, err := directive2(rctx)
+		tmp, err := directive3(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -19957,6 +20160,37 @@ func (ec *executionContext) _Webhook_statusTemplate(ctx context.Context, field g
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Webhook_resultTemplate(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Webhook",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ResultTemplate, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -21060,6 +21294,30 @@ func (ec *executionContext) unmarshalInputAPIDefinitionInput(ctx context.Context
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputAPIKeyCredentialDataInput(ctx context.Context, obj interface{}) (APIKeyCredentialDataInput, error) {
+	var it APIKeyCredentialDataInput
+	var asMap = obj.(map[string]interface{})
+
+	for k, v := range asMap {
+		switch k {
+		case "apiKey":
+			var err error
+			it.APIKey, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "tokenServerURL":
+			var err error
+			it.TokenServerURL, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputAPISpecInput(ctx context.Context, obj interface{}) (APISpecInput, error) {
 	var it APISpecInput
 	var asMap = obj.(map[string]interface{})
@@ -21177,6 +21435,12 @@ func (ec *executionContext) unmarshalInputApplicationRegisterInput(ctx context.C
 		case "statusCondition":
 			var err error
 			it.StatusCondition, err = ec.unmarshalOApplicationStatusCondition2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐApplicationStatusCondition(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "baseURL":
+			var err error
+			it.BaseURL, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -21309,6 +21573,12 @@ func (ec *executionContext) unmarshalInputApplicationUpdateInput(ctx context.Con
 		case "statusCondition":
 			var err error
 			it.StatusCondition, err = ec.unmarshalOApplicationStatusCondition2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐApplicationStatusCondition(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "baseURL":
+			var err error
+			it.BaseURL, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -21655,6 +21925,12 @@ func (ec *executionContext) unmarshalInputCredentialDataInput(ctx context.Contex
 		case "oauth":
 			var err error
 			it.Oauth, err = ec.unmarshalOOAuthCredentialDataInput2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐOAuthCredentialDataInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "apiKey":
+			var err error
+			it.APIKey, err = ec.unmarshalOAPIKeyCredentialDataInput2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐAPIKeyCredentialDataInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -22232,6 +22508,12 @@ func (ec *executionContext) unmarshalInputWebhookInput(ctx context.Context, obj 
 			if err != nil {
 				return it, err
 			}
+		case "resultTemplate":
+			var err error
+			it.ResultTemplate, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
 		}
 	}
 
@@ -22260,6 +22542,13 @@ func (ec *executionContext) _CredentialData(ctx context.Context, sel ast.Selecti
 			return graphql.Null
 		}
 		return ec._OAuthCredentialData(ctx, sel, obj)
+	case APIKeyCredentialData:
+		return ec._APIKeyCredentialData(ctx, sel, &obj)
+	case *APIKeyCredentialData:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._APIKeyCredentialData(ctx, sel, obj)
 	default:
 		panic(fmt.Errorf("unexpected type %T", obj))
 	}
@@ -22494,6 +22783,38 @@ func (ec *executionContext) _APIDefinitionPage(ctx context.Context, sel ast.Sele
 	return out
 }
 
+var aPIKeyCredentialDataImplementors = []string{"APIKeyCredentialData", "CredentialData"}
+
+func (ec *executionContext) _APIKeyCredentialData(ctx context.Context, sel ast.SelectionSet, obj *APIKeyCredentialData) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, aPIKeyCredentialDataImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("APIKeyCredentialData")
+		case "apiKey":
+			out.Values[i] = ec._APIKeyCredentialData_apiKey(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "tokenServerURL":
+			out.Values[i] = ec._APIKeyCredentialData_tokenServerURL(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
 var aPISpecImplementors = []string{"APISpec"}
 
 func (ec *executionContext) _APISpec(ctx context.Context, sel ast.SelectionSet, obj *APISpec) graphql.Marshaler {
@@ -22683,6 +23004,8 @@ func (ec *executionContext) _Application(ctx context.Context, sel ast.SelectionS
 			out.Values[i] = ec._Application_deletedAt(ctx, field, obj)
 		case "error":
 			out.Values[i] = ec._Application_error(ctx, field, obj)
+		case "baseURL":
+			out.Values[i] = ec._Application_baseURL(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -25177,6 +25500,8 @@ func (ec *executionContext) _Webhook(ctx context.Context, sel ast.SelectionSet, 
 			out.Values[i] = ec._Webhook_outputTemplate(ctx, field, obj)
 		case "statusTemplate":
 			out.Values[i] = ec._Webhook_statusTemplate(ctx, field, obj)
+		case "resultTemplate":
+			out.Values[i] = ec._Webhook_resultTemplate(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -27168,6 +27493,18 @@ func (ec *executionContext) marshalOAPIDefinitionPage2ᚖgithubᚗcomᚋkymaᚑi
 		return graphql.Null
 	}
 	return ec._APIDefinitionPage(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOAPIKeyCredentialDataInput2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐAPIKeyCredentialDataInput(ctx context.Context, v interface{}) (APIKeyCredentialDataInput, error) {
+	return ec.unmarshalInputAPIKeyCredentialDataInput(ctx, v)
+}
+
+func (ec *executionContext) unmarshalOAPIKeyCredentialDataInput2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐAPIKeyCredentialDataInput(ctx context.Context, v interface{}) (*APIKeyCredentialDataInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalOAPIKeyCredentialDataInput2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐAPIKeyCredentialDataInput(ctx, v)
+	return &res, err
 }
 
 func (ec *executionContext) marshalOAPISpec2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐAPISpec(ctx context.Context, sel ast.SelectionSet, v APISpec) graphql.Marshaler {

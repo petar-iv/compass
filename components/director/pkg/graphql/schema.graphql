@@ -158,6 +158,8 @@ enum WebhookType {
 	REGISTER_APPLICATION
 	UNREGISTER_APPLICATION
 	OPEN_RESOURCE_DISCOVERY
+	BUNDLE_INSTANCE_AUTH_CREATION
+	BUNDLE_INSTANCE_AUTH_DELETION
 }
 
 interface OneTimeToken {
@@ -183,7 +185,7 @@ interface SystemAuth {
 	auth: Auth
 }
 
-union CredentialData = BasicCredentialData | OAuthCredentialData
+union CredentialData = BasicCredentialData | OAuthCredentialData | APIKeyCredentialData
 
 input APIDefinitionInput {
 	"""
@@ -204,6 +206,14 @@ input APIDefinitionInput {
 	group: String
 	spec: APISpecInput
 	version: VersionInput
+}
+
+input APIKeyCredentialDataInput {
+	apiKey: String!
+	"""
+	**Validation:** valid URL
+	"""
+	tokenServerURL: String!
 }
 
 """
@@ -254,6 +264,7 @@ input ApplicationRegisterInput {
 	bundles: [BundleCreateInput!]
 	integrationSystemID: ID
 	statusCondition: ApplicationStatusCondition
+	baseURL: String
 }
 
 """
@@ -303,6 +314,7 @@ input ApplicationUpdateInput {
 	healthCheckURL: String
 	integrationSystemID: ID
 	statusCondition: ApplicationStatusCondition
+	baseURL: String
 }
 
 input AuthInput {
@@ -432,6 +444,7 @@ input CSRFTokenCredentialRequestAuthInput {
 input CredentialDataInput {
 	basic: BasicCredentialDataInput
 	oauth: OAuthCredentialDataInput
+	apiKey: APIKeyCredentialDataInput
 }
 
 input CredentialRequestAuthInput {
@@ -641,6 +654,7 @@ input WebhookInput {
 	headerTemplate: String
 	outputTemplate: String
 	statusTemplate: String
+	resultTemplate: String
 }
 
 type APIDefinition {
@@ -664,6 +678,11 @@ type APIDefinitionPage implements Pageable {
 	data: [APIDefinition!]!
 	pageInfo: PageInfo!
 	totalCount: Int!
+}
+
+type APIKeyCredentialData {
+	apiKey: String!
+	tokenServerURL: String!
 }
 
 type APISpec {
@@ -701,6 +720,7 @@ type Application {
 	updatedAt: Timestamp
 	deletedAt: Timestamp
 	error: String
+	baseURL: String
 }
 
 type ApplicationEventingConfiguration {
@@ -1079,6 +1099,7 @@ type Webhook {
 	headerTemplate: String
 	outputTemplate: String
 	statusTemplate: String
+	resultTemplate: String
 }
 
 type Query {
@@ -1374,14 +1395,14 @@ type Mutation {
 	**Examples**
 	- [request bundle instance auth creation](examples/request-bundle-instance-auth-creation/request-bundle-instance-auth-creation.graphql)
 	"""
-	requestBundleInstanceAuthCreation(bundleID: ID!, in: BundleInstanceAuthRequestInput! @validate): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationIDByBundle", idField: "bundleID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreation")
+	requestBundleInstanceAuthCreation(bundleID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationIDByBundle", idField: "bundleID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreation") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
 	"""
 	When defaultInstanceAuth is set, it fires "deleteBundleInstanceAuth" mutation. Otherwise, the status of the BundleInstanceAuth is set to UNUSED.
 	
 	**Examples**
 	- [request bundle instance auth deletion](examples/request-bundle-instance-auth-deletion/request-bundle-instance-auth-deletion.graphql)
 	"""
-	requestBundleInstanceAuthDeletion(authID: ID!): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationIDByBundleInstanceAuth", idField: "authID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthDeletion")
+	requestBundleInstanceAuthDeletion(authID: ID!, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationIDByBundleInstanceAuth", idField: "authID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthDeletion") @async(operationType: DELETE, idField: "authID", webhookType: BUNDLE_INSTANCE_AUTH_DELETION)
 	"""
 	**Examples**
 	- [add bundle](examples/add-bundle/add-bundle.graphql)

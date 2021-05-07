@@ -94,7 +94,7 @@ func (h *updateOperationHandler) ServeHTTP(writer http.ResponseWriter, request *
 	if err := validation.ValidateStruct(operation,
 		validation.Field(&operation.ResourceID, is.UUID),
 		validation.Field(&operation.OperationType, validation.Required, validation.In(OperationTypeCreate, OperationTypeUpdate, OperationTypeDelete)),
-		validation.Field(&operation.ResourceType, validation.Required, validation.In(resource.Application))); err != nil {
+		validation.Field(&operation.ResourceType, validation.Required, validation.In(resource.Application, resource.BundleInstanceAuth))); err != nil {
 		apperrors.WriteAppError(ctx, writer, apperrors.NewInvalidDataError("Invalid operation properties: %s", err), http.StatusBadRequest)
 		return
 	}

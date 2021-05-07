@@ -19,6 +19,7 @@ type Webhook struct {
 	HeaderTemplate        *string
 	OutputTemplate        *string
 	StatusTemplate        *string
+	ResultTemplate        *string
 }
 
 type WebhookInput struct {
@@ -34,15 +35,18 @@ type WebhookInput struct {
 	HeaderTemplate   *string
 	OutputTemplate   *string
 	StatusTemplate   *string
+	ResultTemplate   *string
 }
 
 type WebhookType string
 
 const (
-	WebhookTypeConfigurationChanged  WebhookType = "CONFIGURATION_CHANGED"
-	WebhookTypeRegisterApplication   WebhookType = "REGISTER_APPLICATION"
-	WebhookTypeDeleteApplication     WebhookType = "UNREGISTER_APPLICATION"
-	WebhookTypeOpenResourceDiscovery WebhookType = "OPEN_RESOURCE_DISCOVERY"
+	WebhookTypeConfigurationChanged       WebhookType = "CONFIGURATION_CHANGED"
+	WebhookTypeRegisterApplication        WebhookType = "REGISTER_APPLICATION"
+	WebhookTypeDeleteApplication          WebhookType = "UNREGISTER_APPLICATION"
+	WebhookTypeOpenResourceDiscovery      WebhookType = "OPEN_RESOURCE_DISCOVERY"
+	WebhookTypeBundleInstanceAuthCreation WebhookType = "BUNDLE_INSTANCE_AUTH_CREATION"
+	WebhookTypeBundleInstanceAuthDeletion WebhookType = "BUNDLE_INSTANCE_AUTH_DELETION"
 )
 
 type WebhookMode string
@@ -90,5 +94,6 @@ func (i *WebhookInput) toGenericWebhook(id string, tenant *string) *Webhook {
 		HeaderTemplate:   i.HeaderTemplate,
 		OutputTemplate:   i.OutputTemplate,
 		StatusTemplate:   i.StatusTemplate,
+		ResultTemplate:   i.ResultTemplate,
 	}
 }

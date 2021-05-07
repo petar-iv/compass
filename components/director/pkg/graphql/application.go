@@ -1,6 +1,11 @@
 package graphql
 
-import "github.com/kyma-incubator/compass/components/director/pkg/resource"
+import (
+	"net/url"
+
+	"github.com/kyma-incubator/compass/components/director/pkg/log"
+	"github.com/kyma-incubator/compass/components/director/pkg/resource"
+)
 
 type Application struct {
 	Name                  string             `json:"name"`
@@ -10,6 +15,7 @@ type Application struct {
 	Description           *string            `json:"description"`
 	Status                *ApplicationStatus `json:"status"`
 	HealthCheckURL        *string            `json:"healthCheckURL"`
+	BaseURL               *string            `json:"baseURL"`
 	*BaseEntity
 }
 
@@ -18,6 +24,25 @@ func (e *Application) GetType() resource.Type {
 }
 
 func (e *Application) Sentinel() {}
+
+func (e *Application) Template() map[string]interface{} {
+	// TODO add host
+	var host string
+	if e.BaseURL != nil && len(*e.BaseURL) != 0 {
+		if baseURL, err := url.Parse(*e.BaseURL); err == nil {
+			host = baseURL.Host
+		} else {
+			log.D().Errorf("Failed to parse URL for base URL %q of application with ID %s", e.BaseURL, e.ID)
+		}
+	}
+	url.Parse(*e.BaseURL)
+	return map[string]interface{}{
+		"ID":      e.ID,
+		"Name":    e.Name,
+		"BaseURL": e.BaseURL,
+		"Host":    host,
+	}
+}
 
 // Extended types used by external API
 

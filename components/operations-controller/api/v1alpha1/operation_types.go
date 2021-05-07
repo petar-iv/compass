@@ -45,9 +45,11 @@ type OperationSpec struct {
 	OperationCategory string        `json:"operation_category"`
 	ResourceType      string        `json:"resource_type"`
 	ResourceID        string        `json:"resource_id"`
-	CorrelationID     string        `json:"correlation_id"`
-	WebhookIDs        []string      `json:"webhook_ids"`
-	RequestObject     string        `json:"request_object"`
+	// +kubebuilder:validation:Optional
+	WebhookProviderID string   `json:"webhook_provider_id"`
+	CorrelationID     string   `json:"correlation_id"`
+	WebhookIDs        []string `json:"webhook_ids"`
+	RequestObject     string   `json:"request_object"`
 }
 
 // +kubebuilder:validation:Enum=Success;Failed;In Progress
@@ -182,9 +184,11 @@ func (in *Operation) TimeoutReached(timeout time.Duration) bool {
 // webhook templates as part of the Operation Controller reconcile logic.
 func (in *Operation) RequestObject() (webhook.RequestObject, error) {
 	str := struct {
-		Application graphql.Application
-		TenantID    string
-		Headers     map[string]string
+		Application        graphql.Application
+		BundleInstanceAuth graphql.BundleInstanceAuth
+		TenantID           string
+		ExternalTenantID   string
+		Headers            map[string]string
 	}{}
 
 	if err := json.Unmarshal([]byte(in.Spec.RequestObject), &str); err != nil {
@@ -192,8 +196,10 @@ func (in *Operation) RequestObject() (webhook.RequestObject, error) {
 	}
 
 	return webhook.RequestObject{
-		Application: &str.Application,
-		TenantID:    str.TenantID,
-		Headers:     str.Headers,
+		Application:        &str.Application,
+		BundleInstanceAuth: &str.BundleInstanceAuth,
+		ExternalTenantID:   str.ExternalTenantID,
+		TenantID:           str.TenantID,
+		Headers:            str.Headers,
 	}, nil
 }

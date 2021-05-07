@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/operation"
 	"github.com/kyma-incubator/compass/components/director/pkg/str"
@@ -30,7 +31,7 @@ func NewScheduler(kcli K8SClient) *Scheduler {
 }
 
 func (s *Scheduler) Schedule(ctx context.Context, op *operation.Operation) (string, error) {
-	operationName := fmt.Sprintf("%s-%s", op.ResourceType, op.ResourceID)
+	operationName := fmt.Sprintf("%s-%s", strings.ToLower(string(op.ResourceType)), op.ResourceID)
 	getOp, err := s.kcli.Get(ctx, operationName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -67,7 +68,7 @@ func isOpInProgress(op *v1alpha1.Operation) bool {
 }
 
 func toK8SOperation(op *operation.Operation) *v1alpha1.Operation {
-	operationName := fmt.Sprintf("%s-%s", op.ResourceType, op.ResourceID)
+	operationName := fmt.Sprintf("%s-%s", strings.ToLower(string(op.ResourceType)), op.ResourceID)
 	result := &v1alpha1.Operation{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: operationName,
@@ -85,6 +86,7 @@ func updateOperationSpec(op *operation.Operation, k8sOp *v1alpha1.Operation) *v1
 		CorrelationID:     op.CorrelationID,
 		WebhookIDs:        op.WebhookIDs,
 		RequestObject:     op.RequestObject,
+		WebhookProviderID: op.WebhookProviderID,
 	}
 	return k8sOp
 }

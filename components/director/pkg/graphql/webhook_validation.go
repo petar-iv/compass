@@ -28,7 +28,13 @@ func (i WebhookInput) Validate() error {
 		}
 	}
 
-	requestObject := webhook.RequestObject{Application: &Application{BaseEntity: &BaseEntity{}}}
+	requestObject := webhook.RequestObject{
+		Application:        &Application{BaseEntity: &BaseEntity{}},
+		BundleInstanceAuth: &BundleInstanceAuth{
+			BaseEntity: &BaseEntity{},
+			InputParams: getJson(`{}`),
+		},
+	}
 	if i.URLTemplate != nil {
 		if _, err := requestObject.ParseURLTemplate(i.URLTemplate); err != nil {
 			log.D().Errorf("failed to parse URL Template: %s", err.Error())
@@ -70,7 +76,7 @@ func (i WebhookInput) Validate() error {
 	}
 
 	return validation.ValidateStruct(&i,
-		validation.Field(&i.Type, validation.Required, validation.In(WebhookTypeConfigurationChanged, WebhookTypeRegisterApplication, WebhookTypeUnregisterApplication, WebhookTypeOpenResourceDiscovery)),
+		validation.Field(&i.Type, validation.Required, validation.In(WebhookTypeConfigurationChanged, WebhookTypeRegisterApplication, WebhookTypeUnregisterApplication, WebhookTypeOpenResourceDiscovery, WebhookTypeBundleInstanceAuthCreation, WebhookTypeBundleInstanceAuthDeletion)),
 		validation.Field(&i.URL, is.URL, validation.RuneLength(0, longStringLengthLimit)),
 		validation.Field(&i.CorrelationIDKey, validation.RuneLength(0, longStringLengthLimit)),
 		validation.Field(&i.Mode, validation.In(WebhookModeSync, WebhookModeAsync)),
@@ -78,4 +84,9 @@ func (i WebhookInput) Validate() error {
 		validation.Field(&i.Timeout, validation.Min(0)),
 		validation.Field(&i.Auth),
 	)
+}
+
+func getJson(srt string) *JSON {
+	j := JSON(srt)
+	return &j
 }

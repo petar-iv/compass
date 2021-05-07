@@ -3,10 +3,12 @@ package bundleinstanceauth
 import (
 	"database/sql"
 	"time"
+
+	"github.com/kyma-incubator/compass/components/director/internal/repo"
 )
 
 type Entity struct {
-	ID              string         `db:"id"`
+	*repo.BaseEntity
 	BundleID        string         `db:"bundle_id"`
 	TenantID        string         `db:"tenant_id"`
 	Context         sql.NullString `db:"context"`

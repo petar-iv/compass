@@ -173,6 +173,7 @@ func (c *converter) credentialInputFromGraphQL(in *graphql.CredentialDataInput) 
 
 	var basic *model.BasicCredentialDataInput
 	var oauth *model.OAuthCredentialDataInput
+	var apiKey *model.APIKeyCredentialDataInput
 
 	if in.Basic != nil {
 		basic = &model.BasicCredentialDataInput{
@@ -185,11 +186,17 @@ func (c *converter) credentialInputFromGraphQL(in *graphql.CredentialDataInput) 
 			ClientID:     in.Oauth.ClientID,
 			ClientSecret: in.Oauth.ClientSecret,
 		}
+	} else if in.APIKey != nil {
+		apiKey = &model.APIKeyCredentialDataInput{
+			APIKey: in.APIKey.APIKey,
+			URL:    in.APIKey.TokenServerURL,
+		}
 	}
 
 	return &model.CredentialDataInput{
-		Basic: basic,
-		Oauth: oauth,
+		Basic:  basic,
+		Oauth:  oauth,
+		APIKey: apiKey,
 	}
 }
 
@@ -205,6 +212,11 @@ func (c *converter) credentialToGraphQL(in model.CredentialData) graphql.Credent
 			URL:          in.Oauth.URL,
 			ClientID:     in.Oauth.ClientID,
 			ClientSecret: in.Oauth.ClientSecret,
+		}
+	} else if in.APIKey != nil {
+		credential = graphql.APIKeyCredentialData{
+			APIKey:         in.APIKey.APIKey,
+			TokenServerURL: in.APIKey.URL,
 		}
 	}
 

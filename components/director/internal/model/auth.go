@@ -20,8 +20,9 @@ type CSRFTokenCredentialRequestAuth struct {
 }
 
 type CredentialData struct {
-	Basic *BasicCredentialData
-	Oauth *OAuthCredentialData
+	Basic  *BasicCredentialData
+	Oauth  *OAuthCredentialData
+	APIKey *APIKeyCredentialData
 }
 
 type BasicCredentialData struct {
@@ -32,6 +33,11 @@ type OAuthCredentialData struct {
 	ClientID     string
 	ClientSecret string
 	URL          string
+}
+
+type APIKeyCredentialData struct {
+	APIKey string
+	URL    string
 }
 
 type AuthInput struct {
@@ -67,8 +73,9 @@ func (i *AuthInput) ToAuth() *Auth {
 }
 
 type CredentialDataInput struct {
-	Basic *BasicCredentialDataInput
-	Oauth *OAuthCredentialDataInput
+	Basic  *BasicCredentialDataInput
+	Oauth  *OAuthCredentialDataInput
+	APIKey *APIKeyCredentialDataInput
 }
 
 func (i *CredentialDataInput) ToCredentialData() *CredentialData {
@@ -78,6 +85,7 @@ func (i *CredentialDataInput) ToCredentialData() *CredentialData {
 
 	var basic *BasicCredentialData
 	var oauth *OAuthCredentialData
+	var apiKey *APIKeyCredentialData
 
 	if i.Basic != nil {
 		basic = i.Basic.ToBasicCredentialData()
@@ -87,9 +95,14 @@ func (i *CredentialDataInput) ToCredentialData() *CredentialData {
 		oauth = i.Oauth.ToOAuthCredentialData()
 	}
 
+	if i.APIKey != nil {
+		apiKey = i.APIKey.ToAPIKeyCredentialData()
+	}
+
 	return &CredentialData{
-		Basic: basic,
-		Oauth: oauth,
+		Basic:  basic,
+		Oauth:  oauth,
+		APIKey: apiKey,
 	}
 }
 
@@ -168,5 +181,21 @@ func (i *CSRFTokenCredentialRequestAuthInput) ToCSRFTokenCredentialRequestAuth()
 		AdditionalHeaders:     i.AdditionalHeaders,
 		AdditionalQueryParams: i.AdditionalQueryParams,
 		TokenEndpointURL:      i.TokenEndpointURL,
+	}
+}
+
+type APIKeyCredentialDataInput struct {
+	APIKey string
+	URL    string
+}
+
+func (a *APIKeyCredentialDataInput) ToAPIKeyCredentialData() *APIKeyCredentialData {
+	if a == nil {
+		return nil
+	}
+
+	return &APIKeyCredentialData{
+		APIKey: a.APIKey,
+		URL:    a.URL,
 	}
 }

@@ -81,12 +81,17 @@ func (r *OperationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	ctx = tenant.SaveToContext(ctx, requestObject.TenantID)
-	app, err := r.directorClient.FetchApplication(ctx, operation.Spec.ResourceID)
+	applicationID := operation.Spec.ResourceID
+	if operation.Spec.WebhookProviderID != "" {
+		applicationID = operation.Spec.WebhookProviderID
+	}
+
+	app, err := r.directorClient.FetchApplication(ctx, applicationID)
 	if err != nil {
 		return r.handleFetchApplicationError(ctx, operation, err)
 	}
 
-	if app.Result.Ready {
+	if app.Result.ID == operation.Spec.ResourceID && app.Result.Ready {
 		return r.finalizeStatus(ctx, operation, app.Result.Error)
 	}
 
@@ -227,7 +232,7 @@ func (r *OperationReconciler) handleWebhookPollResponse(ctx context.Context, ope
 		log.C(ctx).Info(fmt.Sprintf("Successfully updated operation status last poll timestamp to %s", lastPollTimestamp), "status", operation.Status)
 		return r.requeueUnlessTimeoutOrFatalError(ctx, operation, webhookEntity, errors.ErrWebhookPollTimeExpired)
 	case *response.SuccessStatusIdentifier:
-		return r.finalizeStatusSuccess(ctx, operation)
+		return r.handleSuccessfulWebhookPollResponse(ctx, operation, webhookEntity, response)
 	case *response.FailedStatusIdentifier:
 		return r.finalizeStatusWithError(ctx, operation, errors.ErrFailedWebhookStatus)
 	default:
@@ -269,8 +274,10 @@ func (r *OperationReconciler) finalizeStatus(ctx context.Context, operation *v1a
 }
 
 func (r *OperationReconciler) finalizeStatusSuccess(ctx context.Context, operation *v1alpha1.Operation) (ctrl.Result, error) {
-	if err := r.directorClient.UpdateOperation(ctx, prepareDirectorRequest(operation)); err != nil {
-		return ctrl.Result{}, err
+	if operation.Spec.OperationType == v1alpha1.OperationTypeDelete || operation.Spec.ResourceType != string(resource.BundleInstanceAuth) {
+		if err := r.directorClient.UpdateOperation(ctx, prepareDirectorRequest(operation)); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if err := r.statusManager.SuccessStatus(ctx, operation); err != nil {
@@ -300,6 +307,36 @@ func (r *OperationReconciler) determineTimeout(webhook *graphql.Webhook) time.Du
 	}
 
 	return time.Duration(*webhook.Timeout) * time.Second
+}
+
+func (r *OperationReconciler) handleSuccessfulWebhookPollResponse(ctx context.Context, operation *v1alpha1.Operation, webhookEntity *graphql.Webhook, response *webhookdir.ResponseStatus) (ctrl.Result, error) {
+	// TODO discuss: maybe introduce an "interceptor", and it can act edpending on the resource and operation types
+	if operation.Spec.ResourceType == string(resource.BundleInstanceAuth) && operation.Spec.OperationType == v1alpha1.OperationTypeCreate {
+		obj, err := operation.RequestObject()
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		webhookEntity.URL = response.Location
+		request := webhook.NewRequest(*webhookEntity, obj, operation.Spec.CorrelationID)
+		resp, err := r.webhookClient.RetrieveCredentials(ctx, request)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		// TODO fix
+		if resp.APIKey == nil || resp.URL == nil {
+			return ctrl.Result{}, errors.NewFatalReconcileError("missing API key and URL")
+		}
+
+		if err := r.directorClient.SetBundleInstanceAuth(ctx, operation.Spec.ResourceID, &graphql.APIKeyCredentialDataInput{
+			APIKey:         *resp.APIKey,
+			TokenServerURL: *resp.URL,
+		}); err != nil {
+			return ctrl.Result{}, errors.NewFatalReconcileError(fmt.Sprintf("failed to set bundle instance auth: %v", err))
+		}
+	}
+
+	return r.finalizeStatusSuccess(ctx, operation)
 }
 
 func prepareDirectorRequest(operation *v1alpha1.Operation) *director.Request {

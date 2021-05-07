@@ -49,6 +49,19 @@ type APIDefinitionPage struct {
 
 func (APIDefinitionPage) IsPageable() {}
 
+type APIKeyCredentialData struct {
+	APIKey         string `json:"apiKey"`
+	TokenServerURL string `json:"tokenServerURL"`
+}
+
+func (APIKeyCredentialData) IsCredentialData() {}
+
+type APIKeyCredentialDataInput struct {
+	APIKey string `json:"apiKey"`
+	// **Validation:** valid URL
+	TokenServerURL string `json:"tokenServerURL"`
+}
+
 // **Validation:**
 // - for ODATA type, accepted formats are XML and JSON, for OPEN_API accepted formats are YAML and JSON
 // - data or fetchRequest required
@@ -100,6 +113,7 @@ type ApplicationRegisterInput struct {
 	Bundles             []*BundleCreateInput        `json:"bundles"`
 	IntegrationSystemID *string                     `json:"integrationSystemID"`
 	StatusCondition     *ApplicationStatusCondition `json:"statusCondition"`
+	BaseURL             *string                     `json:"baseURL"`
 }
 
 type ApplicationStatus struct {
@@ -146,6 +160,7 @@ type ApplicationUpdateInput struct {
 	HealthCheckURL      *string                     `json:"healthCheckURL"`
 	IntegrationSystemID *string                     `json:"integrationSystemID"`
 	StatusCondition     *ApplicationStatusCondition `json:"statusCondition"`
+	BaseURL             *string                     `json:"baseURL"`
 }
 
 type Auth struct {
@@ -209,18 +224,6 @@ type BundleCreateInput struct {
 	APIDefinitions                 []*APIDefinitionInput   `json:"apiDefinitions"`
 	EventDefinitions               []*EventDefinitionInput `json:"eventDefinitions"`
 	Documents                      []*DocumentInput        `json:"documents"`
-}
-
-type BundleInstanceAuth struct {
-	ID string `json:"id"`
-	// Context of BundleInstanceAuth - such as Runtime ID, namespace
-	Context *JSON `json:"context"`
-	// User input while requesting Bundle Instance Auth
-	InputParams *JSON `json:"inputParams"`
-	// It may be empty if status is PENDING.
-	// Populated with `bundle.defaultAuth` value if `bundle.defaultAuth` is defined. If not, Compass notifies Application/Integration System about the Auth request.
-	Auth   *Auth                     `json:"auth"`
-	Status *BundleInstanceAuthStatus `json:"status"`
 }
 
 type BundleInstanceAuthRequestInput struct {
@@ -308,8 +311,9 @@ type CSRFTokenCredentialRequestAuthInput struct {
 
 // **Validation:** basic or oauth field required
 type CredentialDataInput struct {
-	Basic *BasicCredentialDataInput `json:"basic"`
-	Oauth *OAuthCredentialDataInput `json:"oauth"`
+	Basic  *BasicCredentialDataInput  `json:"basic"`
+	Oauth  *OAuthCredentialDataInput  `json:"oauth"`
+	APIKey *APIKeyCredentialDataInput `json:"apiKey"`
 }
 
 type CredentialRequestAuth struct {
@@ -615,6 +619,7 @@ type Webhook struct {
 	HeaderTemplate        *string      `json:"headerTemplate"`
 	OutputTemplate        *string      `json:"outputTemplate"`
 	StatusTemplate        *string      `json:"statusTemplate"`
+	ResultTemplate        *string      `json:"resultTemplate"`
 }
 
 type WebhookInput struct {
@@ -631,6 +636,7 @@ type WebhookInput struct {
 	HeaderTemplate   *string      `json:"headerTemplate"`
 	OutputTemplate   *string      `json:"outputTemplate"`
 	StatusTemplate   *string      `json:"statusTemplate"`
+	ResultTemplate   *string      `json:"resultTemplate"`
 }
 
 type APISpecType string
@@ -1367,10 +1373,12 @@ func (e WebhookMode) MarshalGQL(w io.Writer) {
 type WebhookType string
 
 const (
-	WebhookTypeConfigurationChanged  WebhookType = "CONFIGURATION_CHANGED"
-	WebhookTypeRegisterApplication   WebhookType = "REGISTER_APPLICATION"
-	WebhookTypeUnregisterApplication WebhookType = "UNREGISTER_APPLICATION"
-	WebhookTypeOpenResourceDiscovery WebhookType = "OPEN_RESOURCE_DISCOVERY"
+	WebhookTypeConfigurationChanged       WebhookType = "CONFIGURATION_CHANGED"
+	WebhookTypeRegisterApplication        WebhookType = "REGISTER_APPLICATION"
+	WebhookTypeUnregisterApplication      WebhookType = "UNREGISTER_APPLICATION"
+	WebhookTypeOpenResourceDiscovery      WebhookType = "OPEN_RESOURCE_DISCOVERY"
+	WebhookTypeBundleInstanceAuthCreation WebhookType = "BUNDLE_INSTANCE_AUTH_CREATION"
+	WebhookTypeBundleInstanceAuthDeletion WebhookType = "BUNDLE_INSTANCE_AUTH_DELETION"
 )
 
 var AllWebhookType = []WebhookType{
@@ -1378,11 +1386,13 @@ var AllWebhookType = []WebhookType{
 	WebhookTypeRegisterApplication,
 	WebhookTypeUnregisterApplication,
 	WebhookTypeOpenResourceDiscovery,
+	WebhookTypeBundleInstanceAuthCreation,
+	WebhookTypeBundleInstanceAuthDeletion,
 }
 
 func (e WebhookType) IsValid() bool {
 	switch e {
-	case WebhookTypeConfigurationChanged, WebhookTypeRegisterApplication, WebhookTypeUnregisterApplication, WebhookTypeOpenResourceDiscovery:
+	case WebhookTypeConfigurationChanged, WebhookTypeRegisterApplication, WebhookTypeUnregisterApplication, WebhookTypeOpenResourceDiscovery, WebhookTypeBundleInstanceAuthCreation, WebhookTypeBundleInstanceAuthDeletion:
 		return true
 	}
 	return false

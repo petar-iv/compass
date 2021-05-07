@@ -3,6 +3,7 @@ package bundleinstanceauth
 import (
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"github.com/kyma-incubator/compass/components/director/internal/repo"
 
@@ -38,7 +39,14 @@ func (c *converter) ToGraphQL(in *model.BundleInstanceAuth) (*graphql.BundleInst
 	}
 
 	return &graphql.BundleInstanceAuth{
-		ID:          in.ID,
+		BaseEntity: &graphql.BaseEntity{
+			ID:        in.ID,
+			Ready:     in.Ready,
+			CreatedAt: timePtrToTimestampPtr(in.CreatedAt),
+			UpdatedAt: timePtrToTimestampPtr(in.UpdatedAt),
+			DeletedAt: timePtrToTimestampPtr(in.DeletedAt),
+			Error:     in.Error,
+		},
 		Context:     c.strPtrToJSONPtr(in.Context),
 		InputParams: c.strPtrToJSONPtr(in.InputParams),
 		Auth:        auth,
@@ -93,7 +101,14 @@ func (c *converter) SetInputFromGraphQL(in graphql.BundleInstanceAuthSetInput) (
 
 func (c *converter) ToEntity(in model.BundleInstanceAuth) (Entity, error) {
 	out := Entity{
-		ID:          in.ID,
+		BaseEntity: &repo.BaseEntity{
+			ID:        in.ID,
+			Ready:     in.Ready,
+			CreatedAt: in.CreatedAt,
+			UpdatedAt: in.UpdatedAt,
+			DeletedAt: in.DeletedAt,
+			Error:     repo.NewNullableString(in.Error),
+		},
 		BundleID:    in.BundleID,
 		TenantID:    in.Tenant,
 		Context:     repo.NewNullableString(in.Context),
@@ -122,7 +137,14 @@ func (c *converter) FromEntity(in Entity) (model.BundleInstanceAuth, error) {
 	}
 
 	return model.BundleInstanceAuth{
-		ID:          in.ID,
+		BaseEntity: &model.BaseEntity{
+			ID:        in.ID,
+			Ready:     in.Ready,
+			CreatedAt: in.CreatedAt,
+			UpdatedAt: in.UpdatedAt,
+			DeletedAt: in.DeletedAt,
+			Error:     repo.StringPtrFromNullableString(in.Error),
+		},
 		BundleID:    in.BundleID,
 		Tenant:      in.TenantID,
 		Context:     repo.StringPtrFromNullableString(in.Context),
@@ -190,4 +212,13 @@ func (c *converter) authPtrFromNullString(in sql.NullString) (*model.Auth, error
 		return nil, err
 	}
 	return &auth, nil
+}
+
+func timePtrToTimestampPtr(time *time.Time) *graphql.Timestamp {
+	if time == nil {
+		return nil
+	}
+
+	t := graphql.Timestamp(*time)
+	return &t
 }

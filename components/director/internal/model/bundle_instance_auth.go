@@ -7,7 +7,7 @@ import (
 )
 
 type BundleInstanceAuth struct {
-	ID          string
+	*BaseEntity
 	BundleID    string
 	Tenant      string
 	Context     *string
@@ -75,7 +75,9 @@ type BundleInstanceAuthRequestInput struct {
 
 func (ri BundleInstanceAuthRequestInput) ToBundleInstanceAuth(id, bundleID, tenant string, auth *Auth, status *BundleInstanceAuthStatus) BundleInstanceAuth {
 	return BundleInstanceAuth{
-		ID:          id,
+		BaseEntity: &BaseEntity{
+			ID: id,
+		},
 		BundleID:    bundleID,
 		Tenant:      tenant,
 		Context:     ri.Context,

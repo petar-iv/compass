@@ -46,6 +46,70 @@ func NewClient(httpClient *http.Client) *client {
 	}
 }
 
+func (c *client) RetrieveCredentials(ctx context.Context, request *Request) (*web_hook.CredentialsResponse, error) {
+	var err error
+	webhook := request.Webhook
+
+	if webhook.ResultTemplate == nil {
+		return nil, recerr.NewFatalReconcileError("missing result template")
+	}
+
+	var method string
+	url := webhook.URL
+
+
+	if url == nil {
+		return nil, recerr.NewFatalReconcileError("missing webhook url")
+	}
+
+	headers := http.Header{}
+	if webhook.HeaderTemplate != nil {
+		headers, err = request.Object.ParseHeadersTemplate(webhook.HeaderTemplate)
+		if err != nil {
+			return nil, recerr.NewFatalReconcileErrorFromExisting(errors.Wrap(err, "unable to parse webhook headers"))
+		}
+	}
+
+	ctx = correlation.SaveCorrelationIDHeaderToContext(ctx, webhook.CorrelationIDKey, &request.CorrelationID)
+
+	req, err := http.NewRequestWithContext(ctx, method, *url, nil)
+	if err != nil {
+		return nil, recerr.NewFatalReconcileErrorFromExisting(err)
+	}
+
+	req.Header = headers
+
+	if webhook.Auth != nil {
+		ctx = auth.SaveToContext(ctx, webhook.Auth.Credential)
+		req = req.WithContext(ctx)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.C(ctx).Error(err, "Failed to close HTTP response body")
+		}
+	}()
+
+	responseObject, err := parseResponseObject(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	log.C(ctx).Info(fmt.Sprintf("Webhook response object: %v", *responseObject))
+
+	response, err := responseObject.ParseCredentialsResultTemplate(webhook.ResultTemplate)
+	if err != nil {
+		return nil, recerr.NewFatalReconcileErrorFromExisting(errors.Wrap(err, "unable to parse response into webhook output template"))
+	}
+
+	return response, checkForErr(resp, response.SuccessStatusCode, response.Error)
+}
+
 func (c *client) Do(ctx context.Context, request *Request) (*web_hook.Response, error) {
 	var err error
 	webhook := request.Webhook
@@ -98,6 +162,8 @@ func (c *client) Do(ctx context.Context, request *Request) (*web_hook.Response, 
 		ctx = auth.SaveToContext(ctx, webhook.Auth.Credential)
 		req = req.WithContext(ctx)
 	}
+
+	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -198,18 +264,10 @@ func parseResponseObject(resp *http.Response) (*web_hook.ResponseObject, error) 
 		return nil, err
 	}
 
-	body := make(map[string]string, 0)
-	if len(respBody) > 0 {
-		tmpBody := make(map[string]interface{})
-		if err := json.Unmarshal(respBody, &tmpBody); err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshall HTTP response with body %s", respBody))
-		}
-
-		for k, v := range tmpBody {
-			if v == nil {
-				continue
-			}
-			body[k] = fmt.Sprintf("%v", v)
+	body := make(map[string]interface{}, 0)
+		if len(respBody) > 0 {
+		if err := json.Unmarshal(respBody, &body); err != nil {
+			return nil, err
 		}
 	}
 
@@ -230,7 +288,7 @@ func checkForErr(resp *http.Response, successStatusCode *int, error *string) err
 		errMsg += fmt.Sprintf("response success status code was not met - expected %d, got %d; ", *successStatusCode, resp.StatusCode)
 	}
 
-	if error != nil && *error != "" {
+	if error != nil && *error != "" && *error != "<no value>" {
 		errMsg += fmt.Sprintf("received error while polling external system: %s", *error)
 	}
 

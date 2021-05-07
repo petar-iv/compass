@@ -62,6 +62,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/kyma-incubator/compass/components/director/pkg/normalizer"
 	"github.com/kyma-incubator/compass/components/director/pkg/operation"
+	"github.com/kyma-incubator/compass/components/director/pkg/operation/enhance"
 	"github.com/kyma-incubator/compass/components/director/pkg/operation/k8s"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
@@ -264,11 +265,12 @@ func main() {
 	operationsAPIRouter.Use(authMiddleware.Handler())
 	operationsAPIRouter.HandleFunc("/{resource_type}/{resource_id}", operationHandler.ServeHTTP)
 
+	biaSvc := bundleinstanceauth.NewService(bundleInstanceAuthRepo(), nil)
 	operationUpdaterHandler := operation.NewUpdateOperationHandler(transact, map[resource.Type]operation.ResourceUpdaterFunc{
 		resource.Application: appUpdaterFunc(appRepo),
 	}, map[resource.Type]operation.ResourceDeleterFunc{
-		resource.Application: func(ctx context.Context, id string) error {
-			return appRepo.DeleteGlobal(ctx, id)
+		resource.BundleInstanceAuth: func(ctx context.Context, id string) error {
+			return biaSvc.DeleteGlobal(ctx, id)
 		},
 	})
 
@@ -613,15 +615,38 @@ func PrepareHydratorHandler(cfg config, tokenService oathkeeper.Service, transac
 }
 
 func getAsyncDirective(ctx context.Context, cfg config, transact persistence.Transactioner, appRepo application.ApplicationRepository) func(context.Context, interface{}, gqlgen.Resolver, graphql.OperationType, *graphql.WebhookType, *string) (res interface{}, err error) {
-	resourceFetcherFunc := func(ctx context.Context, tenantID, resourceID string) (model.Entity, error) {
-		return appRepo.GetByID(ctx, tenantID, resourceID)
-	}
 
 	scheduler, err := buildScheduler(ctx, cfg)
 	exitOnError(err, "Error while creating operations scheduler")
 
-	return operation.NewDirective(transact, webhookService().ListAllApplicationWebhooks, resourceFetcherFunc, appUpdaterFunc(appRepo), tenant.LoadFromContext, scheduler).HandleOperation
+	bndlInstanceAuthRepo := bundleinstanceauth.NewRepository(bundleinstanceauth.NewConverter(auth.NewConverter()))
+
+	resourceFetcherFuncs := map[resource.Type]operation.ResourceFetcherFunc{
+		resource.Application: func(ctx context.Context, tenantID, resourceID string) (model.Entity, error) {
+			return appRepo.GetByID(ctx, tenantID, resourceID)
+		},
+		resource.BundleInstanceAuth: func(ctx context.Context, tenantID, resourceID string) (model.Entity, error) {
+			return bndlInstanceAuthRepo.GetByID(ctx, tenantID, resourceID)
+		},
+	}
+	resourceUpdaterFuncs := map[resource.Type]operation.ResourceUpdaterFunc{
+		resource.Application: appUpdaterFunc(appRepo),
+	}
+
+	bundleSvc := mp_bundle.NewService(bundleRepo(), nil, nil, nil, nil)
+	appSvc := application.NewService(&normalizer.DefaultNormalizator{}, nil, appRepo, nil, nil, nil, nil, nil, nil, nil, nil)
+	bundleInstanceAuthEnhancer := enhance.NewIntanceAuthOperationEnhancer(webhookService(), bundleSvc, bundleinstanceauth.NewService(bundleInstanceAuthRepo(), nil), appSvc)
+
+	appEnhancer := enhance.NewAllpicationOperationEnhancer(webhookService())
+
+	webhookFetcherFuncs := map[resource.Type]operation.Enhance{
+		resource.Application:        appEnhancer.Enhance,
+		resource.BundleInstanceAuth: bundleInstanceAuthEnhancer.Enhance,
+	}
+	// TODO agree on something cleaner with the tenant
+	return operation.NewDirective(transact, webhookFetcherFuncs, resourceFetcherFuncs, resourceUpdaterFuncs, tenant.LoadFromContext, scheduler).HandleOperation
 }
+
 
 func buildScheduler(ctx context.Context, config config) (operation.Scheduler, error) {
 	if config.DisableAsyncMode {

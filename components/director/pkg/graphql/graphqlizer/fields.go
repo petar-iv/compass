@@ -77,6 +77,7 @@ func (fp *GqlFieldsProvider) OmitForApplication(omittedProperties []string) stri
 		"description":           "description",
 		"integrationSystemID":   "integrationSystemID",
 		"labels":                "labels",
+		"baseURL":               "baseURL",
 		"status":                "status { condition timestamp }",
 		"webhooks":              fmt.Sprintf("webhooks {%s}", fp.OmitForWebhooks(webhooksOmittedProperties)),
 		"healthCheckURL":        "healthCheckURL",
@@ -96,6 +97,7 @@ func (fp *GqlFieldsProvider) ForApplication(ctx ...FieldCtx) string {
 		labels
 		deletedAt
 		error
+		baseURL
 		status {condition timestamp}
 		webhooks {%s}
 		healthCheckURL
@@ -133,6 +135,7 @@ func (fp *GqlFieldsProvider) OmitForWebhooks(omittedProperties []string) string 
 		"headerTemplate":   "headerTemplate",
 		"outputTemplate":   "outputTemplate",
 		"statusTemplate":   "statusTemplate",
+		"resultTemplate":   "resultTemplate",
 		"auth":             fmt.Sprintf("auth {%s}", fp.ForAuth()),
 	}, omittedProperties)
 }
@@ -153,6 +156,7 @@ func (fp *GqlFieldsProvider) ForWebhooks() string {
 		headerTemplate
 		outputTemplate
 		statusTemplate
+		resultTemplate
 		auth {
 		  %s
 		}`, fp.ForAuth())

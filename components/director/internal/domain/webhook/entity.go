@@ -21,6 +21,7 @@ type Entity struct {
 	HeaderTemplate        sql.NullString `db:"header_template"`
 	OutputTemplate        sql.NullString `db:"output_template"`
 	StatusTemplate        sql.NullString `db:"status_template"`
+	ResultTemplate        sql.NullString `db:"result_template"`
 }
 
 type Collection []Entity

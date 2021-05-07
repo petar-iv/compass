@@ -107,6 +107,7 @@ func (c *converter) ToGraphQL(in *model.Application) *graphql.Application {
 			DeletedAt: timePtrToTimestampPtr(in.DeletedAt),
 			Error:     in.Error,
 		},
+		BaseURL: in.BaseURL,
 	}
 }
 
@@ -156,6 +157,7 @@ func (c *converter) CreateInputFromGraphQL(ctx context.Context, in graphql.Appli
 		ProviderName:        in.ProviderName,
 		Webhooks:            webhooks,
 		Bundles:             bundles,
+		BaseURL:             in.BaseURL,
 	}, nil
 }
 
@@ -171,6 +173,7 @@ func (c *converter) UpdateInputFromGraphQL(in graphql.ApplicationUpdateInput) mo
 		IntegrationSystemID: in.IntegrationSystemID,
 		ProviderName:        in.ProviderName,
 		StatusCondition:     statusCondition,
+		BaseURL:             in.BaseURL,
 	}
 }
 

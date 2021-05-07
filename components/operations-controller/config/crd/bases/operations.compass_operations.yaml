@@ -71,6 +71,8 @@ spec:
               items:
                 type: string
               type: array
+            webhook_provider_id:
+              type: string
           required:
           - correlation_id
           - operation_category

@@ -25,10 +25,11 @@ func (i CredentialDataInput) Validate() error {
 	return validation.Errors{
 		"Rule.ExactlyOneNotNil": inputvalidation.ValidateExactlyOneNotNil(
 			"exactly one credential input has to be specified",
-			i.Basic, i.Oauth,
+			i.Basic, i.Oauth, i.APIKey,
 		),
 		"Basic": validation.Validate(i.Basic),
 		"Oauth": validation.Validate(i.Oauth),
+		"APIKey": validation.Validate(i.APIKey),
 	}.Filter()
 }
 
@@ -44,6 +45,13 @@ func (i OAuthCredentialDataInput) Validate() error {
 		validation.Field(&i.ClientID, validation.Required),
 		validation.Field(&i.ClientSecret, validation.Required),
 		validation.Field(&i.URL, validation.Required, is.URL),
+	)
+}
+
+func (i APIKeyCredentialDataInput) Validate() error {
+	return validation.ValidateStruct(&i,
+		validation.Field(&i.APIKey, validation.Required),
+		validation.Field(&i.TokenServerURL, validation.Required, is.URL),
 	)
 }
 

@@ -27,6 +27,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 	graphqlbroker "github.com/kyma-incubator/compass/components/system-broker/pkg/graphql"
 	"github.com/kyma-incubator/compass/components/system-broker/pkg/types"
+	gcli "github.com/machinebox/graphql"
 )
 
 // client implements the DirectorClient interface
@@ -35,6 +36,7 @@ type client struct {
 	httpClient        *http.Client
 	directorURL       string
 	operationEndpoint string
+	gqlClient         *gcli.Client
 }
 
 type Request struct {
@@ -53,6 +55,7 @@ func NewClient(operationEndpoint string, cfg *graphqlbroker.Config, httpClient *
 
 	return &client{
 		ApplicationLister: graphqlClient,
+		gqlClient:         gcli.NewClient(cfg.GraphqlEndpoint, gcli.WithHTTPClient(httpClient)),
 		httpClient:        httpClient,
 		operationEndpoint: operationEndpoint,
 	}, nil
@@ -80,4 +83,25 @@ func (c *client) UpdateOperation(ctx context.Context, request *Request) error {
 	}
 
 	return nil
+}
+// TODO add other types
+// SetBundleInstanceAuth makes a graphql request to the Director to set instance auths
+func (c *client) SetBundleInstanceAuth(ctx context.Context, instanceAuthID string, in *graphql.APIKeyCredentialDataInput) error {
+	mutation := fmt.Sprintf(`mutation {
+		result: setBundleInstanceAuth(authID: "%s", in: {
+			auth:{
+				credential:  {
+					apiKey: {
+						apiKey: "%s",
+						tokenServerURL: "%s",
+					},
+				}
+			}
+		}) {
+			id
+		}}`, instanceAuthID, in.APIKey, in.TokenServerURL)
+
+	gqlRequest := gcli.NewRequest(mutation)
+	resp := struct{ id string }{}
+	return c.gqlClient.Run(ctx, gqlRequest, &resp)
 }

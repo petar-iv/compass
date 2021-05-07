@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 
+	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	webhookdir "github.com/kyma-incubator/compass/components/director/pkg/webhook"
 	"github.com/kyma-incubator/compass/components/operations-controller/api/v1alpha1"
 	"github.com/kyma-incubator/compass/components/operations-controller/internal/director"
@@ -51,11 +52,13 @@ type KubernetesClient interface {
 type DirectorClient interface {
 	typesbroker.ApplicationLister
 	UpdateOperation(ctx context.Context, request *director.Request) error
+	SetBundleInstanceAuth(ctx context.Context, bundleInstanceAuthID string, in *graphql.APIKeyCredentialDataInput) error
 }
 
 // WebhookClient defines a general purpose Webhook executor client
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . WebhookClient
 type WebhookClient interface {
 	Do(ctx context.Context, request *webhook.Request) (*webhookdir.Response, error)
+	RetrieveCredentials(ctx context.Context, request *webhook.Request) (*webhookdir.CredentialsResponse, error)
 	Poll(ctx context.Context, request *webhook.PollRequest) (*webhookdir.ResponseStatus, error)
 }

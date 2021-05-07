@@ -86,6 +86,9 @@ models:
       instanceAuths:
         resolver: true
 
+  BundleInstanceAuth:
+    model:  "github.com/kyma-incubator/compass/components/director/pkg/graphql.BundleInstanceAuth"
+
   APISpec:
     model: "github.com/kyma-incubator/compass/components/director/pkg/graphql.APISpec"
     fields:

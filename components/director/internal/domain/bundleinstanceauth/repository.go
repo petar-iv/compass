@@ -19,8 +19,8 @@ const tableName string = `public.bundle_instance_auths`
 var (
 	tenantColumn     = "tenant_id"
 	idColumns        = []string{"id"}
-	updatableColumns = []string{"auth_value", "status_condition", "status_timestamp", "status_message", "status_reason"}
-	tableColumns     = []string{"id", "tenant_id", "bundle_id", "context", "input_params", "auth_value", "status_condition", "status_timestamp", "status_message", "status_reason"}
+	updatableColumns = []string{"auth_value", "status_condition", "status_timestamp", "status_message", "status_reason", "ready", "created_at", "updated_at", "deleted_at", "error"}
+	tableColumns     = []string{"id", "tenant_id", "bundle_id", "context", "input_params", "auth_value", "status_condition", "status_timestamp", "status_message", "status_reason", "ready", "created_at", "updated_at", "deleted_at", "error"}
 )
 
 //go:generate mockery --name=EntityConverter --output=automock --outpkg=automock --case=underscore
@@ -30,22 +30,24 @@ type EntityConverter interface {
 }
 
 type repository struct {
-	creator      repo.Creator
-	singleGetter repo.SingleGetter
-	lister       repo.Lister
-	updater      repo.Updater
-	deleter      repo.Deleter
-	conv         EntityConverter
+	creator       repo.Creator
+	singleGetter  repo.SingleGetter
+	lister        repo.Lister
+	updater       repo.Updater
+	deleter       repo.Deleter
+	deleterGlobal repo.DeleterGlobal
+	conv          EntityConverter
 }
 
 func NewRepository(conv EntityConverter) *repository {
 	return &repository{
-		creator:      repo.NewCreator(resource.BundleInstanceAuth, tableName, tableColumns),
-		singleGetter: repo.NewSingleGetter(resource.BundleInstanceAuth, tableName, tenantColumn, tableColumns),
-		lister:       repo.NewLister(resource.BundleInstanceAuth, tableName, tenantColumn, tableColumns),
-		deleter:      repo.NewDeleter(resource.BundleInstanceAuth, tableName, tenantColumn),
-		updater:      repo.NewUpdater(resource.BundleInstanceAuth, tableName, updatableColumns, tenantColumn, idColumns),
-		conv:         conv,
+		creator:       repo.NewCreator(resource.BundleInstanceAuth, tableName, tableColumns),
+		singleGetter:  repo.NewSingleGetter(resource.BundleInstanceAuth, tableName, tenantColumn, tableColumns),
+		lister:        repo.NewLister(resource.BundleInstanceAuth, tableName, tenantColumn, tableColumns),
+		deleter:       repo.NewDeleter(resource.BundleInstanceAuth, tableName, tenantColumn),
+		deleterGlobal: repo.NewDeleterGlobal(resource.BundleInstanceAuth, tableName),
+		updater:       repo.NewUpdater(resource.BundleInstanceAuth, tableName, updatableColumns, tenantColumn, idColumns),
+		conv:          conv,
 	}
 }
 
@@ -133,6 +135,10 @@ func (r *repository) Update(ctx context.Context, item *model.BundleInstanceAuth)
 
 func (r *repository) Delete(ctx context.Context, tenantID string, id string) error {
 	return r.deleter.DeleteOne(ctx, tenantID, repo.Conditions{repo.NewEqualCondition("id", id)})
+}
+
+func (r *repository) DeleteGlobal(ctx context.Context, id string) error {
+	return r.deleterGlobal.DeleteOneGlobal(ctx, repo.Conditions{repo.NewEqualCondition("id", id)})
 }
 
 func (r *repository) multipleFromEntities(entities Collection) ([]*model.BundleInstanceAuth, error) {

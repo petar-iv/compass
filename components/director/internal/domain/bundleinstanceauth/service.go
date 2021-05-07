@@ -22,6 +22,7 @@ type Repository interface {
 	ListByBundleID(ctx context.Context, tenantID string, bundleID string) ([]*model.BundleInstanceAuth, error)
 	Update(ctx context.Context, item *model.BundleInstanceAuth) error
 	Delete(ctx context.Context, tenantID string, id string) error
+	DeleteGlobal(ctx context.Context, id string) error
 }
 
 //go:generate mockery --name=UIDService --output=automock --outpkg=automock --case=underscore
@@ -187,6 +188,13 @@ func (s *service) Delete(ctx context.Context, id string) error {
 	return errors.Wrapf(err, "while deleting BundleInstanceAuth with id %s", id)
 }
 
+func (s *service) DeleteGlobal(ctx context.Context, id string) error {
+	log.C(ctx).Debugf("Deleting BundleInstanceAuth entity with id %s in db", id)
+	err := s.repo.DeleteGlobal(ctx, id)
+
+	return errors.Wrapf(err, "while deleting BundleInstanceAuth with id %s", id)
+}
+
 func (s *service) setUpdateAuthAndStatus(ctx context.Context, instanceAuth *model.BundleInstanceAuth, in model.BundleInstanceAuthSetInput) error {
 	if instanceAuth == nil {
 		return nil
@@ -205,6 +213,7 @@ func (s *service) setUpdateAuthAndStatus(ctx context.Context, instanceAuth *mode
 			return errors.Wrapf(err, "while setting status '%s' to BundleInstanceAuth with id %s", model.BundleInstanceAuthStatusConditionSucceeded, instanceAuth.ID)
 		}
 	}
+	instanceAuth.Ready = true
 
 	return nil
 }
