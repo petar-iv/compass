@@ -99,11 +99,6 @@ else
         SKIP_DB_CLEANUP=true
         exit 1
     fi
-DB_USER="postgres"
-DB_PWD="pgsql@12345"
-DB_NAME="compass"
-DB_PORT="5432"
-DB_HOST="127.0.0.1"
     echo '# WAITING FOR CONNECTION WITH DATABASE #'
     for i in {1..30}
     do
@@ -155,7 +150,6 @@ export APP_CONNECTOR_URL="http://connector.not.configured.url/connector/graphql"
 export APP_LEGACY_CONNECTOR_URL="https://adapter-gateway.kyma.local/v1/applications/signingRequests/info"
 export APP_LOG_LEVEL=debug
 export APP_DISABLE_ASYNC_MODE=${DISABLE_ASYNC_MODE}
-#export APP_PAIRING_ADAPTER_SRC="/Users/I336727/pairconf.json"
 
 if [[  ${DEBUG} ]]; then
     echo -e "${GREEN}Debug mode activated on port $DEBUG_PORT${NC}"
