@@ -22,6 +22,7 @@ type BundleInstanceAuthService interface {
 
 type ApplicationService interface {
 	Get(ctx context.Context, id string) (*model.Application, error)
+	ListLabels(ctx context.Context, applicationID string) (map[string]*model.Label, error)
 }
 
 func NewIntanceAuthOperationEnhancer(webhookSvc WebhookService, bundleSvc BundleService, bundleInstanceAuth BundleInstanceAuthService, appSvc ApplicationService) instanceAuthOpEnhancer {
@@ -69,9 +70,17 @@ func (e *instanceAuthOpEnhancer) Enhance(ctx context.Context, tenantID string, o
 	}
 
 	app, err := e.appSvc.Get(ctx, bundle.ApplicationID)
+	if err != nil {
+		return err
+	}
 	operation.WebhookProviderID = app.ID
 
-	requestObject, err := prepareRequestObject(ctx, resource.BundleInstanceAuth, tenantID, application.NewConverter(nil, nil).ToGraphQL(app), entity)
+	l, err := e.appSvc.ListLabels(ctx, bundle.ApplicationID)
+	if err != nil {
+		return err
+	}
+	convertedLables := extractKeyValues(l)
+	requestObject, err := prepareRequestObject(ctx, resource.BundleInstanceAuth, tenantID, application.NewConverter(nil, nil).ToGraphQL(app), entity, convertedLables)
 	if err != nil {
 		return errors.Wrap(err, "an error occurred while preparing request data")
 	}

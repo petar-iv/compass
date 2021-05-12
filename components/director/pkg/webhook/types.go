@@ -45,6 +45,7 @@ type RequestObject struct {
 	TenantID           string
 	ExternalTenantID   string
 	Headers            map[string]string
+	ApplicationLabels  map[string]interface{}
 }
 
 // ResponseObject struct contains parts of response that might be needed for later processing of Webhook response
@@ -152,6 +153,7 @@ func (rd *RequestObject) ParseInputTemplate(tmpl *string) ([]byte, error) {
 		TenantID           string
 		ExternalTenantID   string
 		Headers            map[string]string
+		ApplicationLabels map[string]interface{}
 	}{
 		Application:        rd.Application.Template(),
 		BundleInstanceAuth: rd.BundleInstanceAuth.Template(),
@@ -159,6 +161,7 @@ func (rd *RequestObject) ParseInputTemplate(tmpl *string) ([]byte, error) {
 		TenantID:           rd.TenantID,
 		ExternalTenantID:   rd.ExternalTenantID,
 		Headers:            rd.Headers,
+		ApplicationLabels: rd.ApplicationLabels,
 	}
 	return res, parseTemplate(tmpl, temp, &res)
 }

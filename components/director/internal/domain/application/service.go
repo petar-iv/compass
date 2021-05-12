@@ -42,6 +42,7 @@ type ApplicationRepository interface {
 	ListAll(ctx context.Context, tenant string) ([]*model.Application, error)
 	ListGlobal(ctx context.Context, pageSize int, cursor string) (*model.ApplicationPage, error)
 	ListByScenarios(ctx context.Context, tenantID uuid.UUID, scenarios []string, pageSize int, cursor string, hidingSelectors map[string][]string) (*model.ApplicationPage, error)
+	ListByScenariosNoPaging(ctx context.Context, tenant uuid.UUID, scenarios []string, hidingSelectors map[string][]string) ([]*model.Application, error)
 	Create(ctx context.Context, item *model.Application) error
 	Update(ctx context.Context, item *model.Application) error
 	TechnicalUpdate(ctx context.Context, item *model.Application) error
@@ -66,6 +67,11 @@ type WebhookRepository interface {
 type RuntimeRepository interface {
 	Exists(ctx context.Context, tenant, id string) (bool, error)
 	ListAll(ctx context.Context, tenantID string, filter []*labelfilter.LabelFilter) ([]*model.Runtime, error)
+}
+
+type SolutionRepository interface {
+	Exists(ctx context.Context, tenant, id string) (bool, error)
+	ListAll(ctx context.Context, tenantID string, filter []*labelfilter.LabelFilter) ([]*model.Solution, error)
 }
 
 //go:generate mockery --name=IntegrationSystemRepository --output=automock --outpkg=automock --case=underscore
@@ -103,6 +109,7 @@ type service struct {
 	webhookRepo   WebhookRepository
 	labelRepo     LabelRepository
 	runtimeRepo   RuntimeRepository
+	solutionRepo   SolutionRepository
 	intSystemRepo IntegrationSystemRepository
 
 	labelUpsertService LabelUpsertService
@@ -112,13 +119,14 @@ type service struct {
 	timestampGen       timestamp.Generator
 }
 
-func NewService(appNameNormalizer normalizer.Normalizator, appHideCfgProvider ApplicationHideCfgProvider, app ApplicationRepository, webhook WebhookRepository, runtimeRepo RuntimeRepository, labelRepo LabelRepository, intSystemRepo IntegrationSystemRepository, labelUpsertService LabelUpsertService, scenariosService ScenariosService, bndlService BundleService, uidService UIDService) *service {
+func NewService(appNameNormalizer normalizer.Normalizator, appHideCfgProvider ApplicationHideCfgProvider, app ApplicationRepository, webhook WebhookRepository, runtimeRepo RuntimeRepository,solutionRepo SolutionRepository, labelRepo LabelRepository, intSystemRepo IntegrationSystemRepository, labelUpsertService LabelUpsertService, scenariosService ScenariosService, bndlService BundleService, uidService UIDService) *service {
 	return &service{
 		appNameNormalizer:  appNameNormalizer,
 		appHideCfgProvider: appHideCfgProvider,
 		appRepo:            app,
 		webhookRepo:        webhook,
 		runtimeRepo:        runtimeRepo,
+		solutionRepo:        solutionRepo,
 		labelRepo:          labelRepo,
 		intSystemRepo:      intSystemRepo,
 		labelUpsertService: labelUpsertService,
@@ -205,6 +213,50 @@ func (s *service) ListByRuntimeID(ctx context.Context, runtimeID uuid.UUID, page
 	}
 
 	return s.appRepo.ListByScenarios(ctx, tenantUUID, scenarios, pageSize, cursor, hidingSelectors)
+}
+
+func (s *service) ListBySolutionIDNoPaging(ctx context.Context, solutionID uuid.UUID) ([]*model.Application, error) {
+	tenantID, err := tenant.LoadFromContext(ctx)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "while loading tenant from context")
+	}
+
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, apperrors.NewInvalidDataError("tenantID is not UUID")
+	}
+
+	exist, err := s.solutionRepo.Exists(ctx, tenantID, solutionID.String())
+	if err != nil {
+		return nil, errors.Wrap(err, "while checking if solution exits")
+	}
+	if !exist {
+		return nil, apperrors.NewInvalidDataError("solution does not exist")
+	}
+
+	scenariosLabel, err := s.labelRepo.GetByKey(ctx, tenantID, model.SolutionLabelableObject, solutionID.String(), model.ScenariosKey)
+	if err != nil {
+		if apperrors.IsNotFoundError(err) {
+			return []*model.Application{}, nil
+		}
+		return nil, errors.Wrap(err, "while getting scenarios for runtime")
+	}
+
+	scenarios, err := label.ValueToStringsSlice(scenariosLabel.Value)
+	if err != nil {
+		return nil, errors.Wrap(err, "while converting scenarios labels")
+	}
+	if len(scenarios) == 0 {
+		return []*model.Application{}, nil
+	}
+
+	hidingSelectors, err := s.appHideCfgProvider.GetApplicationHideSelectors()
+	if err != nil {
+		return nil, errors.Wrap(err, "while getting application hide selectors from config")
+	}
+
+	return s.appRepo.ListByScenariosNoPaging(ctx, tenantUUID, scenarios,hidingSelectors)
 }
 
 func (s *service) Get(ctx context.Context, id string) (*model.Application, error) {

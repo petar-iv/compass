@@ -25,6 +25,7 @@ graphql:
 
   mutation:
     registerApplication: ["application:write"]
+    registerSolution: ["application:write"]
     registerApplicationFromTemplate: ["application:write"]
     updateApplication: ["application:write"]
     unregisterApplication: ["application:write"]
@@ -70,6 +71,8 @@ graphql:
     deleteSystemAuthForIntegrationSystem: ["integration_system:write"]
     setDefaultEventingForApplication: ["eventing:manage"]
     deleteDefaultEventingForApplication: ["eventing:manage"]
+    requestBundleInstanceAuthCreationForApp: ["application:write"]
+    requestBundleInstanceAuthCreationForSolutionApplications: ["application:write"]
     requestBundleInstanceAuthCreation: ["runtime:write"]
     requestBundleInstanceAuthDeletion: ["runtime:write"]
     setBundleInstanceAuth: ["application:write"]

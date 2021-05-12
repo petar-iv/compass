@@ -18,11 +18,13 @@ package operation
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/kyma-incubator/compass/components/director/pkg/graphql/graphqlizer"
 
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
@@ -44,17 +46,19 @@ type ResourceFetcherFunc func(ctx context.Context, tenantID, resourceID string) 
 type TenantLoaderFunc func(ctx context.Context) (string, error)
 
 type handler struct {
-	transact            persistence.Transactioner
-	resourceFetcherFunc ResourceFetcherFunc
-	tenantLoaderFunc    TenantLoaderFunc
+	transact             persistence.Transactioner
+	resourceFetcherFuncs map[resource.Type]ResourceFetcherFunc
+	tenantLoaderFunc     TenantLoaderFunc
+	directorURL          string
 }
 
 // NewHandler creates a new handler struct associated with the Operations API
-func NewHandler(transact persistence.Transactioner, resourceFetcherFunc ResourceFetcherFunc, tenantLoaderFunc TenantLoaderFunc) *handler {
+func NewHandler(transact persistence.Transactioner, resourceFetcherFuncs map[resource.Type]ResourceFetcherFunc, tenantLoaderFunc TenantLoaderFunc, directorURL string) *handler {
 	return &handler{
-		transact:            transact,
-		resourceFetcherFunc: resourceFetcherFunc,
-		tenantLoaderFunc:    tenantLoaderFunc,
+		transact:             transact,
+		resourceFetcherFuncs: resourceFetcherFuncs,
+		tenantLoaderFunc:     tenantLoaderFunc,
+		directorURL:          directorURL,
 	}
 }
 
@@ -95,7 +99,13 @@ func (h *handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	ctx = persistence.SaveToContext(ctx, tx)
 
-	res, err := h.resourceFetcherFunc(ctx, tenantID, op.ResourceID)
+	fetcher, ok := h.resourceFetcherFuncs[op.ResourceType]
+	if !ok {
+		log.C(ctx).Errorf("Fetcher function not found for unknown resource type %s", op.ResourceType)
+		apperrors.WriteAppError(ctx, writer, apperrors.NewInternalError(fmt.Sprintf("Unknown resource type %s", op.ResourceType)), http.StatusInternalServerError)
+		return
+	}
+	res, err := fetcher(ctx, tenantID, op.ResourceID)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("An error occurred while fetching resource from database: %s", err.Error())
 
@@ -117,6 +127,11 @@ func (h *handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	opResponse := buildLastOperation(res)
 
+	// TODO refactor
+	if opResponse.Status == OperationStatusSucceeded && op.ResourceType == resource.BundleInstanceAuth {
+		writer.Header().Add("Location", h.locationHeader(op.ResourceID))
+	}
+
 	err = json.NewEncoder(writer).Encode(opResponse)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("An error occurred while encoding operation data: %v", err)
@@ -137,4 +152,16 @@ func buildLastOperation(resource model.Entity) *OperationResponse {
 	opResponse.initializeCreationTime(resource)
 
 	return opResponse
+}
+
+func (h *handler) locationHeader(resourceID string) string {
+	fp := &graphqlizer.GqlFieldsProvider{}
+	query := fmt.Sprintf(`
+query {
+	result: bundleInstanceAuth(id: "%s") {
+  		%s
+	}
+}`, resourceID, fp.ForBundleInstanceAuth())
+	location := fmt.Sprintf(`{"url": "%s", "query": "%s"}`, h.directorURL, query)
+	return base64.StdEncoding.EncodeToString([]byte(location))
 }

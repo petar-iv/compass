@@ -198,42 +198,12 @@ func (r *pgRepository) ListGlobal(ctx context.Context, pageSize int, cursor stri
 }
 
 func (r *pgRepository) ListByScenarios(ctx context.Context, tenant uuid.UUID, scenarios []string, pageSize int, cursor string, hidingSelectors map[string][]string) (*model.ApplicationPage, error) {
+	conditions, err := r.byScenariosCondition(tenant, scenarios, hidingSelectors)
+	if err != nil {
+		return nil, err
+	}
+
 	var appsCollection EntityCollection
-
-	// Scenarios query part
-	var scenariosFilters []*labelfilter.LabelFilter
-	for _, scenarioValue := range scenarios {
-		query := fmt.Sprintf(`$[*] ? (@ == "%s")`, scenarioValue)
-		scenariosFilters = append(scenariosFilters, labelfilter.NewForKeyWithQuery(model.ScenariosKey, query))
-	}
-
-	scenariosSubquery, scenariosArgs, err := label.FilterQuery(model.ApplicationLabelableObject, label.UnionSet, tenant, scenariosFilters)
-	if err != nil {
-		return nil, errors.Wrap(err, "while creating scenarios filter query")
-	}
-
-	// Application Hide query part
-	var appHideFilters []*labelfilter.LabelFilter
-	for key, values := range hidingSelectors {
-		for _, value := range values {
-			appHideFilters = append(appHideFilters, labelfilter.NewForKeyWithQuery(key, fmt.Sprintf(`"%s"`, value)))
-		}
-	}
-
-	appHideSubquery, appHideArgs, err := label.FilterSubquery(model.ApplicationLabelableObject, label.ExceptSet, tenant, appHideFilters)
-	if err != nil {
-		return nil, errors.Wrap(err, "while creating scenarios filter query")
-	}
-
-	// Combining both queries
-	combinedQuery := scenariosSubquery + appHideSubquery
-	combinedArgs := append(scenariosArgs, appHideArgs...)
-
-	var conditions repo.Conditions
-	if combinedQuery != "" {
-		conditions = append(conditions, repo.NewInConditionForSubQuery("id", combinedQuery, combinedArgs))
-	}
-
 	page, totalCount, err := r.pageableQuerier.List(ctx, tenant.String(), pageSize, cursor, "id", &appsCollection, conditions...)
 
 	if err != nil {
@@ -250,6 +220,26 @@ func (r *pgRepository) ListByScenarios(ctx context.Context, tenant uuid.UUID, sc
 		Data:       items,
 		TotalCount: totalCount,
 		PageInfo:   page}, nil
+}
+
+func (r *pgRepository) ListByScenariosNoPaging(ctx context.Context, tenant uuid.UUID, scenarios []string, hidingSelectors map[string][]string) ([]*model.Application, error) {
+	conditions, err := r.byScenariosCondition(tenant, scenarios, hidingSelectors)
+	if err != nil {
+		return nil, err
+	}
+
+	var appsCollection EntityCollection
+	if err = r.lister.List(ctx, tenant.String(), &appsCollection, conditions...); err != nil {
+		return nil, err
+	}
+
+	var items []*model.Application
+	for _, appEnt := range appsCollection {
+		m := r.conv.FromEntity(&appEnt)
+		items = append(items, m)
+	}
+
+	return items, nil
 }
 
 func (r *pgRepository) Create(ctx context.Context, model *model.Application) error {
@@ -300,4 +290,41 @@ func (r *pgRepository) multipleFromEntities(entities EntityCollection) ([]*model
 		items = append(items, m)
 	}
 	return items, nil
+}
+
+func (r pgRepository) byScenariosCondition(tenant uuid.UUID, scenarios []string, hidingSelectors map[string][]string) (repo.Conditions, error) {
+	// Scenarios query part
+	var scenariosFilters []*labelfilter.LabelFilter
+	for _, scenarioValue := range scenarios {
+		query := fmt.Sprintf(`$[*] ? (@ == "%s")`, scenarioValue)
+		scenariosFilters = append(scenariosFilters, labelfilter.NewForKeyWithQuery(model.ScenariosKey, query))
+	}
+
+	scenariosSubquery, scenariosArgs, err := label.FilterQuery(model.ApplicationLabelableObject, label.UnionSet, tenant, scenariosFilters)
+	if err != nil {
+		return nil, errors.Wrap(err, "while creating scenarios filter query")
+	}
+
+	// Application Hide query part
+	var appHideFilters []*labelfilter.LabelFilter
+	for key, values := range hidingSelectors {
+		for _, value := range values {
+			appHideFilters = append(appHideFilters, labelfilter.NewForKeyWithQuery(key, fmt.Sprintf(`"%s"`, value)))
+		}
+	}
+
+	appHideSubquery, appHideArgs, err := label.FilterSubquery(model.ApplicationLabelableObject, label.ExceptSet, tenant, appHideFilters)
+	if err != nil {
+		return nil, errors.Wrap(err, "while creating scenarios filter query")
+	}
+
+	// Combining both queries
+	combinedQuery := scenariosSubquery + appHideSubquery
+	combinedArgs := append(scenariosArgs, appHideArgs...)
+
+	var conditions repo.Conditions
+	if combinedQuery != "" {
+		conditions = append(conditions, repo.NewInConditionForSubQuery("id", combinedQuery, combinedArgs))
+	}
+	return conditions, nil
 }

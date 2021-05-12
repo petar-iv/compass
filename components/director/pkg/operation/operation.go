@@ -71,7 +71,7 @@ type Operation struct {
 	CreationTime      time.Time     `json:"creation_time,omitempty"`
 	CorrelationID     string        `json:"correlation_id,omitempty"`
 	WebhookIDs        []string      `json:"webhook_ids,omitempty"`
-	WebhookProviderID string        `json:"webhook_provider_id"`
+	WebhookProviderID string        `json:"webhook_provider_id,omitempty"`
 	RequestObject     string        `json:"request_object,omitempty"`
 }
 
@@ -79,7 +79,7 @@ type Operation struct {
 func (op *Operation) Validate() error {
 	return validation.ValidateStruct(op,
 		validation.Field(&op.ResourceID, is.UUID),
-		validation.Field(&op.ResourceType, validation.Required, validation.In(resource.Application)))
+		validation.Field(&op.ResourceType, validation.Required, validation.In(resource.Application, resource.BundleInstanceAuth)))
 }
 
 // SaveToContext saves Operation to the context

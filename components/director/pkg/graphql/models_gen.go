@@ -266,7 +266,7 @@ type BundleInstanceAuthStatusInput struct {
 	// - CredentialsNotProvided
 	// - PendingDeletion
 	//
-	//    **Validation**: required, if condition is FAILED
+	// **Validation**: required, if condition is FAILED
 	Reason string `json:"reason"`
 }
 
@@ -501,6 +501,7 @@ type PageInfo struct {
 type PlaceholderDefinition struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description"`
+	Optional    bool    `json:"optional"`
 }
 
 type PlaceholderDefinitionInput struct {
@@ -508,6 +509,7 @@ type PlaceholderDefinitionInput struct {
 	Name string `json:"name"`
 	// **Validation:**  max=2000
 	Description *string `json:"description"`
+	Optional    *bool   `json:"optional"`
 }
 
 type RuntimeContextInput struct {
@@ -563,6 +565,25 @@ type RuntimeSystemAuth struct {
 }
 
 func (RuntimeSystemAuth) IsSystemAuth() {}
+
+type SolutionInput struct {
+	// **Validation:**  Up to 36 characters long. Cannot start with a digit. The characters allowed in names are: digits (0-9), lower case letters (a-z),-, and .
+	Name string `json:"name"`
+	// **Validation:**  max=2000
+	Description *string `json:"description"`
+	// **Validation:** key: required, alphanumeric with underscore
+	Labels                 Labels                          `json:"labels"`
+	Version                string                          `json:"version"`
+	DependencyApplications []*ApplicationFromTemplateInput `json:"dependencyApplications"`
+}
+
+type SolutionPage struct {
+	Data       []*Solution `json:"data"`
+	PageInfo   *PageInfo   `json:"pageInfo"`
+	TotalCount int         `json:"totalCount"`
+}
+
+func (SolutionPage) IsPageable() {}
 
 type TemplateValueInput struct {
 	// **Validation:**  Up to 36 characters long. Cannot start with a digit. The characters allowed in names are: digits (0-9), lower case letters (a-z),-, and .

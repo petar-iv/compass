@@ -224,9 +224,14 @@ func (c *converter) placeholdersModelToJSON(in []model.ApplicationTemplatePlaceh
 func (c *converter) placeholdersFromGraphql(in []*graphql.PlaceholderDefinitionInput) []model.ApplicationTemplatePlaceholder {
 	var placeholders []model.ApplicationTemplatePlaceholder
 	for _, p := range in {
+		var optional bool
+		if p.Optional != nil {
+			optional = *p.Optional
+		}
 		np := model.ApplicationTemplatePlaceholder{
 			Name:        p.Name,
 			Description: p.Description,
+			Optional:    optional,
 		}
 		placeholders = append(placeholders, np)
 	}
@@ -239,6 +244,7 @@ func (c *converter) placeholdersToGraphql(in []model.ApplicationTemplatePlacehol
 		np := graphql.PlaceholderDefinition{
 			Name:        p.Name,
 			Description: p.Description,
+			Optional:    p.Optional,
 		}
 		placeholders = append(placeholders, &np)
 	}

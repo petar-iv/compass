@@ -32,6 +32,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/internal/domain/onetimetoken"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/runtime"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/scenarioassignment"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/solution"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/spec"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/systemauth"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/tenant"
@@ -257,9 +258,15 @@ func main() {
 
 	mainRouter.HandleFunc(cfg.AuthenticationMappingEndpoint, authnMappingHandlerFunc.ServeHTTP)
 
-	operationHandler := operation.NewHandler(transact, func(ctx context.Context, tenantID, resourceID string) (model.Entity, error) {
-		return appRepo.GetByID(ctx, tenantID, resourceID)
-	}, tenant.LoadFromContext)
+	operationFetcherFuncs := map[resource.Type]operation.ResourceFetcherFunc{
+		resource.Application: func(ctx context.Context, tenantID, resourceID string) (model.Entity, error) {
+			return appRepo.GetByID(ctx, tenantID, resourceID)
+		},
+		resource.BundleInstanceAuth: func(ctx context.Context, tenantID, resourceID string) (model.Entity, error) {
+			return bundleInstanceAuthRepo().GetByID(ctx, tenantID, resourceID)
+		},
+	}
+	operationHandler := operation.NewHandler(transact, operationFetcherFuncs, tenant.LoadFromContext, cfg.AppURL+cfg.APIEndpoint)
 
 	operationsAPIRouter := mainRouter.PathPrefix(cfg.LastOperationPath).Subrouter()
 	operationsAPIRouter.Use(authMiddleware.Handler())
@@ -580,7 +587,8 @@ func tokenService(cfg config, cfgProvider *configprovider.Provider, httpClient *
 	eventAPISvc := eventdef.NewService(eventAPIRepo, uidSvc, specSvc)
 	documentSvc := document.NewService(docRepo, fetchRequestRepo, uidSvc)
 	bundleSvc := mp_bundle.NewService(bundleRepo, apiSvc, eventAPISvc, documentSvc, uidSvc)
-	appSvc := application.NewService(&normalizer.DefaultNormalizator{}, cfgProvider, applicationRepo, webhookRepo, runtimeRepo, labelRepo, intSysRepo, labelUpsertSvc, scenariosSvc, bundleSvc, uidSvc)
+	solutionRepo := solution.NewRepository(solution.NewConverter())
+	appSvc := application.NewService(&normalizer.DefaultNormalizator{}, cfgProvider, applicationRepo, webhookRepo, runtimeRepo, solutionRepo, labelRepo, intSysRepo, labelUpsertSvc, scenariosSvc, bundleSvc, uidSvc)
 	timeService := directorTime.NewService()
 	return onetimetoken.NewTokenService(systemAuthSvc, appSvc, appConverter, tenantSvc, httpClient, onetimetoken.NewTokenGenerator(cfg.OneTimeToken.Length), cfg.OneTimeToken.ConnectorURL, pairingAdapters, timeService)
 }
@@ -634,10 +642,10 @@ func getAsyncDirective(ctx context.Context, cfg config, transact persistence.Tra
 	}
 
 	bundleSvc := mp_bundle.NewService(bundleRepo(), nil, nil, nil, nil)
-	appSvc := application.NewService(&normalizer.DefaultNormalizator{}, nil, appRepo, nil, nil, nil, nil, nil, nil, nil, nil)
+	appSvc := application.NewService(&normalizer.DefaultNormalizator{}, nil, appRepo, nil, nil, nil, label.NewRepository(label.NewConverter()), nil, nil, nil, nil, nil)
 	bundleInstanceAuthEnhancer := enhance.NewIntanceAuthOperationEnhancer(webhookService(), bundleSvc, bundleinstanceauth.NewService(bundleInstanceAuthRepo(), nil), appSvc)
 
-	appEnhancer := enhance.NewAllpicationOperationEnhancer(webhookService())
+	appEnhancer := enhance.NewAllpicationOperationEnhancer(appSvc, webhookService())
 
 	webhookFetcherFuncs := map[resource.Type]operation.Enhance{
 		resource.Application:        appEnhancer.Enhance,
@@ -646,7 +654,6 @@ func getAsyncDirective(ctx context.Context, cfg config, transact persistence.Tra
 	// TODO agree on something cleaner with the tenant
 	return operation.NewDirective(transact, webhookFetcherFuncs, resourceFetcherFuncs, resourceUpdaterFuncs, tenant.LoadFromContext, scheduler).HandleOperation
 }
-
 
 func buildScheduler(ctx context.Context, config config) (operation.Scheduler, error) {
 	if config.DisableAsyncMode {

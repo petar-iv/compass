@@ -58,6 +58,7 @@ func (in ApplicationFromTemplateInputValues) FindPlaceholderValue(name string) (
 type ApplicationTemplatePlaceholder struct {
 	Name        string
 	Description *string
+	Optional    bool
 }
 
 type ApplicationTemplateValueInput struct {

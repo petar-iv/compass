@@ -17,17 +17,20 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewAllpicationOperationEnhancer(whs WebhookService) *applicationOpEnhancer {
-	return &applicationOpEnhancer{
-		webhookSvc: whs,
-	}
-}
-
 type WebhookService interface {
 	ListAllApplicationWebhooks(ctx context.Context, applicationID string) ([]*model.Webhook, error)
 }
+
 type applicationOpEnhancer struct {
 	webhookSvc WebhookService
+	appSvc     ApplicationService
+}
+
+func NewAllpicationOperationEnhancer(appSvc ApplicationService, whs WebhookService) *applicationOpEnhancer {
+	return &applicationOpEnhancer{
+		webhookSvc: whs,
+		appSvc:     appSvc,
+	}
 }
 
 func (e *applicationOpEnhancer) Enhance(ctx context.Context, tenantID string, operation *operation.Operation, resp interface{}, webhookType *graphql.WebhookType) error {
@@ -62,7 +65,12 @@ func (e *applicationOpEnhancer) Enhance(ctx context.Context, tenantID string, op
 		operation.WebhookIDs = webhookIDs
 	}
 
-	requestObject, err := prepareRequestObject(ctx, resource.Application, tenantID, resp, nil)
+	l, err := e.appSvc.ListLabels(ctx, entity.GetID())
+	if err != nil {
+		return err
+	}
+	convertedLables := extractKeyValues(l)
+	requestObject, err := prepareRequestObject(ctx, resource.Application, tenantID, resp, nil, convertedLables)
 	if err != nil {
 		return errors.Wrap(err, "an error occurred while preparing request data")
 	}
@@ -71,7 +79,15 @@ func (e *applicationOpEnhancer) Enhance(ctx context.Context, tenantID string, op
 	return nil
 }
 
-func prepareRequestObject(ctx context.Context, resType resource.Type, tenantID string, application interface{}, bndlInstanceAuth interface{}) (string, error) {
+func extractKeyValues(labels map[string]*model.Label) map[string]interface{} {
+	converted := map[string]interface{}{}
+	for _, l := range labels {
+		converted[l.Key] = l.Value
+	}
+	return converted
+}
+
+func prepareRequestObject(ctx context.Context, resType resource.Type, tenantID string, application interface{}, bndlInstanceAuth interface{}, appLabels map[string]interface{}) (string, error) {
 	appResource, ok := application.(webhook.Resource)
 	if !ok {
 		return "", errors.New("application entity is not a webhook provider")
@@ -90,15 +106,16 @@ func prepareRequestObject(ctx context.Context, resType resource.Type, tenantID s
 		headers[key] = value[0]
 	}
 
-	extTenant,err := tenant.LoadExternalFromContext(ctx)
+	extTenant, err := tenant.LoadExternalFromContext(ctx)
 
 	requestObject := &webhook.RequestObject{
-		Application: appResource,
+		Application:        appResource,
 		BundleInstanceAuth: bndlInstanceAuthResource,
-		Type:        resType,
-		TenantID:    tenantID,
-		ExternalTenantID: extTenant,
-		Headers:     headers,
+		Type:               resType,
+		TenantID:           tenantID,
+		ExternalTenantID:   extTenant,
+		Headers:            headers,
+		ApplicationLabels:  appLabels,
 	}
 
 	data, err := json.Marshal(requestObject)

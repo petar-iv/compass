@@ -25,6 +25,7 @@ require (
 	github.com/lestrrat-go/jwx v1.1.4
 	github.com/lib/pq v1.9.0
 	github.com/machinebox/graphql v0.2.3-0.20181106130121-3a9253180225
+	github.com/moby/moby v20.10.6+incompatible // indirect
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
 	github.com/onrik/logrus v0.8.0
 	github.com/ory/hydra-client-go v1.9.2
@@ -43,10 +44,9 @@ require (
 	golang.org/x/tools v0.1.0 // indirect
 	k8s.io/api v0.17.2 // DO NOT BUMP
 	k8s.io/apimachinery v0.17.2 // DO NOT BUMP
+	k8s.io/apiserver v0.17.2
 	k8s.io/client-go v0.17.2 // DO NOT BUMP
 	sigs.k8s.io/controller-runtime v0.5.0 // DO NOT BUMP
 )
 
-replace (
-	github.com/kyma-incubator/compass/components/operations-controller => ../operations-controller
-)
+replace github.com/kyma-incubator/compass/components/operations-controller => ../operations-controller

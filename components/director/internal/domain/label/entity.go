@@ -11,6 +11,7 @@ type Entity struct {
 	AppID            sql.NullString `db:"app_id"`
 	RuntimeID        sql.NullString `db:"runtime_id"`
 	RuntimeContextID sql.NullString `db:"runtime_context_id"`
+	SolutionID       sql.NullString `db:"solution_id"`
 	Value            string         `db:"value"`
 }
 type Collection []Entity

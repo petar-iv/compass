@@ -35,7 +35,7 @@ func (e *Application) Template() map[string]interface{} {
 			log.D().Errorf("Failed to parse URL for base URL %q of application with ID %s", e.BaseURL, e.ID)
 		}
 	}
-	url.Parse(*e.BaseURL)
+
 	return map[string]interface{}{
 		"ID":      e.ID,
 		"Name":    e.Name,

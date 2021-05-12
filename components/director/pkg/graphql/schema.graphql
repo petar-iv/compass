@@ -399,7 +399,7 @@ input BundleInstanceAuthStatusInput {
 	- CredentialsNotProvided
 	- PendingDeletion
 	
-	   **Validation**: required, if condition is FAILED
+	**Validation**: required, if condition is FAILED
 	"""
 	reason: String!
 }
@@ -587,6 +587,7 @@ input PlaceholderDefinitionInput {
 	**Validation:**  max=2000
 	"""
 	description: String
+	optional: Boolean
 }
 
 input RuntimeContextInput {
@@ -615,6 +616,23 @@ input RuntimeInput {
 	"""
 	labels: Labels
 	statusCondition: RuntimeStatusCondition
+}
+
+input SolutionInput {
+	"""
+	**Validation:**  Up to 36 characters long. Cannot start with a digit. The characters allowed in names are: digits (0-9), lower case letters (a-z),-, and .
+	"""
+	name: String!
+	"""
+	**Validation:**  max=2000
+	"""
+	description: String
+	"""
+	**Validation:** key: required, alphanumeric with underscore
+	"""
+	labels: Labels
+	version: String!
+	dependencyApplications: [ApplicationFromTemplateInput!]!
 }
 
 input TemplateValueInput {
@@ -1000,6 +1018,7 @@ type PageInfo {
 type PlaceholderDefinition {
 	name: String!
 	description: String
+	optional: Boolean!
 }
 
 type Runtime {
@@ -1051,6 +1070,20 @@ type RuntimeStatus {
 type RuntimeSystemAuth implements SystemAuth {
 	id: ID!
 	auth: Auth @sanitize(path: "graphql.field.runtime.auths")
+}
+
+type Solution {
+	id: ID!
+	name: String!
+	description: String
+	version: String!
+	labels(key: String): Labels
+}
+
+type SolutionPage implements Pageable {
+	data: [Solution!]!
+	pageInfo: PageInfo!
+	totalCount: Int!
 }
 
 type Tenant {
@@ -1145,6 +1178,8 @@ type Query {
 	"""
 	runtimes(filter: [LabelFilter!], first: Int = 200, after: PageCursor): RuntimePage! @hasScopes(path: "graphql.query.runtimes")
 	runtimeContexts(filter: [LabelFilter!], first: Int = 200, after: PageCursor): RuntimeContextPage! @hasScopes(path: "graphql.query.runtimeContexts")
+	solutions(filter: [LabelFilter!], first: Int = 200, after: PageCursor): SolutionPage! @hasScopes(path: "graphql.query.solutions")
+	solution(id: ID!): Solution @hasScopes(path: "graphql.query.solution")
 	"""
 	**Examples**
 	- [query runtime](examples/query-runtime/query-runtime.graphql)
@@ -1252,6 +1287,9 @@ type Mutation {
 	registerRuntimeContext(in: RuntimeContextInput! @validate): RuntimeContext! @hasScopes(path: "graphql.mutation.registerRuntimeContext")
 	updateRuntimeContext(id: ID!, in: RuntimeContextInput! @validate): RuntimeContext! @hasScopes(path: "graphql.mutation.updateRuntimeContext")
 	unregisterRuntimeContext(id: ID!): RuntimeContext! @hasScopes(path: "graphql.mutation.unregisterRuntimeContext")
+	registerSolution(in: SolutionInput! @validate): Solution! @hasScopes(path: "graphql.mutation.registerSolution")
+	updateSolution(id: ID!, in: SolutionInput! @validate): Solution! @hasScopes(path: "graphql.mutation.updateSolution")
+	unregisterSolution(id: ID!): Solution! @hasScopes(path: "graphql.mutation.unregisterSolution")
 	"""
 	**Examples**
 	- [register integration system](examples/register-integration-system/register-integration-system.graphql)
@@ -1396,7 +1434,8 @@ type Mutation {
 	- [request bundle instance auth creation](examples/request-bundle-instance-auth-creation/request-bundle-instance-auth-creation.graphql)
 	"""
 	requestBundleInstanceAuthCreation(bundleID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationIDByBundle", idField: "bundleID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreation") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
-	requestBundleInstanceAuthCreationForApp(appID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationID", idField: "appID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreation") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
+	requestBundleInstanceAuthCreationForApp(appID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationID", idField: "appID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreationForApp") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
+	requestBundleInstanceAuthCreationForSolutionApplications(solutionID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreationForApp") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
 	"""
 	When defaultInstanceAuth is set, it fires "deleteBundleInstanceAuth" mutation. Otherwise, the status of the BundleInstanceAuth is set to UNUSED.
 	

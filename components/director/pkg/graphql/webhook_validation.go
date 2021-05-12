@@ -34,6 +34,7 @@ func (i WebhookInput) Validate() error {
 			BaseEntity: &BaseEntity{},
 			InputParams: getJson(`{}`),
 		},
+		ApplicationLabels: map[string]interface{}{},
 	}
 	if i.URLTemplate != nil {
 		if _, err := requestObject.ParseURLTemplate(i.URLTemplate); err != nil {

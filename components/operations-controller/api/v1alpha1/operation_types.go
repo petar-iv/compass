@@ -189,6 +189,7 @@ func (in *Operation) RequestObject() (webhook.RequestObject, error) {
 		TenantID           string
 		ExternalTenantID   string
 		Headers            map[string]string
+		ApplicationLabels  map[string]interface{}
 	}{}
 
 	if err := json.Unmarshal([]byte(in.Spec.RequestObject), &str); err != nil {
@@ -201,5 +202,6 @@ func (in *Operation) RequestObject() (webhook.RequestObject, error) {
 		ExternalTenantID:   str.ExternalTenantID,
 		TenantID:           str.TenantID,
 		Headers:            str.Headers,
+		ApplicationLabels:  str.ApplicationLabels,
 	}, nil
 }

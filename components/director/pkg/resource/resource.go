@@ -6,6 +6,7 @@ const (
 	Application                Type = "application"
 	ApplicationTemplate        Type = "applicationTemplate"
 	Runtime                    Type = "runtime"
+	Solution                   Type = "solution"
 	RuntimeContext             Type = "runtimeContext"
 	LabelDefinition            Type = "labelDefinition"
 	Label                      Type = "label"

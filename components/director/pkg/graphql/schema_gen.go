@@ -48,6 +48,7 @@ type ResolverRoot interface {
 	Query() QueryResolver
 	Runtime() RuntimeResolver
 	RuntimeContext() RuntimeContextResolver
+	Solution() SolutionResolver
 }
 
 type DirectiveRoot struct {
@@ -334,63 +335,67 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		AddAPIDefinitionToBundle                      func(childComplexity int, bundleID string, in APIDefinitionInput) int
-		AddBundle                                     func(childComplexity int, applicationID string, in BundleCreateInput) int
-		AddDocumentToBundle                           func(childComplexity int, bundleID string, in DocumentInput) int
-		AddEventDefinitionToBundle                    func(childComplexity int, bundleID string, in EventDefinitionInput) int
-		AddWebhook                                    func(childComplexity int, applicationID *string, applicationTemplateID *string, in WebhookInput) int
-		CreateApplicationTemplate                     func(childComplexity int, in ApplicationTemplateInput) int
-		CreateAutomaticScenarioAssignment             func(childComplexity int, in AutomaticScenarioAssignmentSetInput) int
-		CreateLabelDefinition                         func(childComplexity int, in LabelDefinitionInput) int
-		DeleteAPIDefinition                           func(childComplexity int, id string) int
-		DeleteApplicationLabel                        func(childComplexity int, applicationID string, key string) int
-		DeleteApplicationTemplate                     func(childComplexity int, id string) int
-		DeleteAutomaticScenarioAssignmentForScenario  func(childComplexity int, scenarioName string) int
-		DeleteAutomaticScenarioAssignmentsForSelector func(childComplexity int, selector LabelSelectorInput) int
-		DeleteBundle                                  func(childComplexity int, id string) int
-		DeleteBundleInstanceAuth                      func(childComplexity int, authID string) int
-		DeleteDefaultEventingForApplication           func(childComplexity int, appID string) int
-		DeleteDocument                                func(childComplexity int, id string) int
-		DeleteEventDefinition                         func(childComplexity int, id string) int
-		DeleteLabelDefinition                         func(childComplexity int, key string, deleteRelatedLabels *bool) int
-		DeleteRuntimeLabel                            func(childComplexity int, runtimeID string, key string) int
-		DeleteSystemAuthForApplication                func(childComplexity int, authID string) int
-		DeleteSystemAuthForIntegrationSystem          func(childComplexity int, authID string) int
-		DeleteSystemAuthForRuntime                    func(childComplexity int, authID string) int
-		DeleteWebhook                                 func(childComplexity int, webhookID string) int
-		RefetchAPISpec                                func(childComplexity int, apiID string) int
-		RefetchEventDefinitionSpec                    func(childComplexity int, eventID string) int
-		RegisterApplication                           func(childComplexity int, in ApplicationRegisterInput, mode *OperationMode) int
-		RegisterApplicationFromTemplate               func(childComplexity int, in ApplicationFromTemplateInput) int
-		RegisterIntegrationSystem                     func(childComplexity int, in IntegrationSystemInput) int
-		RegisterRuntime                               func(childComplexity int, in RuntimeInput) int
-		RegisterRuntimeContext                        func(childComplexity int, in RuntimeContextInput) int
-		RequestBundleInstanceAuthCreation             func(childComplexity int, bundleID string, in BundleInstanceAuthRequestInput, mode *OperationMode) int
-		RequestBundleInstanceAuthCreationForApp       func(childComplexity int, appID string, in BundleInstanceAuthRequestInput, mode *OperationMode) int
-		RequestBundleInstanceAuthDeletion             func(childComplexity int, authID string, mode *OperationMode) int
-		RequestClientCredentialsForApplication        func(childComplexity int, id string) int
-		RequestClientCredentialsForIntegrationSystem  func(childComplexity int, id string) int
-		RequestClientCredentialsForRuntime            func(childComplexity int, id string) int
-		RequestOneTimeTokenForApplication             func(childComplexity int, id string) int
-		RequestOneTimeTokenForRuntime                 func(childComplexity int, id string) int
-		SetApplicationLabel                           func(childComplexity int, applicationID string, key string, value interface{}) int
-		SetBundleInstanceAuth                         func(childComplexity int, authID string, in BundleInstanceAuthSetInput) int
-		SetDefaultEventingForApplication              func(childComplexity int, appID string, runtimeID string) int
-		SetRuntimeLabel                               func(childComplexity int, runtimeID string, key string, value interface{}) int
-		UnregisterApplication                         func(childComplexity int, id string, mode *OperationMode) int
-		UnregisterIntegrationSystem                   func(childComplexity int, id string) int
-		UnregisterRuntime                             func(childComplexity int, id string) int
-		UnregisterRuntimeContext                      func(childComplexity int, id string) int
-		UpdateAPIDefinition                           func(childComplexity int, id string, in APIDefinitionInput) int
-		UpdateApplication                             func(childComplexity int, id string, in ApplicationUpdateInput) int
-		UpdateApplicationTemplate                     func(childComplexity int, id string, in ApplicationTemplateUpdateInput) int
-		UpdateBundle                                  func(childComplexity int, id string, in BundleUpdateInput) int
-		UpdateEventDefinition                         func(childComplexity int, id string, in EventDefinitionInput) int
-		UpdateIntegrationSystem                       func(childComplexity int, id string, in IntegrationSystemInput) int
-		UpdateLabelDefinition                         func(childComplexity int, in LabelDefinitionInput) int
-		UpdateRuntime                                 func(childComplexity int, id string, in RuntimeInput) int
-		UpdateRuntimeContext                          func(childComplexity int, id string, in RuntimeContextInput) int
-		UpdateWebhook                                 func(childComplexity int, webhookID string, in WebhookInput) int
+		AddAPIDefinitionToBundle                                 func(childComplexity int, bundleID string, in APIDefinitionInput) int
+		AddBundle                                                func(childComplexity int, applicationID string, in BundleCreateInput) int
+		AddDocumentToBundle                                      func(childComplexity int, bundleID string, in DocumentInput) int
+		AddEventDefinitionToBundle                               func(childComplexity int, bundleID string, in EventDefinitionInput) int
+		AddWebhook                                               func(childComplexity int, applicationID *string, applicationTemplateID *string, in WebhookInput) int
+		CreateApplicationTemplate                                func(childComplexity int, in ApplicationTemplateInput) int
+		CreateAutomaticScenarioAssignment                        func(childComplexity int, in AutomaticScenarioAssignmentSetInput) int
+		CreateLabelDefinition                                    func(childComplexity int, in LabelDefinitionInput) int
+		DeleteAPIDefinition                                      func(childComplexity int, id string) int
+		DeleteApplicationLabel                                   func(childComplexity int, applicationID string, key string) int
+		DeleteApplicationTemplate                                func(childComplexity int, id string) int
+		DeleteAutomaticScenarioAssignmentForScenario             func(childComplexity int, scenarioName string) int
+		DeleteAutomaticScenarioAssignmentsForSelector            func(childComplexity int, selector LabelSelectorInput) int
+		DeleteBundle                                             func(childComplexity int, id string) int
+		DeleteBundleInstanceAuth                                 func(childComplexity int, authID string) int
+		DeleteDefaultEventingForApplication                      func(childComplexity int, appID string) int
+		DeleteDocument                                           func(childComplexity int, id string) int
+		DeleteEventDefinition                                    func(childComplexity int, id string) int
+		DeleteLabelDefinition                                    func(childComplexity int, key string, deleteRelatedLabels *bool) int
+		DeleteRuntimeLabel                                       func(childComplexity int, runtimeID string, key string) int
+		DeleteSystemAuthForApplication                           func(childComplexity int, authID string) int
+		DeleteSystemAuthForIntegrationSystem                     func(childComplexity int, authID string) int
+		DeleteSystemAuthForRuntime                               func(childComplexity int, authID string) int
+		DeleteWebhook                                            func(childComplexity int, webhookID string) int
+		RefetchAPISpec                                           func(childComplexity int, apiID string) int
+		RefetchEventDefinitionSpec                               func(childComplexity int, eventID string) int
+		RegisterApplication                                      func(childComplexity int, in ApplicationRegisterInput, mode *OperationMode) int
+		RegisterApplicationFromTemplate                          func(childComplexity int, in ApplicationFromTemplateInput) int
+		RegisterIntegrationSystem                                func(childComplexity int, in IntegrationSystemInput) int
+		RegisterRuntime                                          func(childComplexity int, in RuntimeInput) int
+		RegisterRuntimeContext                                   func(childComplexity int, in RuntimeContextInput) int
+		RegisterSolution                                         func(childComplexity int, in SolutionInput) int
+		RequestBundleInstanceAuthCreation                        func(childComplexity int, bundleID string, in BundleInstanceAuthRequestInput, mode *OperationMode) int
+		RequestBundleInstanceAuthCreationForApp                  func(childComplexity int, appID string, in BundleInstanceAuthRequestInput, mode *OperationMode) int
+		RequestBundleInstanceAuthCreationForSolutionApplications func(childComplexity int, solutionID string, in BundleInstanceAuthRequestInput, mode *OperationMode) int
+		RequestBundleInstanceAuthDeletion                        func(childComplexity int, authID string, mode *OperationMode) int
+		RequestClientCredentialsForApplication                   func(childComplexity int, id string) int
+		RequestClientCredentialsForIntegrationSystem             func(childComplexity int, id string) int
+		RequestClientCredentialsForRuntime                       func(childComplexity int, id string) int
+		RequestOneTimeTokenForApplication                        func(childComplexity int, id string) int
+		RequestOneTimeTokenForRuntime                            func(childComplexity int, id string) int
+		SetApplicationLabel                                      func(childComplexity int, applicationID string, key string, value interface{}) int
+		SetBundleInstanceAuth                                    func(childComplexity int, authID string, in BundleInstanceAuthSetInput) int
+		SetDefaultEventingForApplication                         func(childComplexity int, appID string, runtimeID string) int
+		SetRuntimeLabel                                          func(childComplexity int, runtimeID string, key string, value interface{}) int
+		UnregisterApplication                                    func(childComplexity int, id string, mode *OperationMode) int
+		UnregisterIntegrationSystem                              func(childComplexity int, id string) int
+		UnregisterRuntime                                        func(childComplexity int, id string) int
+		UnregisterRuntimeContext                                 func(childComplexity int, id string) int
+		UnregisterSolution                                       func(childComplexity int, id string) int
+		UpdateAPIDefinition                                      func(childComplexity int, id string, in APIDefinitionInput) int
+		UpdateApplication                                        func(childComplexity int, id string, in ApplicationUpdateInput) int
+		UpdateApplicationTemplate                                func(childComplexity int, id string, in ApplicationTemplateUpdateInput) int
+		UpdateBundle                                             func(childComplexity int, id string, in BundleUpdateInput) int
+		UpdateEventDefinition                                    func(childComplexity int, id string, in EventDefinitionInput) int
+		UpdateIntegrationSystem                                  func(childComplexity int, id string, in IntegrationSystemInput) int
+		UpdateLabelDefinition                                    func(childComplexity int, in LabelDefinitionInput) int
+		UpdateRuntime                                            func(childComplexity int, id string, in RuntimeInput) int
+		UpdateRuntimeContext                                     func(childComplexity int, id string, in RuntimeContextInput) int
+		UpdateSolution                                           func(childComplexity int, id string, in SolutionInput) int
+		UpdateWebhook                                            func(childComplexity int, webhookID string, in WebhookInput) int
 	}
 
 	OAuthCredentialData struct {
@@ -423,6 +428,7 @@ type ComplexityRoot struct {
 	PlaceholderDefinition struct {
 		Description func(childComplexity int) int
 		Name        func(childComplexity int) int
+		Optional    func(childComplexity int) int
 	}
 
 	Query struct {
@@ -445,6 +451,8 @@ type ComplexityRoot struct {
 		RuntimeContext                          func(childComplexity int, id string) int
 		RuntimeContexts                         func(childComplexity int, filter []*LabelFilter, first *int, after *PageCursor) int
 		Runtimes                                func(childComplexity int, filter []*LabelFilter, first *int, after *PageCursor) int
+		Solution                                func(childComplexity int, id string) int
+		Solutions                               func(childComplexity int, filter []*LabelFilter, first *int, after *PageCursor) int
 		Tenants                                 func(childComplexity int) int
 		Viewer                                  func(childComplexity int) int
 	}
@@ -495,6 +503,20 @@ type ComplexityRoot struct {
 	RuntimeSystemAuth struct {
 		Auth func(childComplexity int) int
 		ID   func(childComplexity int) int
+	}
+
+	Solution struct {
+		Description func(childComplexity int) int
+		ID          func(childComplexity int) int
+		Labels      func(childComplexity int, key *string) int
+		Name        func(childComplexity int) int
+		Version     func(childComplexity int) int
+	}
+
+	SolutionPage struct {
+		Data       func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
+		TotalCount func(childComplexity int) int
 	}
 
 	Tenant struct {
@@ -588,6 +610,9 @@ type MutationResolver interface {
 	RegisterRuntimeContext(ctx context.Context, in RuntimeContextInput) (*RuntimeContext, error)
 	UpdateRuntimeContext(ctx context.Context, id string, in RuntimeContextInput) (*RuntimeContext, error)
 	UnregisterRuntimeContext(ctx context.Context, id string) (*RuntimeContext, error)
+	RegisterSolution(ctx context.Context, in SolutionInput) (*Solution, error)
+	UpdateSolution(ctx context.Context, id string, in SolutionInput) (*Solution, error)
+	UnregisterSolution(ctx context.Context, id string) (*Solution, error)
 	RegisterIntegrationSystem(ctx context.Context, in IntegrationSystemInput) (*IntegrationSystem, error)
 	UpdateIntegrationSystem(ctx context.Context, id string, in IntegrationSystemInput) (*IntegrationSystem, error)
 	UnregisterIntegrationSystem(ctx context.Context, id string) (*IntegrationSystem, error)
@@ -625,6 +650,7 @@ type MutationResolver interface {
 	DeleteBundleInstanceAuth(ctx context.Context, authID string) (*BundleInstanceAuth, error)
 	RequestBundleInstanceAuthCreation(ctx context.Context, bundleID string, in BundleInstanceAuthRequestInput, mode *OperationMode) (*BundleInstanceAuth, error)
 	RequestBundleInstanceAuthCreationForApp(ctx context.Context, appID string, in BundleInstanceAuthRequestInput, mode *OperationMode) (*BundleInstanceAuth, error)
+	RequestBundleInstanceAuthCreationForSolutionApplications(ctx context.Context, solutionID string, in BundleInstanceAuthRequestInput, mode *OperationMode) (*BundleInstanceAuth, error)
 	RequestBundleInstanceAuthDeletion(ctx context.Context, authID string, mode *OperationMode) (*BundleInstanceAuth, error)
 	AddBundle(ctx context.Context, applicationID string, in BundleCreateInput) (*Bundle, error)
 	UpdateBundle(ctx context.Context, id string, in BundleUpdateInput) (*Bundle, error)
@@ -649,6 +675,8 @@ type QueryResolver interface {
 	ApplicationTemplate(ctx context.Context, id string) (*ApplicationTemplate, error)
 	Runtimes(ctx context.Context, filter []*LabelFilter, first *int, after *PageCursor) (*RuntimePage, error)
 	RuntimeContexts(ctx context.Context, filter []*LabelFilter, first *int, after *PageCursor) (*RuntimeContextPage, error)
+	Solutions(ctx context.Context, filter []*LabelFilter, first *int, after *PageCursor) (*SolutionPage, error)
+	Solution(ctx context.Context, id string) (*Solution, error)
 	Runtime(ctx context.Context, id string) (*Runtime, error)
 	RuntimeContext(ctx context.Context, id string) (*RuntimeContext, error)
 	LabelDefinitions(ctx context.Context) ([]*LabelDefinition, error)
@@ -672,6 +700,9 @@ type RuntimeResolver interface {
 }
 type RuntimeContextResolver interface {
 	Labels(ctx context.Context, obj *RuntimeContext, key *string) (Labels, error)
+}
+type SolutionResolver interface {
+	Labels(ctx context.Context, obj *Solution, key *string) (Labels, error)
 }
 
 type executableSchema struct {
@@ -2294,6 +2325,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.RegisterRuntimeContext(childComplexity, args["in"].(RuntimeContextInput)), true
 
+	case "Mutation.registerSolution":
+		if e.complexity.Mutation.RegisterSolution == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_registerSolution_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.RegisterSolution(childComplexity, args["in"].(SolutionInput)), true
+
 	case "Mutation.requestBundleInstanceAuthCreation":
 		if e.complexity.Mutation.RequestBundleInstanceAuthCreation == nil {
 			break
@@ -2317,6 +2360,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.RequestBundleInstanceAuthCreationForApp(childComplexity, args["appID"].(string), args["in"].(BundleInstanceAuthRequestInput), args["mode"].(*OperationMode)), true
+
+	case "Mutation.requestBundleInstanceAuthCreationForSolutionApplications":
+		if e.complexity.Mutation.RequestBundleInstanceAuthCreationForSolutionApplications == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_requestBundleInstanceAuthCreationForSolutionApplications_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.RequestBundleInstanceAuthCreationForSolutionApplications(childComplexity, args["solutionID"].(string), args["in"].(BundleInstanceAuthRequestInput), args["mode"].(*OperationMode)), true
 
 	case "Mutation.requestBundleInstanceAuthDeletion":
 		if e.complexity.Mutation.RequestBundleInstanceAuthDeletion == nil {
@@ -2486,6 +2541,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.UnregisterRuntimeContext(childComplexity, args["id"].(string)), true
 
+	case "Mutation.unregisterSolution":
+		if e.complexity.Mutation.UnregisterSolution == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_unregisterSolution_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UnregisterSolution(childComplexity, args["id"].(string)), true
+
 	case "Mutation.updateAPIDefinition":
 		if e.complexity.Mutation.UpdateAPIDefinition == nil {
 			break
@@ -2593,6 +2660,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.UpdateRuntimeContext(childComplexity, args["id"].(string), args["in"].(RuntimeContextInput)), true
+
+	case "Mutation.updateSolution":
+		if e.complexity.Mutation.UpdateSolution == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateSolution_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateSolution(childComplexity, args["id"].(string), args["in"].(SolutionInput)), true
 
 	case "Mutation.updateWebhook":
 		if e.complexity.Mutation.UpdateWebhook == nil {
@@ -2724,6 +2803,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.PlaceholderDefinition.Name(childComplexity), true
+
+	case "PlaceholderDefinition.optional":
+		if e.complexity.PlaceholderDefinition.Optional == nil {
+			break
+		}
+
+		return e.complexity.PlaceholderDefinition.Optional(childComplexity), true
 
 	case "Query.application":
 		if e.complexity.Query.Application == nil {
@@ -2948,6 +3034,30 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.Runtimes(childComplexity, args["filter"].([]*LabelFilter), args["first"].(*int), args["after"].(*PageCursor)), true
 
+	case "Query.solution":
+		if e.complexity.Query.Solution == nil {
+			break
+		}
+
+		args, err := ec.field_Query_solution_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Solution(childComplexity, args["id"].(string)), true
+
+	case "Query.solutions":
+		if e.complexity.Query.Solutions == nil {
+			break
+		}
+
+		args, err := ec.field_Query_solutions_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Solutions(childComplexity, args["filter"].([]*LabelFilter), args["first"].(*int), args["after"].(*PageCursor)), true
+
 	case "Query.tenants":
 		if e.complexity.Query.Tenants == nil {
 			break
@@ -3139,6 +3249,67 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.RuntimeSystemAuth.ID(childComplexity), true
+
+	case "Solution.description":
+		if e.complexity.Solution.Description == nil {
+			break
+		}
+
+		return e.complexity.Solution.Description(childComplexity), true
+
+	case "Solution.id":
+		if e.complexity.Solution.ID == nil {
+			break
+		}
+
+		return e.complexity.Solution.ID(childComplexity), true
+
+	case "Solution.labels":
+		if e.complexity.Solution.Labels == nil {
+			break
+		}
+
+		args, err := ec.field_Solution_labels_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Solution.Labels(childComplexity, args["key"].(*string)), true
+
+	case "Solution.name":
+		if e.complexity.Solution.Name == nil {
+			break
+		}
+
+		return e.complexity.Solution.Name(childComplexity), true
+
+	case "Solution.version":
+		if e.complexity.Solution.Version == nil {
+			break
+		}
+
+		return e.complexity.Solution.Version(childComplexity), true
+
+	case "SolutionPage.data":
+		if e.complexity.SolutionPage.Data == nil {
+			break
+		}
+
+		return e.complexity.SolutionPage.Data(childComplexity), true
+
+	case "SolutionPage.pageInfo":
+		if e.complexity.SolutionPage.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.SolutionPage.PageInfo(childComplexity), true
+
+	case "SolutionPage.totalCount":
+		if e.complexity.SolutionPage.TotalCount == nil {
+			break
+		}
+
+		return e.complexity.SolutionPage.TotalCount(childComplexity), true
 
 	case "Tenant.id":
 		if e.complexity.Tenant.ID == nil {
@@ -3801,7 +3972,7 @@ input BundleInstanceAuthStatusInput {
 	- CredentialsNotProvided
 	- PendingDeletion
 	
-	   **Validation**: required, if condition is FAILED
+	**Validation**: required, if condition is FAILED
 	"""
 	reason: String!
 }
@@ -3989,6 +4160,7 @@ input PlaceholderDefinitionInput {
 	**Validation:**  max=2000
 	"""
 	description: String
+	optional: Boolean
 }
 
 input RuntimeContextInput {
@@ -4017,6 +4189,23 @@ input RuntimeInput {
 	"""
 	labels: Labels
 	statusCondition: RuntimeStatusCondition
+}
+
+input SolutionInput {
+	"""
+	**Validation:**  Up to 36 characters long. Cannot start with a digit. The characters allowed in names are: digits (0-9), lower case letters (a-z),-, and .
+	"""
+	name: String!
+	"""
+	**Validation:**  max=2000
+	"""
+	description: String
+	"""
+	**Validation:** key: required, alphanumeric with underscore
+	"""
+	labels: Labels
+	version: String!
+	dependencyApplications: [ApplicationFromTemplateInput!]!
 }
 
 input TemplateValueInput {
@@ -4402,6 +4591,7 @@ type PageInfo {
 type PlaceholderDefinition {
 	name: String!
 	description: String
+	optional: Boolean!
 }
 
 type Runtime {
@@ -4453,6 +4643,20 @@ type RuntimeStatus {
 type RuntimeSystemAuth implements SystemAuth {
 	id: ID!
 	auth: Auth @sanitize(path: "graphql.field.runtime.auths")
+}
+
+type Solution {
+	id: ID!
+	name: String!
+	description: String
+	version: String!
+	labels(key: String): Labels
+}
+
+type SolutionPage implements Pageable {
+	data: [Solution!]!
+	pageInfo: PageInfo!
+	totalCount: Int!
 }
 
 type Tenant {
@@ -4547,6 +4751,8 @@ type Query {
 	"""
 	runtimes(filter: [LabelFilter!], first: Int = 200, after: PageCursor): RuntimePage! @hasScopes(path: "graphql.query.runtimes")
 	runtimeContexts(filter: [LabelFilter!], first: Int = 200, after: PageCursor): RuntimeContextPage! @hasScopes(path: "graphql.query.runtimeContexts")
+	solutions(filter: [LabelFilter!], first: Int = 200, after: PageCursor): SolutionPage! @hasScopes(path: "graphql.query.solutions")
+	solution(id: ID!): Solution @hasScopes(path: "graphql.query.solution")
 	"""
 	**Examples**
 	- [query runtime](examples/query-runtime/query-runtime.graphql)
@@ -4654,6 +4860,9 @@ type Mutation {
 	registerRuntimeContext(in: RuntimeContextInput! @validate): RuntimeContext! @hasScopes(path: "graphql.mutation.registerRuntimeContext")
 	updateRuntimeContext(id: ID!, in: RuntimeContextInput! @validate): RuntimeContext! @hasScopes(path: "graphql.mutation.updateRuntimeContext")
 	unregisterRuntimeContext(id: ID!): RuntimeContext! @hasScopes(path: "graphql.mutation.unregisterRuntimeContext")
+	registerSolution(in: SolutionInput! @validate): Solution! @hasScopes(path: "graphql.mutation.registerSolution")
+	updateSolution(id: ID!, in: SolutionInput! @validate): Solution! @hasScopes(path: "graphql.mutation.updateSolution")
+	unregisterSolution(id: ID!): Solution! @hasScopes(path: "graphql.mutation.unregisterSolution")
 	"""
 	**Examples**
 	- [register integration system](examples/register-integration-system/register-integration-system.graphql)
@@ -4798,7 +5007,8 @@ type Mutation {
 	- [request bundle instance auth creation](examples/request-bundle-instance-auth-creation/request-bundle-instance-auth-creation.graphql)
 	"""
 	requestBundleInstanceAuthCreation(bundleID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationIDByBundle", idField: "bundleID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreation") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
-	requestBundleInstanceAuthCreationForApp(appID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationID", idField: "appID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreation") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
+	requestBundleInstanceAuthCreationForApp(appID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationID", idField: "appID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreationForApp") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
+	requestBundleInstanceAuthCreationForSolutionApplications(solutionID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreationForApp") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
 	"""
 	When defaultInstanceAuth is set, it fires "deleteBundleInstanceAuth" mutation. Otherwise, the status of the BundleInstanceAuth is set to UNUSED.
 	
@@ -5808,6 +6018,35 @@ func (ec *executionContext) field_Mutation_registerRuntime_args(ctx context.Cont
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_registerSolution_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 SolutionInput
+	if tmp, ok := rawArgs["in"]; ok {
+		directive0 := func(ctx context.Context) (interface{}, error) {
+			return ec.unmarshalNSolutionInput2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolutionInput(ctx, tmp)
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Validate == nil {
+				return nil, errors.New("directive validate is not implemented")
+			}
+			return ec.directives.Validate(ctx, rawArgs, directive0)
+		}
+
+		tmp, err = directive1(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if data, ok := tmp.(SolutionInput); ok {
+			arg0 = data
+		} else {
+			return nil, fmt.Errorf(`unexpected type %T from directive, should be github.com/kyma-incubator/compass/components/director/pkg/graphql.SolutionInput`, tmp)
+		}
+	}
+	args["in"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_requestBundleInstanceAuthCreationForApp_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -5819,6 +6058,51 @@ func (ec *executionContext) field_Mutation_requestBundleInstanceAuthCreationForA
 		}
 	}
 	args["appID"] = arg0
+	var arg1 BundleInstanceAuthRequestInput
+	if tmp, ok := rawArgs["in"]; ok {
+		directive0 := func(ctx context.Context) (interface{}, error) {
+			return ec.unmarshalNBundleInstanceAuthRequestInput2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐBundleInstanceAuthRequestInput(ctx, tmp)
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Validate == nil {
+				return nil, errors.New("directive validate is not implemented")
+			}
+			return ec.directives.Validate(ctx, rawArgs, directive0)
+		}
+
+		tmp, err = directive1(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if data, ok := tmp.(BundleInstanceAuthRequestInput); ok {
+			arg1 = data
+		} else {
+			return nil, fmt.Errorf(`unexpected type %T from directive, should be github.com/kyma-incubator/compass/components/director/pkg/graphql.BundleInstanceAuthRequestInput`, tmp)
+		}
+	}
+	args["in"] = arg1
+	var arg2 *OperationMode
+	if tmp, ok := rawArgs["mode"]; ok {
+		arg2, err = ec.unmarshalOOperationMode2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐOperationMode(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["mode"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_requestBundleInstanceAuthCreationForSolutionApplications_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["solutionID"]; ok {
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["solutionID"] = arg0
 	var arg1 BundleInstanceAuthRequestInput
 	if tmp, ok := rawArgs["in"]; ok {
 		directive0 := func(ctx context.Context) (interface{}, error) {
@@ -6173,6 +6457,20 @@ func (ec *executionContext) field_Mutation_unregisterRuntime_args(ctx context.Co
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_unregisterSolution_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["id"]; ok {
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_updateAPIDefinition_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -6492,6 +6790,43 @@ func (ec *executionContext) field_Mutation_updateRuntime_args(ctx context.Contex
 			arg1 = data
 		} else {
 			return nil, fmt.Errorf(`unexpected type %T from directive, should be github.com/kyma-incubator/compass/components/director/pkg/graphql.RuntimeInput`, tmp)
+		}
+	}
+	args["in"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateSolution_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["id"]; ok {
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["id"] = arg0
+	var arg1 SolutionInput
+	if tmp, ok := rawArgs["in"]; ok {
+		directive0 := func(ctx context.Context) (interface{}, error) {
+			return ec.unmarshalNSolutionInput2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolutionInput(ctx, tmp)
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Validate == nil {
+				return nil, errors.New("directive validate is not implemented")
+			}
+			return ec.directives.Validate(ctx, rawArgs, directive0)
+		}
+
+		tmp, err = directive1(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if data, ok := tmp.(SolutionInput); ok {
+			arg1 = data
+		} else {
+			return nil, fmt.Errorf(`unexpected type %T from directive, should be github.com/kyma-incubator/compass/components/director/pkg/graphql.SolutionInput`, tmp)
 		}
 	}
 	args["in"] = arg1
@@ -6913,6 +7248,50 @@ func (ec *executionContext) field_Query_runtimes_args(ctx context.Context, rawAr
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_solution_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["id"]; ok {
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_solutions_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 []*LabelFilter
+	if tmp, ok := rawArgs["filter"]; ok {
+		arg0, err = ec.unmarshalOLabelFilter2ᚕᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐLabelFilterᚄ(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["filter"] = arg0
+	var arg1 *int
+	if tmp, ok := rawArgs["first"]; ok {
+		arg1, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["first"] = arg1
+	var arg2 *PageCursor
+	if tmp, ok := rawArgs["after"]; ok {
+		arg2, err = ec.unmarshalOPageCursor2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐPageCursor(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["after"] = arg2
+	return args, nil
+}
+
 func (ec *executionContext) field_RuntimeContext_labels_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -6928,6 +7307,20 @@ func (ec *executionContext) field_RuntimeContext_labels_args(ctx context.Context
 }
 
 func (ec *executionContext) field_Runtime_labels_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *string
+	if tmp, ok := rawArgs["key"]; ok {
+		arg0, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["key"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Solution_labels_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 *string
@@ -13693,6 +14086,201 @@ func (ec *executionContext) _Mutation_unregisterRuntimeContext(ctx context.Conte
 	return ec.marshalNRuntimeContext2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐRuntimeContext(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Mutation_registerSolution(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_registerSolution_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Mutation().RegisterSolution(rctx, args["in"].(SolutionInput))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			path, err := ec.unmarshalNString2string(ctx, "graphql.mutation.registerSolution")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.HasScopes == nil {
+				return nil, errors.New("directive hasScopes is not implemented")
+			}
+			return ec.directives.HasScopes(ctx, nil, directive0, path)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, err
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*Solution); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kyma-incubator/compass/components/director/pkg/graphql.Solution`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*Solution)
+	fc.Result = res
+	return ec.marshalNSolution2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolution(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_updateSolution(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_updateSolution_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Mutation().UpdateSolution(rctx, args["id"].(string), args["in"].(SolutionInput))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			path, err := ec.unmarshalNString2string(ctx, "graphql.mutation.updateSolution")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.HasScopes == nil {
+				return nil, errors.New("directive hasScopes is not implemented")
+			}
+			return ec.directives.HasScopes(ctx, nil, directive0, path)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, err
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*Solution); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kyma-incubator/compass/components/director/pkg/graphql.Solution`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*Solution)
+	fc.Result = res
+	return ec.marshalNSolution2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolution(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_unregisterSolution(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_unregisterSolution_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Mutation().UnregisterSolution(rctx, args["id"].(string))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			path, err := ec.unmarshalNString2string(ctx, "graphql.mutation.unregisterSolution")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.HasScopes == nil {
+				return nil, errors.New("directive hasScopes is not implemented")
+			}
+			return ec.directives.HasScopes(ctx, nil, directive0, path)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, err
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*Solution); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kyma-incubator/compass/components/director/pkg/graphql.Solution`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*Solution)
+	fc.Result = res
+	return ec.marshalNSolution2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolution(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Mutation_registerIntegrationSystem(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -16103,7 +16691,7 @@ func (ec *executionContext) _Mutation_requestBundleInstanceAuthCreationForApp(ct
 			return ec.directives.HasScenario(ctx, nil, directive0, applicationProvider, idField)
 		}
 		directive2 := func(ctx context.Context) (interface{}, error) {
-			path, err := ec.unmarshalNString2string(ctx, "graphql.mutation.requestBundleInstanceAuthCreation")
+			path, err := ec.unmarshalNString2string(ctx, "graphql.mutation.requestBundleInstanceAuthCreationForApp")
 			if err != nil {
 				return nil, err
 			}
@@ -16128,6 +16716,85 @@ func (ec *executionContext) _Mutation_requestBundleInstanceAuthCreationForApp(ct
 		}
 
 		tmp, err := directive3(rctx)
+		if err != nil {
+			return nil, err
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*BundleInstanceAuth); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kyma-incubator/compass/components/director/pkg/graphql.BundleInstanceAuth`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*BundleInstanceAuth)
+	fc.Result = res
+	return ec.marshalNBundleInstanceAuth2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐBundleInstanceAuth(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_requestBundleInstanceAuthCreationForSolutionApplications(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_requestBundleInstanceAuthCreationForSolutionApplications_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Mutation().RequestBundleInstanceAuthCreationForSolutionApplications(rctx, args["solutionID"].(string), args["in"].(BundleInstanceAuthRequestInput), args["mode"].(*OperationMode))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			path, err := ec.unmarshalNString2string(ctx, "graphql.mutation.requestBundleInstanceAuthCreationForApp")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.HasScopes == nil {
+				return nil, errors.New("directive hasScopes is not implemented")
+			}
+			return ec.directives.HasScopes(ctx, nil, directive0, path)
+		}
+		directive2 := func(ctx context.Context) (interface{}, error) {
+			operationType, err := ec.unmarshalNOperationType2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐOperationType(ctx, "CREATE")
+			if err != nil {
+				return nil, err
+			}
+			webhookType, err := ec.unmarshalOWebhookType2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐWebhookType(ctx, "BUNDLE_INSTANCE_AUTH_CREATION")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.Async == nil {
+				return nil, errors.New("directive async is not implemented")
+			}
+			return ec.directives.Async(ctx, nil, directive1, operationType, webhookType, nil)
+		}
+
+		tmp, err := directive2(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -17198,6 +17865,40 @@ func (ec *executionContext) _PlaceholderDefinition_description(ctx context.Conte
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _PlaceholderDefinition_optional(ctx context.Context, field graphql.CollectedField, obj *PlaceholderDefinition) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "PlaceholderDefinition",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Optional, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Query_applications(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -17659,6 +18360,133 @@ func (ec *executionContext) _Query_runtimeContexts(ctx context.Context, field gr
 	res := resTmp.(*RuntimeContextPage)
 	fc.Result = res
 	return ec.marshalNRuntimeContextPage2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐRuntimeContextPage(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Query_solutions(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Query",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Query_solutions_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Query().Solutions(rctx, args["filter"].([]*LabelFilter), args["first"].(*int), args["after"].(*PageCursor))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			path, err := ec.unmarshalNString2string(ctx, "graphql.query.solutions")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.HasScopes == nil {
+				return nil, errors.New("directive hasScopes is not implemented")
+			}
+			return ec.directives.HasScopes(ctx, nil, directive0, path)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, err
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*SolutionPage); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kyma-incubator/compass/components/director/pkg/graphql.SolutionPage`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*SolutionPage)
+	fc.Result = res
+	return ec.marshalNSolutionPage2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolutionPage(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Query_solution(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Query",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Query_solution_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Query().Solution(rctx, args["id"].(string))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			path, err := ec.unmarshalNString2string(ctx, "graphql.query.solution")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.HasScopes == nil {
+				return nil, errors.New("directive hasScopes is not implemented")
+			}
+			return ec.directives.HasScopes(ctx, nil, directive0, path)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, err
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*Solution); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kyma-incubator/compass/components/director/pkg/graphql.Solution`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*Solution)
+	fc.Result = res
+	return ec.marshalOSolution2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolution(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_runtime(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -19429,6 +20257,279 @@ func (ec *executionContext) _RuntimeSystemAuth_auth(ctx context.Context, field g
 	res := resTmp.(*Auth)
 	fc.Result = res
 	return ec.marshalOAuth2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐAuth(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Solution_id(ctx context.Context, field graphql.CollectedField, obj *Solution) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Solution",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Solution_name(ctx context.Context, field graphql.CollectedField, obj *Solution) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Solution",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Name, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Solution_description(ctx context.Context, field graphql.CollectedField, obj *Solution) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Solution",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Description, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Solution_version(ctx context.Context, field graphql.CollectedField, obj *Solution) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Solution",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Version, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Solution_labels(ctx context.Context, field graphql.CollectedField, obj *Solution) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Solution",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Solution_labels_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Solution().Labels(rctx, obj, args["key"].(*string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(Labels)
+	fc.Result = res
+	return ec.marshalOLabels2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐLabels(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _SolutionPage_data(ctx context.Context, field graphql.CollectedField, obj *SolutionPage) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "SolutionPage",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Data, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*Solution)
+	fc.Result = res
+	return ec.marshalNSolution2ᚕᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolutionᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _SolutionPage_pageInfo(ctx context.Context, field graphql.CollectedField, obj *SolutionPage) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "SolutionPage",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PageInfo, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*PageInfo)
+	fc.Result = res
+	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐPageInfo(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _SolutionPage_totalCount(ctx context.Context, field graphql.CollectedField, obj *SolutionPage) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "SolutionPage",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TotalCount, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Tenant_id(ctx context.Context, field graphql.CollectedField, obj *Tenant) (ret graphql.Marshaler) {
@@ -22451,6 +23552,12 @@ func (ec *executionContext) unmarshalInputPlaceholderDefinitionInput(ctx context
 			if err != nil {
 				return it, err
 			}
+		case "optional":
+			var err error
+			it.Optional, err = ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
 		}
 	}
 
@@ -22514,6 +23621,48 @@ func (ec *executionContext) unmarshalInputRuntimeInput(ctx context.Context, obj 
 		case "statusCondition":
 			var err error
 			it.StatusCondition, err = ec.unmarshalORuntimeStatusCondition2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐRuntimeStatusCondition(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputSolutionInput(ctx context.Context, obj interface{}) (SolutionInput, error) {
+	var it SolutionInput
+	var asMap = obj.(map[string]interface{})
+
+	for k, v := range asMap {
+		switch k {
+		case "name":
+			var err error
+			it.Name, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "description":
+			var err error
+			it.Description, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "labels":
+			var err error
+			it.Labels, err = ec.unmarshalOLabels2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐLabels(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "version":
+			var err error
+			it.Version, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "dependencyApplications":
+			var err error
+			it.DependencyApplications, err = ec.unmarshalNApplicationFromTemplateInput2ᚕᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐApplicationFromTemplateInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -22807,6 +23956,13 @@ func (ec *executionContext) _Pageable(ctx context.Context, sel ast.SelectionSet,
 			return graphql.Null
 		}
 		return ec._RuntimePage(ctx, sel, obj)
+	case SolutionPage:
+		return ec._SolutionPage(ctx, sel, &obj)
+	case *SolutionPage:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._SolutionPage(ctx, sel, obj)
 	default:
 		panic(fmt.Errorf("unexpected type %T", obj))
 	}
@@ -24457,6 +25613,21 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
+		case "registerSolution":
+			out.Values[i] = ec._Mutation_registerSolution(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "updateSolution":
+			out.Values[i] = ec._Mutation_updateSolution(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "unregisterSolution":
+			out.Values[i] = ec._Mutation_unregisterSolution(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		case "registerIntegrationSystem":
 			out.Values[i] = ec._Mutation_registerIntegrationSystem(ctx, field)
 			if out.Values[i] == graphql.Null {
@@ -24639,6 +25810,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			}
 		case "requestBundleInstanceAuthCreationForApp":
 			out.Values[i] = ec._Mutation_requestBundleInstanceAuthCreationForApp(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "requestBundleInstanceAuthCreationForSolutionApplications":
+			out.Values[i] = ec._Mutation_requestBundleInstanceAuthCreationForSolutionApplications(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -24887,6 +26063,11 @@ func (ec *executionContext) _PlaceholderDefinition(ctx context.Context, sel ast.
 			}
 		case "description":
 			out.Values[i] = ec._PlaceholderDefinition_description(ctx, field, obj)
+		case "optional":
+			out.Values[i] = ec._PlaceholderDefinition_optional(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -25003,6 +26184,31 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				if res == graphql.Null {
 					atomic.AddUint32(&invalids, 1)
 				}
+				return res
+			})
+		case "solutions":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_solutions(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
+		case "solution":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_solution(ctx, field)
 				return res
 			})
 		case "runtime":
@@ -25495,6 +26701,93 @@ func (ec *executionContext) _RuntimeSystemAuth(ctx context.Context, sel ast.Sele
 			}
 		case "auth":
 			out.Values[i] = ec._RuntimeSystemAuth_auth(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var solutionImplementors = []string{"Solution"}
+
+func (ec *executionContext) _Solution(ctx context.Context, sel ast.SelectionSet, obj *Solution) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, solutionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Solution")
+		case "id":
+			out.Values[i] = ec._Solution_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&invalids, 1)
+			}
+		case "name":
+			out.Values[i] = ec._Solution_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&invalids, 1)
+			}
+		case "description":
+			out.Values[i] = ec._Solution_description(ctx, field, obj)
+		case "version":
+			out.Values[i] = ec._Solution_version(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&invalids, 1)
+			}
+		case "labels":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Solution_labels(ctx, field, obj)
+				return res
+			})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var solutionPageImplementors = []string{"SolutionPage", "Pageable"}
+
+func (ec *executionContext) _SolutionPage(ctx context.Context, sel ast.SelectionSet, obj *SolutionPage) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, solutionPageImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SolutionPage")
+		case "data":
+			out.Values[i] = ec._SolutionPage_data(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._SolutionPage_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "totalCount":
+			out.Values[i] = ec._SolutionPage_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -26106,6 +27399,34 @@ func (ec *executionContext) marshalNApplicationEventingConfiguration2ᚖgithub�
 
 func (ec *executionContext) unmarshalNApplicationFromTemplateInput2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐApplicationFromTemplateInput(ctx context.Context, v interface{}) (ApplicationFromTemplateInput, error) {
 	return ec.unmarshalInputApplicationFromTemplateInput(ctx, v)
+}
+
+func (ec *executionContext) unmarshalNApplicationFromTemplateInput2ᚕᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐApplicationFromTemplateInputᚄ(ctx context.Context, v interface{}) ([]*ApplicationFromTemplateInput, error) {
+	var vSlice []interface{}
+	if v != nil {
+		if tmp1, ok := v.([]interface{}); ok {
+			vSlice = tmp1
+		} else {
+			vSlice = []interface{}{v}
+		}
+	}
+	var err error
+	res := make([]*ApplicationFromTemplateInput, len(vSlice))
+	for i := range vSlice {
+		res[i], err = ec.unmarshalNApplicationFromTemplateInput2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐApplicationFromTemplateInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNApplicationFromTemplateInput2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐApplicationFromTemplateInput(ctx context.Context, v interface{}) (*ApplicationFromTemplateInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalNApplicationFromTemplateInput2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐApplicationFromTemplateInput(ctx, v)
+	return &res, err
 }
 
 func (ec *executionContext) marshalNApplicationPage2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐApplicationPage(ctx context.Context, sel ast.SelectionSet, v ApplicationPage) graphql.Marshaler {
@@ -27220,6 +28541,75 @@ func (ec *executionContext) marshalNRuntimeSystemAuth2ᚖgithubᚗcomᚋkymaᚑi
 		return graphql.Null
 	}
 	return ec._RuntimeSystemAuth(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNSolution2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolution(ctx context.Context, sel ast.SelectionSet, v Solution) graphql.Marshaler {
+	return ec._Solution(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNSolution2ᚕᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolutionᚄ(ctx context.Context, sel ast.SelectionSet, v []*Solution) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNSolution2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolution(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+	return ret
+}
+
+func (ec *executionContext) marshalNSolution2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolution(ctx context.Context, sel ast.SelectionSet, v *Solution) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	return ec._Solution(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNSolutionInput2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolutionInput(ctx context.Context, v interface{}) (SolutionInput, error) {
+	return ec.unmarshalInputSolutionInput(ctx, v)
+}
+
+func (ec *executionContext) marshalNSolutionPage2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolutionPage(ctx context.Context, sel ast.SelectionSet, v SolutionPage) graphql.Marshaler {
+	return ec._SolutionPage(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNSolutionPage2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolutionPage(ctx context.Context, sel ast.SelectionSet, v *SolutionPage) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	return ec._SolutionPage(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNSpecFormat2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSpecFormat(ctx context.Context, v interface{}) (SpecFormat, error) {
@@ -28717,6 +30107,17 @@ func (ec *executionContext) marshalORuntimeSystemAuth2ᚕᚖgithubᚗcomᚋkyma�
 	}
 	wg.Wait()
 	return ret
+}
+
+func (ec *executionContext) marshalOSolution2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolution(ctx context.Context, sel ast.SelectionSet, v Solution) graphql.Marshaler {
+	return ec._Solution(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalOSolution2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐSolution(ctx context.Context, sel ast.SelectionSet, v *Solution) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Solution(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2string(ctx context.Context, v interface{}) (string, error) {

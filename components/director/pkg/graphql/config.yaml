@@ -163,4 +163,9 @@ models:
     fields:
       webhooks:
         resolver: true
+  Solution:
+    model: "github.com/kyma-incubator/compass/components/director/pkg/graphql.Solution"
+    fields:
+      labels:
+        resolver: true
 
