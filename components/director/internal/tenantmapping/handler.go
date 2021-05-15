@@ -41,6 +41,7 @@ type ObjectContextProvider interface {
 //go:generate mockery --name=TenantRepository --output=automock --outpkg=automock --case=underscore
 type TenantRepository interface {
 	GetByExternalTenant(ctx context.Context, externalTenant string) (*model.BusinessTenantMapping, error)
+	Create(ctx context.Context, item model.BusinessTenantMapping) error
 }
 
 type Handler struct {

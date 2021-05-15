@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
+	"github.com/kyma-incubator/compass/components/director/pkg/str"
 
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
@@ -243,7 +244,7 @@ func (r *Resolver) RequestBundleInstanceAuthDeletion(ctx context.Context, authID
 	return r.conv.ToGraphQL(instanceAuth)
 }
 
-func (r *Resolver) RequestBundleInstanceAuthCreationForSolutionApplications(ctx context.Context, solutionID string, in graphql.BundleInstanceAuthRequestInput) (*graphql.BundleInstanceAuth, error) {
+func (r *Resolver) RequestBundleInstanceAuthCreationForSolutionApplications(ctx context.Context, solutionID string, in []*graphql.BundleInstanceAuthRequestInputByOrdID) ([]*graphql.BundleInstanceAuth, error) {
 	tx, err := r.transact.Begin()
 	if err != nil {
 		return nil, err
@@ -262,46 +263,43 @@ func (r *Resolver) RequestBundleInstanceAuthCreationForSolutionApplications(ctx 
 		return nil, err
 	}
 	if len(apps) < 1 {
-		return nil,  errors.New(fmt.Sprintf("No apps were found for solution with ID %s", solutionID))
+		return nil, errors.New(fmt.Sprintf("No apps were found for solution with ID %s", solutionID))
 	}
-	// TODO return many bundle instance auths
-	appID := apps[0].ID
-	bndls, err := r.bndlSvc.ListByApplicationIDNoPaging(ctx, appID)
-	if err != nil {
-		log.C(ctx).Errorf("Failed to list bundles for application with ID %s: %v", appID, err)
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to list bundles for application with ID %s", appID))
-	}
-	if len(bndls) == 0 {
-		log.C(ctx).Errorf("No bundles found for application with ID %s", appID)
-		return nil, errors.New(fmt.Sprintf("No bundles found for application with ID %s", appID))
+	result := make([]*graphql.BundleInstanceAuth, 0)
+	// TODO fix mess
+	for _, app := range apps {
+		appID := app.ID
+		bndls, err := r.bndlSvc.ListByApplicationIDNoPaging(ctx, appID)
+		if err != nil {
+			log.C(ctx).Errorf("Failed to list bundles for application with ID %s: %v", appID, err)
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to list bundles for application with ID %s", appID))
+		}
+		if len(bndls) == 0 {
+			log.C(ctx).Errorf("No bundles found for application with ID %s", appID)
+			return nil, errors.New(fmt.Sprintf("No bundles found for application with ID %s", appID))
+		}
+
+		bundlesIds := bundlesIDMapping(bndls)
+		for _, b := range in {
+			id, ok := bundlesIds[b.ID]
+			if !ok {
+				log.C(ctx).Errorf("Bundle with ORD ID %s not found in application with ID %s", b.ID)
+			}
+			authIn := graphql.BundleInstanceAuthRequestInput{
+				ID:          str.Ptr(id),
+				Context:     b.Context,
+				InputParams: b.InputParams,
+			}
+			instanceAuth, err := r.requestBundleInstanceAuth(ctx, err, b.ID, authIn, tx)
+			if err != nil {
+				log.C(ctx).WithError(err).Errorf("Failed to request bundle instance auth for bundle with ID %s of application with ID %s", id, appID)
+				return nil, errors.Wrapf(err, "failed to create bundle instance auth for bundle %s", b.ID)
+			}
+			result = append(result, instanceAuth)
+		}
 	}
 
-	bundleID := bndls[0].ID
-	return r.requestBundleInstanceAuth(ctx, err, bundleID, in, tx)
-}
-
-// TODO remove, not needed
-func (r *Resolver) RequestBundleInstanceAuthCreationForApp(ctx context.Context, appID string, in graphql.BundleInstanceAuthRequestInput) (*graphql.BundleInstanceAuth, error) {
-	tx, err := r.transact.Begin()
-	if err != nil {
-		return nil, err
-	}
-
-	defer r.transact.RollbackUnlessCommitted(ctx, tx)
-	ctx = persistence.SaveToContext(ctx, tx)
-
-	bndls, err := r.bndlSvc.ListByApplicationIDNoPaging(ctx, appID)
-	if err != nil {
-		log.C(ctx).Errorf("Failed to list bundles for application with ID %s: %v", appID, err)
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to list bundles for application with ID %s", appID))
-	}
-	if len(bndls) == 0 {
-		log.C(ctx).Errorf("No bundles found for application with ID %s", appID)
-		return nil, errors.New(fmt.Sprintf("No bundles found for application with ID %s", appID))
-	}
-
-	bundleID := bndls[0].ID
-	return r.requestBundleInstanceAuth(ctx, err, bundleID, in, tx)
+	return result, nil
 }
 
 func (r *Resolver) requestBundleInstanceAuth(ctx context.Context, err error, bundleID string, in graphql.BundleInstanceAuthRequestInput, tx persistence.PersistenceTx) (*graphql.BundleInstanceAuth, error) {
@@ -329,4 +327,15 @@ func (r *Resolver) requestBundleInstanceAuth(ctx context.Context, err error, bun
 	}
 
 	return r.conv.ToGraphQL(instanceAuth)
+}
+
+func bundlesIDMapping(bndls []*model.Bundle) map[string]string {
+	bndlsMap := make(map[string]string, 0)
+	for _, b := range bndls {
+		if b.OrdID != nil {
+			bndlsMap[*b.OrdID] = b.ID
+		}
+	}
+
+	return bndlsMap
 }

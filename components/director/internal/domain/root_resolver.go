@@ -122,7 +122,7 @@ func NewRootResolver(
 	appTemplateConverter := apptemplate.NewConverter(appConverter, webhookConverter)
 	bundleInstanceAuthConv := bundleinstanceauth.NewConverter(authConverter)
 	assignmentConv := scenarioassignment.NewConverter()
-	solutionConv := solution.NewConverter()
+	solutionConv := solution.NewConverter(appTemplateConverter, bundleConverter)
 
 	healthcheckRepo := healthcheck.NewRepository()
 	runtimeRepo := runtime.NewRepository(runtimeConverter)
@@ -184,7 +184,7 @@ func NewRootResolver(
 		doc:                document.NewResolver(transact, docSvc, appSvc, bundleSvc, frConverter),
 		runtime:            runtime.NewResolver(transact, runtimeSvc, scenarioAssignmentSvc, systemAuthSvc, oAuth20Svc, runtimeConverter, systemAuthConverter, eventingSvc),
 		runtimeContext:     runtime_context.NewResolver(transact, runtimeCtxSvc, runtimeContextConverter),
-		solution:           solution.NewResolver(transact, solutionSvc, scenariosSvc, solutionConv, appSvc, appConverter, appTemplateSvc, appTemplateConverter, labelDefSvc),
+		solution:           solution.NewResolver(transact, solutionSvc, scenariosSvc, solutionConv, appSvc, appConverter, appTemplateSvc, appTemplateConverter, bundleConverter, labelDefSvc),
 		healthCheck:        healthcheck.NewResolver(healthCheckSvc),
 		webhook:            webhook.NewResolver(transact, webhookSvc, appSvc, appTemplateSvc, webhookConverter),
 		labelDef:           labeldef.NewResolver(transact, labelDefSvc, labelDefConverter),
@@ -523,11 +523,7 @@ func (r *mutationResolver) RequestBundleInstanceAuthCreation(ctx context.Context
 	return r.bundleInstanceAuth.RequestBundleInstanceAuthCreation(ctx, bundleID, in)
 }
 
-// RequestBundleInstanceAuthCreationForApp(ctx context.Context, appID string, in BundleInstanceAuthRequestInput, mode *OperationMode) (*BundleInstanceAuth, error)
-func (r *mutationResolver) RequestBundleInstanceAuthCreationForApp(ctx context.Context, appID string, in graphql.BundleInstanceAuthRequestInput, _ *graphql.OperationMode) (*graphql.BundleInstanceAuth, error) {
-	return r.bundleInstanceAuth.RequestBundleInstanceAuthCreationForApp(ctx, appID, in)
-}
-func (r *mutationResolver) RequestBundleInstanceAuthCreationForSolutionApplications(ctx context.Context, solutionID string, in graphql.BundleInstanceAuthRequestInput, _ *graphql.OperationMode) (*graphql.BundleInstanceAuth, error) {
+func (r *mutationResolver) RequestBundleInstanceAuthCreationForSolutionApplications(ctx context.Context, solutionID string, in []*graphql.BundleInstanceAuthRequestInputByOrdID, _ *graphql.OperationMode) ([]*graphql.BundleInstanceAuth, error) {
 	return r.bundleInstanceAuth.RequestBundleInstanceAuthCreationForSolutionApplications(ctx, solutionID, in)
 }
 func (r *mutationResolver) RequestBundleInstanceAuthDeletion(ctx context.Context, authID string, _ *graphql.OperationMode) (*graphql.BundleInstanceAuth, error) {

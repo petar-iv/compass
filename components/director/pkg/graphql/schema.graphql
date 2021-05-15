@@ -350,6 +350,7 @@ input BundleCreateInput {
 	**Validation:** ASCII printable characters, max=100
 	"""
 	name: String!
+	ordId: String
 	"""
 	**Validation:** max=2000
 	"""
@@ -363,6 +364,18 @@ input BundleCreateInput {
 
 input BundleInstanceAuthRequestInput {
 	id: ID
+	"""
+	Context of BundleInstanceAuth - such as Runtime ID, namespace, etc.
+	"""
+	context: JSON
+	"""
+	**Validation:** JSON validated against bundle.instanceAuthRequestInputSchema
+	"""
+	inputParams: JSON
+}
+
+input BundleInstanceAuthRequestInputByOrdID {
+	id: String!
 	"""
 	Context of BundleInstanceAuth - such as Runtime ID, namespace, etc.
 	"""
@@ -618,6 +631,11 @@ input RuntimeInput {
 	statusCondition: RuntimeStatusCondition
 }
 
+input SolutionDependenciesInput {
+	application: ApplicationFromTemplateInput!
+	bundles: [BundleCreateInput!]!
+}
+
 input SolutionInput {
 	"""
 	**Validation:**  Up to 36 characters long. Cannot start with a digit. The characters allowed in names are: digits (0-9), lower case letters (a-z),-, and .
@@ -632,7 +650,7 @@ input SolutionInput {
 	"""
 	labels: Labels
 	version: String!
-	dependencyApplications: [ApplicationFromTemplateInput!]!
+	dependencies: [SolutionDependenciesInput!]!
 }
 
 input TemplateValueInput {
@@ -1434,8 +1452,7 @@ type Mutation {
 	- [request bundle instance auth creation](examples/request-bundle-instance-auth-creation/request-bundle-instance-auth-creation.graphql)
 	"""
 	requestBundleInstanceAuthCreation(bundleID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationIDByBundle", idField: "bundleID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreation") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
-	requestBundleInstanceAuthCreationForApp(appID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScenario(applicationProvider: "GetApplicationID", idField: "appID") @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreationForApp") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
-	requestBundleInstanceAuthCreationForSolutionApplications(solutionID: ID!, in: BundleInstanceAuthRequestInput! @validate, mode: OperationMode = SYNC): BundleInstanceAuth! @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreationForApp") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
+	requestBundleInstanceAuthCreationForSolutionApplications(solutionID: ID!, in: [BundleInstanceAuthRequestInputByOrdID!] @validate, mode: OperationMode = SYNC): [BundleInstanceAuth!]! @hasScopes(path: "graphql.mutation.requestBundleInstanceAuthCreationForApp") @async(operationType: CREATE, webhookType: BUNDLE_INSTANCE_AUTH_CREATION)
 	"""
 	When defaultInstanceAuth is set, it fires "deleteBundleInstanceAuth" mutation. Otherwise, the status of the BundleInstanceAuth is set to UNUSED.
 	

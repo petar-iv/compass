@@ -216,7 +216,8 @@ type BasicCredentialDataInput struct {
 
 type BundleCreateInput struct {
 	// **Validation:** ASCII printable characters, max=100
-	Name string `json:"name"`
+	Name  string  `json:"name"`
+	OrdID *string `json:"ordId"`
 	// **Validation:** max=2000
 	Description                    *string                 `json:"description"`
 	InstanceAuthRequestInputSchema *JSONSchema             `json:"instanceAuthRequestInputSchema"`
@@ -228,6 +229,14 @@ type BundleCreateInput struct {
 
 type BundleInstanceAuthRequestInput struct {
 	ID *string `json:"id"`
+	// Context of BundleInstanceAuth - such as Runtime ID, namespace, etc.
+	Context *JSON `json:"context"`
+	// **Validation:** JSON validated against bundle.instanceAuthRequestInputSchema
+	InputParams *JSON `json:"inputParams"`
+}
+
+type BundleInstanceAuthRequestInputByOrdID struct {
+	ID string `json:"id"`
 	// Context of BundleInstanceAuth - such as Runtime ID, namespace, etc.
 	Context *JSON `json:"context"`
 	// **Validation:** JSON validated against bundle.instanceAuthRequestInputSchema
@@ -566,15 +575,20 @@ type RuntimeSystemAuth struct {
 
 func (RuntimeSystemAuth) IsSystemAuth() {}
 
+type SolutionDependenciesInput struct {
+	Application *ApplicationFromTemplateInput `json:"application"`
+	Bundles     []*BundleCreateInput          `json:"bundles"`
+}
+
 type SolutionInput struct {
 	// **Validation:**  Up to 36 characters long. Cannot start with a digit. The characters allowed in names are: digits (0-9), lower case letters (a-z),-, and .
 	Name string `json:"name"`
 	// **Validation:**  max=2000
 	Description *string `json:"description"`
 	// **Validation:** key: required, alphanumeric with underscore
-	Labels                 Labels                          `json:"labels"`
-	Version                string                          `json:"version"`
-	DependencyApplications []*ApplicationFromTemplateInput `json:"dependencyApplications"`
+	Labels       Labels                       `json:"labels"`
+	Version      string                       `json:"version"`
+	Dependencies []*SolutionDependenciesInput `json:"dependencies"`
 }
 
 type SolutionPage struct {

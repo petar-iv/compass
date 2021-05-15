@@ -19,6 +19,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/internal/domain"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/api"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/application"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/apptemplate"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/auth"
 	mp_bundle "github.com/kyma-incubator/compass/components/director/internal/domain/bundle"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/bundleinstanceauth"
@@ -564,8 +565,8 @@ func tokenService(cfg config, cfgProvider *configprovider.Provider, httpClient *
 	eventAPIConverter := eventdef.NewConverter(versionConverter, specConverter)
 	apiConverter := api.NewConverter(versionConverter, specConverter)
 	docConverter := document.NewConverter(frConverter)
-	packageConverter := mp_bundle.NewConverter(authConverter, apiConverter, eventAPIConverter, docConverter)
-	appConverter := application.NewConverter(webhookConverter, packageConverter)
+	bundleConverter := mp_bundle.NewConverter(authConverter, apiConverter, eventAPIConverter, docConverter)
+	appConverter := application.NewConverter(webhookConverter, bundleConverter)
 	applicationRepo := application.NewRepository(appConverter)
 	webhookRepo := webhook.NewRepository(webhookConverter)
 	runtimeConverter := runtime.NewConverter()
@@ -575,7 +576,7 @@ func tokenService(cfg config, cfgProvider *configprovider.Provider, httpClient *
 	labelDefRepo := labeldef.NewRepository(labelDefConverter)
 	labelUpsertSvc := label.NewLabelUpsertService(labelRepo, labelDefRepo, uidSvc)
 	scenariosSvc := labeldef.NewScenariosService(labelDefRepo, uidSvc, cfg.Features.DefaultScenarioEnabled)
-	bundleRepo := mp_bundle.NewRepository(packageConverter)
+	bundleRepo := mp_bundle.NewRepository(bundleConverter)
 	apiRepo := api.NewRepository(apiConverter)
 	docRepo := document.NewRepository(docConverter)
 	fetchRequestRepo := fetchrequest.NewRepository(frConverter)
@@ -587,7 +588,7 @@ func tokenService(cfg config, cfgProvider *configprovider.Provider, httpClient *
 	eventAPISvc := eventdef.NewService(eventAPIRepo, uidSvc, specSvc)
 	documentSvc := document.NewService(docRepo, fetchRequestRepo, uidSvc)
 	bundleSvc := mp_bundle.NewService(bundleRepo, apiSvc, eventAPISvc, documentSvc, uidSvc)
-	solutionRepo := solution.NewRepository(solution.NewConverter())
+	solutionRepo := solution.NewRepository(solution.NewConverter(apptemplate.NewConverter(appConverter, webhookConverter), bundleConverter))
 	appSvc := application.NewService(&normalizer.DefaultNormalizator{}, cfgProvider, applicationRepo, webhookRepo, runtimeRepo, solutionRepo, labelRepo, intSysRepo, labelUpsertSvc, scenariosSvc, bundleSvc, uidSvc)
 	timeService := directorTime.NewService()
 	return onetimetoken.NewTokenService(systemAuthSvc, appSvc, appConverter, tenantSvc, httpClient, onetimetoken.NewTokenGenerator(cfg.OneTimeToken.Length), cfg.OneTimeToken.ConnectorURL, pairingAdapters, timeService)

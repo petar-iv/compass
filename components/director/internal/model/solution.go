@@ -13,11 +13,16 @@ type Solution struct {
 }
 
 type SolutionInput struct {
-	Name        string
-	Version     string
-	Description *string
-	DependencyApplications []ApplicationFromTemplateInput
-	Labels      map[string]interface{}
+	Name         string
+	Version      string
+	Description  *string
+	Dependencies []SolutionDependencyInput
+	Labels       map[string]interface{}
+}
+
+type SolutionDependencyInput struct {
+	Application ApplicationFromTemplateInput
+	Bundles     []*BundleCreateInput
 }
 
 func (i *SolutionInput) ToSolution(id string, tenant string) *Solution {

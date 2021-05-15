@@ -38,7 +38,7 @@ type ScenarioAssignmentService interface {
 type SolutionConverter interface {
 	ToGraphQL(in *model.Solution) *graphql.Solution
 	MultipleToGraphQL(in []*model.Solution) []*graphql.Solution
-	InputFromGraphQL(in graphql.SolutionInput) model.SolutionInput
+	InputFromGraphQL(in graphql.SolutionInput) (model.SolutionInput, error)
 }
 
 type ApplicationService interface {
@@ -78,10 +78,13 @@ type Resolver struct {
 	appTemplateSvc  ApplicationTemplateService
 	appTemplateConv ApplicationTemplateConverter
 	labelDefSvc     LabelDefinitionService
+
+	bndlConverter BundleConverter
 }
 
 func NewResolver(transact persistence.Transactioner, solutionService SolutionService, scenariosService ScenariosService, conv SolutionConverter,
-	appSvc ApplicationService, appConv ApplicationConverter, appTemplateSvc ApplicationTemplateService, appTemplateConv ApplicationTemplateConverter, labelDefSvc LabelDefinitionService) *Resolver {
+	appSvc ApplicationService, appConv ApplicationConverter, appTemplateSvc ApplicationTemplateService, appTemplateConv ApplicationTemplateConverter,
+	bndlConv BundleConverter, labelDefSvc LabelDefinitionService) *Resolver {
 	return &Resolver{
 		transact:         transact,
 		solutionSvc:      solutionService,
@@ -92,6 +95,7 @@ func NewResolver(transact persistence.Transactioner, solutionService SolutionSer
 		appTemplateSvc:   appTemplateSvc,
 		appTemplateConv:  appTemplateConv,
 		labelDefSvc:      labelDefSvc,
+		bndlConverter:    bndlConv,
 	}
 }
 
@@ -164,7 +168,10 @@ func (r *Resolver) Solution(ctx context.Context, id string) (*graphql.Solution, 
 }
 
 func (r *Resolver) RegisterSolution(ctx context.Context, in graphql.SolutionInput) (*graphql.Solution, error) {
-	convertedIn := r.converter.InputFromGraphQL(in)
+	convertedIn, err := r.converter.InputFromGraphQL(in)
+	if err != nil {
+		return nil, err
+	}
 
 	tx, err := r.transact.Begin()
 	if err != nil {
@@ -211,15 +218,21 @@ func (r *Resolver) RegisterSolution(ctx context.Context, in graphql.SolutionInpu
 }
 
 func (r *Resolver) createRelatedResources(ctx context.Context, in graphql.SolutionInput) error {
-	for _, appTemplate := range in.DependencyApplications {
-		if appTemplate == nil {
+	for _, dep := range in.Dependencies {
+		if dep == nil {
 			continue
 		}
-		if err := appTemplate.Validate(); err != nil {
+
+		if err := dep.Application.Validate(); err != nil {
 			return err
 		}
 
-		id, err := r.registerAppFromTemplate(ctx, *appTemplate)
+		bundlesIn, err := r.bndlConverter.MultipleCreateInputFromGraphQL(dep.Bundles)
+		if err != nil {
+			return err
+		}
+
+		id, err := r.registerAppFromTemplate(ctx, *dep.Application, bundlesIn)
 		if err != nil {
 			return errors.Wrap(err, "failed to create solutiuon dependency of type application")
 		}
@@ -236,7 +249,7 @@ func (r *Resolver) createRelatedResources(ctx context.Context, in graphql.Soluti
 	return nil
 }
 
-func (r *Resolver) registerAppFromTemplate(ctx context.Context, in graphql.ApplicationFromTemplateInput) (string, error) {
+func (r *Resolver) registerAppFromTemplate(ctx context.Context, in graphql.ApplicationFromTemplateInput, bundlesIn []*model.BundleCreateInput) (string, error) {
 	log.C(ctx).Infof("Registering an Application from Application Template with name %s", in.TemplateName)
 	convertedIn := r.appTemplateConv.ApplicationFromTemplateInputFromGraphQL(in)
 
@@ -272,6 +285,8 @@ func (r *Resolver) registerAppFromTemplate(ctx context.Context, in graphql.Appli
 	}
 
 	appCreateInputModel, err := r.appConv.CreateInputFromGraphQL(ctx, appCreateInputGQL)
+
+	appCreateInputModel.Bundles = bundlesIn
 	if err != nil {
 		return "", errors.Wrap(err, "while converting ApplicationFromTemplate input")
 	}
@@ -286,7 +301,10 @@ func (r *Resolver) registerAppFromTemplate(ctx context.Context, in graphql.Appli
 }
 
 func (r *Resolver) UpdateSolution(ctx context.Context, id string, in graphql.SolutionInput) (*graphql.Solution, error) {
-	convertedIn := r.converter.InputFromGraphQL(in)
+	convertedIn, err := r.converter.InputFromGraphQL(in)
+	if err != nil {
+		return nil, err
+	}
 
 	tx, err := r.transact.Begin()
 	if err != nil {

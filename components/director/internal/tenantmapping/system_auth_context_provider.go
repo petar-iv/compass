@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
+	"k8s.io/utils/pointer"
 
 	"github.com/kyma-incubator/compass/components/director/internal/consumer"
 
@@ -102,9 +104,24 @@ func (m *systemAuthContextProvider) getTenantAndScopesForIntegrationSystem(ctx c
 	if err != nil {
 		if apperrors.IsNotFoundError(err) {
 			log.C(ctx).Warningf("Could not find external tenant with ID: %s, error: %s", externalTenantID, err.Error())
+			if !strings.Contains(scopes, "solution:write") {
+				log.C(ctx).Info("Returning tenant context with empty internal tenant ID...")
+				return NewTenantContext(externalTenantID, ""), scopes, nil
+			}
 
-			log.C(ctx).Info("Returning tenant context with empty internal tenant ID...")
-			return NewTenantContext(externalTenantID, ""), scopes, nil
+			log.C(ctx).Infof("Creating a new tenant with external ID %s", externalTenantID)
+			if err := m.tenantRepo.Create(ctx, model.BusinessTenantMapping{
+				ID:             uuid.New().String(),
+				Name:           externalTenantID,
+				ExternalTenant: externalTenantID,
+				Provider:       "external",
+				Status:         model.Active,
+				Initialized:    pointer.BoolPtr(true),
+			}); err != nil {
+				log.C(ctx).Infof("Failed to create a new tenant with external tenant ID %s", externalTenantID)
+				return NewTenantContext(externalTenantID, ""), scopes, nil
+			}
+
 		}
 		return TenantContext{}, scopes, errors.Wrapf(err, "while getting external tenant mapping [ExternalTenantId=%s]", externalTenantID)
 	}
