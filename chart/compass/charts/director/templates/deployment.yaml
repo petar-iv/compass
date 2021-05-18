@@ -1,80 +1,85 @@
+{{ $outerScope := . }}
+{{- range .Values.global.images.director.versions }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "fullname" . }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ template "fullname" $outerScope }}
+  namespace: {{ $.Release.Namespace }}
   labels:
-    app: {{ .Chart.Name }}
-    release: {{ .Release.Name }}
+    app: {{ $.Chart.Name }}
+    release: {{ $.Release.Name }}
+    version: {{ . }}
 spec:
-  replicas: {{ .Values.deployment.minReplicas }}
+  replicas: {{ $.Values.deployment.minReplicas }}
   selector:
     matchLabels:
-      app: {{ .Chart.Name }}
-      release: {{ .Release.Name }}
+      app: {{ $.Chart.Name }}
+      release: {{ $.Release.Name }}
+      version: {{ . }}
   strategy:
-    {{- toYaml .Values.deployment.strategy | nindent 4 }}
+    {{- toYaml $.Values.deployment.strategy | nindent 4 }}
   template:
     metadata:
       annotations:
-        {{ if .Values.deployment.resourcesIstioProxy.requests.cpu }}
-        sidecar.istio.io/proxyCPU: {{ .Values.deployment.resourcesIstioProxy.requests.cpu }}
+        {{ if $.Values.deployment.resourcesIstioProxy.requests.cpu }}
+        sidecar.istio.io/proxyCPU: {{ $.Values.deployment.resourcesIstioProxy.requests.cpu }}
         {{ end }}
-        {{ if .Values.deployment.resourcesIstioProxy.requests.memory }}
-        sidecar.istio.io/proxyMemory: {{ .Values.deployment.resourcesIstioProxy.requests.memory }}
+        {{ if $.Values.deployment.resourcesIstioProxy.requests.memory }}
+        sidecar.istio.io/proxyMemory: {{ $.Values.deployment.resourcesIstioProxy.requests.memory }}
         {{ end }}
-        {{ if .Values.deployment.resourcesIstioProxy.limits.cpu }}
-        sidecar.istio.io/proxyCPULimit: {{ .Values.deployment.resourcesIstioProxy.limits.cpu }}
+        {{ if $.Values.deployment.resourcesIstioProxy.limits.cpu }}
+        sidecar.istio.io/proxyCPULimit: {{ $.Values.deployment.resourcesIstioProxy.limits.cpu }}
         {{ end }}
-        {{ if .Values.deployment.resourcesIstioProxy.limits.memory }}
-        sidecar.istio.io/proxyMemoryLimit: {{ .Values.deployment.resourcesIstioProxy.limits.memory }}
+        {{ if $.Values.deployment.resourcesIstioProxy.limits.memory }}
+        sidecar.istio.io/proxyMemoryLimit: {{ $.Values.deployment.resourcesIstioProxy.limits.memory }}
         {{ end }}
       labels:
-        app: {{ .Chart.Name }}
-        release: {{ .Release.Name }}
+        app: {{ $.Chart.Name }}
+        release: {{ $.Release.Name }}
+        version: {{ . }}
     spec:
       serviceAccountName: {{ template "fullname" . }}
       nodeSelector:
-        {{- toYaml .Values.deployment.nodeSelector | nindent 8 }}
+        {{- toYaml $.Values.deployment.nodeSelector | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
-          image: {{ .Values.global.images.containerRegistry.path }}/{{ .Values.global.images.director.dir }}compass-director:{{ .Values.global.images.director.version }}
-          imagePullPolicy: {{ .Values.deployment.image.pullPolicy }}
+        - name: {{ $.Chart.Name }}
+          image: {{ $.Values.global.images.containerRegistry.path }}/{{ $.Values.global.images.director.dir }}compass-director:{{ . }}
+          imagePullPolicy: {{ $.Values.deployment.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.global.director.graphql.external.port }}
+              containerPort: {{ $.Values.global.director.graphql.external.port }}
               protocol: TCP
             - name: http-gql-int
-              containerPort: {{ .Values.global.director.graphql.internal.port }}
+              containerPort: {{ $.Values.global.director.graphql.internal.port }}
               protocol: TCP
             - name: http-validator
-              containerPort: {{ .Values.global.director.validator.port }}
+              containerPort: {{ $.Values.global.director.validator.port }}
               protocol: TCP
             - name: http-internal
-              containerPort: {{ .Values.global.director.operations.port }}
+              containerPort: {{ $.Values.global.director.operations.port }}
               protocol: TCP
             - name: metrics
-              containerPort: {{ .Values.global.director.metrics.port }}
+              containerPort: {{ $.Values.global.director.metrics.port }}
               protocol: TCP
           resources:
-            {{- toYaml .Values.deployment.resources | nindent 12 }}
-          {{- with .Values.deployment.securityContext }}
+            {{- toYaml $.Values.deployment.resources | nindent 12 }}
+          {{- with $.Values.deployment.securityContext }}
           securityContext:
 {{ toYaml . | indent 12 }}
           {{- end }}
           env:
             - name: APP_ADDRESS
-              value: "0.0.0.0:{{ .Values.global.director.graphql.external.port }}"
+              value: "0.0.0.0:{{ $.Values.global.director.graphql.external.port }}"
             - name: APP_GRAPHQL_INTERNAL_ADDRESS
-              value: "0.0.0.0:{{ .Values.global.director.graphql.internal.port }}"
+              value: "0.0.0.0:{{ $.Values.global.director.graphql.internal.port }}"
             - name: APP_HYDRATOR_ADDRESS
-              value: "0.0.0.0:{{ .Values.global.director.validator.port }}"
+              value: "0.0.0.0:{{ $.Values.global.director.validator.port }}"
             - name: APP_INTERNAL_ADDRESS
-              value: "0.0.0.0:{{ .Values.global.director.operations.port }}"
+              value: "0.0.0.0:{{ $.Values.global.director.operations.port }}"
             - name: APP_METRICS_ADDRESS
-              value: "0.0.0.0:{{ .Values.global.director.metrics.port }}"
+              value: "0.0.0.0:{{ $.Values.global.director.metrics.port }}"
             - name: APP_PLAYGROUND_API_ENDPOINT
-              value: "{{ .Values.global.director.prefix }}/graphql"
+              value: "{{ $.Values.global.director.prefix }}/graphql"
             - name: APP_JWKS_ENDPOINT
               value: http://ory-oathkeeper-api.kyma-system.svc.cluster.local:4456/.well-known/jwks.json
             - name: APP_DB_USER
@@ -108,44 +113,44 @@ spec:
                   name: compass-postgresql
                   key: postgresql-sslMode
             - name: APP_DB_MAX_OPEN_CONNECTIONS
-              value: "{{.Values.deployment.dbPool.maxOpenConnections}}"
+              value: "{{$.Values.deployment.dbPool.maxOpenConnections}}"
             - name: APP_DB_MAX_IDLE_CONNECTIONS
-              value: "{{.Values.deployment.dbPool.maxIdleConnections}}"
+              value: "{{$.Values.deployment.dbPool.maxIdleConnections}}"
             - name: APP_ONE_TIME_TOKEN_LENGTH
-              value: {{ .Values.deployment.args.token.length | quote }}
+              value: {{ $.Values.deployment.args.token.length | quote }}
             - name: APP_ONE_TIME_TOKEN_RUNTIME_EXPIRATION
-              value: {{ .Values.deployment.args.token.runtimeExpiration | quote }}
+              value: {{ $.Values.deployment.args.token.runtimeExpiration | quote }}
             - name: APP_ONE_TIME_TOKEN_APPLICATION_EXPIRATION
-              value: {{ .Values.deployment.args.token.applicationExpiration | quote }}
+              value: {{ $.Values.deployment.args.token.applicationExpiration | quote }}
             - name: APP_ONE_TIME_TOKEN_CSR_EXPIRATION
-              value: {{ .Values.deployment.args.token.csrExpiration | quote }}
+              value: {{ $.Values.deployment.args.token.csrExpiration | quote }}
             - name: APP_URL
-              value: "https://{{ .Values.global.gateway.tls.host }}.{{ .Values.global.ingress.domainName }}{{ .Values.global.director.prefix }}"
+              value: "https://{{ $.Values.global.gateway.tls.host }}.{{ $.Values.global.ingress.domainName }}{{ $.Values.global.director.prefix }}"
             - name: APP_OPERATION_PATH
-              value: {{ .Values.global.director.operations.path }}
+              value: {{ $.Values.global.director.operations.path }}
             - name: APP_LAST_OPERATION_PATH
-              value: {{ .Values.global.director.operations.lastOperationPath }}
+              value: {{ $.Values.global.director.operations.lastOperationPath }}
             - name: APP_CONNECTOR_URL
-              value: "https://{{ .Values.global.gateway.tls.host }}.{{ .Values.global.ingress.domainName }}{{ .Values.global.connector.prefix }}/graphql"
+              value: "https://{{ $.Values.global.gateway.tls.host }}.{{ $.Values.global.ingress.domainName }}{{ $.Values.global.connector.prefix }}/graphql"
             - name: APP_CONFIGURATION_FILE
               value: /config/config.yaml
             - name: APP_ALLOW_JWT_SIGNING_NONE
-              value: {{ .Values.deployment.allowJWTSigningNone | quote }}
+              value: {{ $.Values.deployment.allowJWTSigningNone | quote }}
             - name: APP_CLIENT_ID_HTTP_HEADER
-              value: {{ .Values.global.director.clientIDHeaderKey }}
+              value: {{ $.Values.global.director.clientIDHeaderKey }}
             - name: APP_OAUTH20_URL
               value: http://ory-hydra-admin.kyma-system.svc.cluster.local:4445
             - name: APP_OAUTH20_PUBLIC_ACCESS_TOKEN_ENDPOINT
-              value: "https://oauth2.{{ .Values.global.ingress.domainName }}/oauth2/token"
+              value: "https://oauth2.{{ $.Values.global.ingress.domainName }}/oauth2/token"
             - name: APP_LEGACY_CONNECTOR_URL
-              value: "https://{{ .Values.global.connectivity_adapter.tls.host }}.{{ .Values.global.ingress.domainName }}/v1/applications/signingRequests/info"
-            {{- if .Values.deployment.pairingAdapterConfigMap }}
+              value: "https://{{ $.Values.global.connectivity_adapter.tls.host }}.{{ $.Values.global.ingress.domainName }}/v1/applications/signingRequests/info"
+            {{- if $.Values.deployment.pairingAdapterConfigMap }}
             - name: APP_PAIRING_ADAPTER_SRC
               value: /pairing-adapters/config.json
             {{- end }}
             - name: APP_DEFAULT_SCENARIO_ENABLED
-              value: {{ .Values.global.enableCompassDefaultScenarioAssignment | quote }}
-            {{- range $authenticatorName, $config := .Values.global.authenticators }}
+              value: {{ $.Values.global.enableCompassDefaultScenarioAssignment | quote }}
+            {{- range $authenticatorName, $config := $.Values.global.authenticators }}
             {{- if eq $config.enabled true }}
             - name: APP_{{ $authenticatorName }}_AUTHENTICATOR_TRUSTED_ISSUERS
               value: {{ $config.trusted_issuers | quote }}
@@ -155,18 +160,18 @@ spec:
             {{- end }}
           livenessProbe:
             httpGet:
-              port: {{ .Values.global.director.graphql.external.port }}
+              port: {{ $.Values.global.director.graphql.external.port }}
               path: "/healthz"
-            initialDelaySeconds: {{ .Values.global.livenessProbe.initialDelaySeconds }}
-            timeoutSeconds: {{ .Values.global.livenessProbe.timeoutSeconds }}
-            periodSeconds: {{.Values.global.livenessProbe.periodSeconds }}
+            initialDelaySeconds: {{ $.Values.global.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ $.Values.global.livenessProbe.timeoutSeconds }}
+            periodSeconds: {{$.Values.global.livenessProbe.periodSeconds }}
           readinessProbe:
             httpGet:
-              port: {{ .Values.global.director.graphql.external.port }}
+              port: {{ $.Values.global.director.graphql.external.port }}
               path: "/readyz"
-            initialDelaySeconds: {{ .Values.global.readinessProbe.initialDelaySeconds }}
-            timeoutSeconds: {{ .Values.global.readinessProbe.timeoutSeconds }}
-            periodSeconds: {{.Values.global.readinessProbe.periodSeconds }}
+            initialDelaySeconds: {{ $.Values.global.readinessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ $.Values.global.readinessProbe.timeoutSeconds }}
+            periodSeconds: {{$.Values.global.readinessProbe.periodSeconds }}
           volumeMounts:
             - mountPath: /config
               name: director-config
@@ -176,35 +181,35 @@ spec:
             - mountPath: /data/static-groups.yaml
               name: static-groups
               subPath: static-groups.yaml
-            {{ if .Values.deployment.pairingAdapterConfigMap }}
+            {{ if $.Values.deployment.pairingAdapterConfigMap }}
             - name: pairing-adapters-config
               mountPath: /pairing-adapters
             {{ end }}
 
 
-        {{if eq .Values.global.database.embedded.enabled false}}
+        {{if eq $.Values.global.database.embedded.enabled false}}
             - name: cloudsql-instance-credentials
               mountPath: /secrets/cloudsql-instance-credentials
               readOnly: true
         - name: cloudsql-proxy
           image: gcr.io/cloudsql-docker/gce-proxy:1.19.1-alpine
           command: ["/cloud_sql_proxy",
-                    "-instances={{ .Values.global.database.managedGCP.instanceConnectionName }}=tcp:5432",
+                    "-instances={{ $.Values.global.database.managedGCP.instanceConnectionName }}=tcp:5432",
                     "-credential_file=/secrets/cloudsql-instance-credentials/credentials.json",
                     "-term_timeout=2s"]
           resources:
-          {{- toYaml .Values.deployment.resourcesCloudsqlProxy | nindent 12 }}
+          {{- toYaml $.Values.deployment.resourcesCloudsqlProxy | nindent 12 }}
           volumeMounts:
             - name: cloudsql-instance-credentials
               mountPath: /secrets/cloudsql-instance-credentials
               readOnly: true
-          {{- with .Values.deployment.securityContext }}
+          {{- with $.Values.deployment.securityContext }}
           securityContext:
 {{ toYaml . | indent 12 }}
           {{- end }}
           {{end}}
       volumes:
-        {{if eq .Values.global.database.embedded.enabled false}}
+        {{if eq $.Values.global.database.embedded.enabled false}}
         - name: cloudsql-instance-credentials
           secret:
             secretName: cloudsql-instance-credentials
@@ -218,8 +223,9 @@ spec:
         - name: static-groups
           configMap:
             name: {{ template "fullname" . }}-static-groups
-        {{ if .Values.deployment.pairingAdapterConfigMap }}
+        {{ if $.Values.deployment.pairingAdapterConfigMap }}
         - name: pairing-adapters-config
           configMap:
-            name: {{ .Values.deployment.pairingAdapterConfigMap }}
+            name: {{ $.Values.deployment.pairingAdapterConfigMap }}
         {{ end }}
+  {{ end }}
