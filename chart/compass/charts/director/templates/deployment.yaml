@@ -3,7 +3,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "fullname" $outerScope }}-{{ . }}
+  name: {{ template "fullname" $outerScope }}-{{ (lower .) }}
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ $.Chart.Name }}
@@ -228,4 +228,5 @@ spec:
           configMap:
             name: {{ $.Values.deployment.pairingAdapterConfigMap }}
         {{ end }}
+---
 {{ end }}
