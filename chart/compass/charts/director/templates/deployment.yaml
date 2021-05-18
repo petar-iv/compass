@@ -3,7 +3,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "fullname" $outerScope }}
+  name: {{ template "fullname" $outerScope }}-{{ . }}
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ $.Chart.Name }}
@@ -38,7 +38,7 @@ spec:
         release: {{ $.Release.Name }}
         version: {{ . }}
     spec:
-      serviceAccountName: {{ template "fullname" . }}
+      serviceAccountName: {{ template "fullname" $outerScope }}
       nodeSelector:
         {{- toYaml $.Values.deployment.nodeSelector | nindent 8 }}
       containers:
@@ -216,16 +216,16 @@ spec:
         {{end}}
         - name: director-config
           configMap:
-            name: {{ template "fullname" . }}-config
+            name: {{ template "fullname" $outerScope }}-config
         - name: static-users
           configMap:
-            name: {{ template "fullname" . }}-static-users
+            name: {{ template "fullname" $outerScope }}-static-users
         - name: static-groups
           configMap:
-            name: {{ template "fullname" . }}-static-groups
+            name: {{ template "fullname" $outerScope }}-static-groups
         {{ if $.Values.deployment.pairingAdapterConfigMap }}
         - name: pairing-adapters-config
           configMap:
             name: {{ $.Values.deployment.pairingAdapterConfigMap }}
         {{ end }}
-  {{ end }}
+{{ end }}

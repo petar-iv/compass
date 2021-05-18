@@ -1,13 +1,16 @@
+{{ $outerScope := . }}
+{{- range .Values.global.images.director.versions }}
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ template "fullname" . }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ template "fullname" $outerScope }}
+  namespace: {{ $.Release.Namespace }}
 spec:
-  minReplicas: {{ .Values.deployment.minReplicas }}
-  maxReplicas: {{ .Values.deployment.maxReplicas }}
+  minReplicas: {{ $.Values.deployment.minReplicas }}
+  maxReplicas: {{ $.Values.deployment.maxReplicas }}
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ template "fullname" . }}
-  targetCPUUtilizationPercentage: {{ .Values.deployment.targetCPUUtilizationPercentage }}
+    name: {{ template "fullname" $outerScope }}-{{ . }}
+  targetCPUUtilizationPercentage: {{ $.Values.deployment.targetCPUUtilizationPercentage }}
+{{ end }}

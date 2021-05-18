@@ -27,9 +27,7 @@ spec:
   selector:
     app: {{ .Chart.Name }}
     release: {{ .Release.Name }}
-    {{- with (first .Values.global.images.director.versions ) }}
-    version: {{ . }}
-    {{- end }}
+    version: {{ (first .Values.global.images.director.versions) }}
 ---
 {{- if eq .Values.global.metrics.enabled true -}}
 apiVersion: v1
