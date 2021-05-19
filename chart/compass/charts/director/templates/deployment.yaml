@@ -36,7 +36,7 @@ spec:
       labels:
         app: {{ $.Chart.Name }}
         release: {{ $.Release.Name }}
-        version: {{ . }}
+        version: {{ (lower .) }}
     spec:
       serviceAccountName: {{ template "fullname" $outerScope }}
       nodeSelector:
