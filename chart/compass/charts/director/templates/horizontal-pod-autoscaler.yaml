@@ -3,7 +3,7 @@
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ template "fullname" $outerScope }}
+  name: {{ template "fullname" $outerScope }}-{{ (lower .) }}
   namespace: {{ $.Release.Namespace }}
 spec:
   minReplicas: {{ $.Values.deployment.minReplicas }}
@@ -11,6 +11,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ template "fullname" $outerScope }}-{{ . }}
+    name: {{ template "fullname" $outerScope }}-{{ (lower .) }}
   targetCPUUtilizationPercentage: {{ $.Values.deployment.targetCPUUtilizationPercentage }}
+---
 {{ end }}

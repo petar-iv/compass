@@ -130,6 +130,7 @@ type config struct {
 }
 
 func main() {
+	//TODO: Delete when finished testing
 	go func() {
 		fmt.Println("AAA")
 	}()
