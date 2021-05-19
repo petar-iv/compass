@@ -15,7 +15,7 @@ spec:
     matchLabels:
       app: {{ $.Chart.Name }}
       release: {{ $.Release.Name }}
-      version: {{ . }}
+      version: {{ (lower .) }}
   strategy:
     {{- toYaml $.Values.deployment.strategy | nindent 4 }}
   template:

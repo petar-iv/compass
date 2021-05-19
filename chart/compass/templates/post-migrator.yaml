@@ -59,7 +59,39 @@ spec:
             - bash
             - -c
             - |
-              SUCCESSFUL_MIGRATION_COUNT=$(kubectl get job -n compass-system compass-migration -o json | jq '.status.succeeded')
-              kubectl get hpa -n compass-system compass-director-{{ (first .Values.global.images.director.versions) | lower }} -o json
-              kubectl get service -n compass-system compass-director -o json
+              function quit_proxy() {
+                echo "Sending a quit request for istio-proxy and exiting..."
+                curl -XPOST http://127.0.0.1:15020/quitquitquit
+                sleep 5
+              }
+
+              SUCCESSFUL_MIGRATION_COUNT=$(kubectl get job -n {{ .Release.Namespace }} compass-migration -o json | jq '.status.succeeded')
+              # This should not happen because helm will rollback installation if the migrator job fails. Just in case
+              if [ $SUCCESSFUL_MIGRATION_COUNT -lt 1 ]
+              then
+                echo "Migration was not succesful"
+                quit_proxy
+                exit 1
+              fi
+
+              echo "Changing services to forward traffic to new deployments..."
+              kubectl get service -n {{ .Release.Namespace }}  compass-director -o json \
+                | jq '.spec.selector.version = "{{ (last .Values.global.images.director.versions) | lower }}"' \
+                | kubectl replace -f -
+
+              if [ $? -ne 0 ]
+              then
+                echo "Service could not be changed to forward to new deployments"
+                quit_proxy
+                exit 1
+              fi
+
+              echo "Deleting old horizonal-pod-autoscaler..."
+              kubectl delete horizontalpodautoscaler -n {{ .Release.Namespace }} compass-director-{{ (first .Values.global.images.director.versions) | lower }}
+
+              echo "Deleting old deployment..."
+              kubectl delete deployment -n {{ .Release.Namespace }} compass-director-{{ (last .Values.global.images.director.versions) | lower }}
+
+              echo "Post migration job finished. Exiting..."
+              exit 0
 {{ end }}
