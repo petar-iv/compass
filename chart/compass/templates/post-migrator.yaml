@@ -90,8 +90,9 @@ spec:
               kubectl delete horizontalpodautoscaler -n {{ .Release.Namespace }} compass-director-{{ (first .Values.global.images.director.versions) | lower }}
 
               echo "Deleting old deployment..."
-              kubectl delete deployment -n {{ .Release.Namespace }} compass-director-{{ (last .Values.global.images.director.versions) | lower }}
+              kubectl delete deployment -n {{ .Release.Namespace }} compass-director-{{ (first .Values.global.images.director.versions) | lower }}
 
-              echo "Post migration job finished. Exiting..."
+              echo "Post migration job finished"
+              quit_proxy
               exit 0
 {{ end }}
