@@ -1,5 +1,9 @@
 {{ $outerScope := . }}
-{{- range .Values.global.images.director.versions }}
+{{ $version_list := list .Values.global.images.director.version }}
+{{ if .Values.global.images.director.green_version }}
+{{ $version_list = append $version_list .Values.global.images.director.green_version }}
+{{ end }}
+{{- range $version_list }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

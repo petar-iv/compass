@@ -1,4 +1,4 @@
-{{ if gt (len .Values.global.images.director.versions) 1 }}
+{{ if .Values.global.images.director.green_version }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -76,7 +76,7 @@ spec:
 
               echo "Changing services to forward traffic to new deployments..."
               kubectl get service -n {{ .Release.Namespace }}  compass-director -o json \
-                | jq '.spec.selector.version = "{{ (last .Values.global.images.director.versions) | lower }}"' \
+                | jq '.spec.selector.version = "{{ .Values.global.images.director.green_version | lower }}"' \
                 | kubectl replace -f -
 
               if [ $? -ne 0 ]
@@ -87,10 +87,10 @@ spec:
               fi
 
               echo "Deleting old horizonal-pod-autoscaler..."
-              kubectl delete horizontalpodautoscaler -n {{ .Release.Namespace }} compass-director-{{ (first .Values.global.images.director.versions) | lower }}
+              kubectl delete horizontalpodautoscaler -n {{ .Release.Namespace }} compass-director-{{ .Values.global.images.director.version | lower }}
 
               echo "Deleting old deployment..."
-              kubectl delete deployment -n {{ .Release.Namespace }} compass-director-{{ (first .Values.global.images.director.versions) | lower }}
+              kubectl delete deployment -n {{ .Release.Namespace }} compass-director-{{ .Values.global.images.director.version | lower }}
 
               echo "Post migration job finished"
               quit_proxy

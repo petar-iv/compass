@@ -53,9 +53,9 @@ global:
       version: "PR-1828"
     director:
       dir:
-      versions:
-         - "PR-1845"
-         - "PR-1858"
+      version: "PR-1858"
+      green_version: "best1"
+      versions: ["PR-1858"]
     gateway:
       dir:
       version: "PR-1850"
