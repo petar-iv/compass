@@ -113,9 +113,8 @@ spec:
                         value: "up"
 
                   command:
-                    - "/bin/bash"
-                  args:
-                    - "-c"
+                    - bash
+                    - -c
                     - |
                       function quit() {
                         echo 'Killing pilot-agent'
@@ -125,7 +124,7 @@ spec:
                         curl -XPOST http://127.0.0.1:15020/quitquitquit
 
                         sleep 5
-                        exit $1"
+                        exit $1
                       }
 
                       sleep 20
