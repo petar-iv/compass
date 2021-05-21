@@ -1,3 +1,35 @@
+{{ if .Values.global.images.director.green_version }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: compass-migration
+  namespace: {{ $.Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: compass-migration
+  namespace: {{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: compass-migration
+subjects:
+  - kind: ServiceAccount
+    name: compass-migration
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: compass-migration
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: ["", "batch", "autoscaling", "apps"]
+    resources: ["services", "deployments", "horizontalpodautoscalers", "jobs"]
+    verbs: ["get", "update", "patch", "delete"]
+---
+{{ end }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -16,6 +48,15 @@ spec:
                 app: {{ .Chart.Name }}
                 release: {{ .Release.Name }}
         spec:
+            {{ if .Values.global.isLocalEnv }}
+            hostAliases:
+                - ip: {{ .Values.global.minikubeIP }}
+                  hostnames:
+                    - "{{ .Values.global.gateway.tls.host }}.{{ .Values.global.ingress.domainName }}"
+            {{ end }}
+            {{ if .Values.global.images.director.green_version }}
+            serviceAccountName: compass-migration
+            {{ end }}
             restartPolicy: Never
             shareProcessNamespace: true
             containers:
@@ -75,7 +116,49 @@ spec:
                     - "/bin/bash"
                   args:
                     - "-c"
-                    - "sleep 20; ./run.sh; exit_code=$?; echo '# KILLING PILOT-AGENT #'; pkill -INT cloud_sql_proxy; curl -XPOST http://127.0.0.1:15020/quitquitquit; sleep 5; exit $exit_code;"
+                    - |
+                      function quit() {
+                        echo 'Killing pilot-agent'
+                        pkill -INT cloud_sql_proxy;
+
+                        echo "Sending a quit request for istio-proxy and exiting..."
+                        curl -XPOST http://127.0.0.1:15020/quitquitquit
+
+                        sleep 5
+                        exit $1"
+                      }
+
+                      sleep 20
+                      echo "Executing migrations..."
+                      ./run.sh
+
+                      EXIT_CODE=$?
+                      {{ if .Values.global.images.director.green_version }}
+                      if [ $EXIT_CODE -ne 0 ]
+                      then
+                        echo "Migration was not succesful"
+                        quit $EXIT_CODE
+                      fi
+
+                      echo "Changing services to forward traffic to new deployments..."
+                      kubectl get service -n {{ .Release.Namespace }}  compass-director -o json \
+                      | jq '.spec.selector.version = "{{ .Values.global.images.director.green_version | lower }}"' \
+                      | kubectl replace -f -
+
+                      EXIT_CODE=$?
+                      if [ $EXIT_CODE -ne 0 ]
+                      then
+                        echo "Service could not be changed to forward to new deployments"
+                        quit $EXIT_CODE
+                      fi
+
+                      echo "Deleting old horizonal-pod-autoscaler..."
+                      kubectl delete horizontalpodautoscaler -n {{ .Release.Namespace }} compass-director-{{ .Values.global.images.director.version | lower }}
+
+                      echo "Deleting old deployment..."
+                      kubectl delete deployment -n {{ .Release.Namespace }} compass-director-{{ .Values.global.images.director.version | lower }}
+                      {{ end }}
+                      quit $exit_code
             {{if eq .Values.global.database.embedded.enabled false}}
             volumes:
               - name: cloudsql-instance-credentials
