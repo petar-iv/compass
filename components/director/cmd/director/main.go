@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -130,11 +129,6 @@ type config struct {
 }
 
 func main() {
-	//TODO: Delete when finished testing
-	go func() {
-		fmt.Println("AAA")
-	}()
-
 	ctx, cancel := context.WithCancel(context.Background())
 
 	defer cancel()
