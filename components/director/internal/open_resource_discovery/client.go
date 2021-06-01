@@ -3,11 +3,12 @@ package open_resource_discovery
 import (
 	"context"
 	"encoding/json"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+
+	"github.com/kyma-incubator/compass/components/director/internal/model"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/pkg/errors"
@@ -32,9 +33,8 @@ func NewClient(httpClient *http.Client) *client {
 
 // FetchOpenResourceDiscoveryDocuments fetches all the documents for a single ORD .well-known endpoint
 func (c *client) FetchOpenResourceDiscoveryDocuments(ctx context.Context, webhook *model.Webhook) (Documents, error) {
-	proxyURL := "" // TODO: get it from the webhook
-	if proxyURL != "" {
-		if err := c.setProxy(ctx, proxyURL); err != nil {
+	if webhook.ProxyURL != nil && *webhook.ProxyURL != "" {
+		if err := c.setProxy(ctx, *webhook.ProxyURL); err != nil {
 			return Documents{}, err
 		}
 		defer c.removeProxy()
