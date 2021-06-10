@@ -33,16 +33,20 @@ func NewClient(httpClient *http.Client) *client {
 
 // FetchOpenResourceDiscoveryDocuments fetches all the documents for a single ORD .well-known endpoint
 func (c *client) FetchOpenResourceDiscoveryDocuments(ctx context.Context, webhook *model.Webhook) (Documents, error) {
-	if webhook.ProxyURL != nil && *webhook.ProxyURL != "" {
-		if err := c.setProxy(ctx, *webhook.ProxyURL); err != nil {
-			return Documents{}, err
-		}
-		defer c.removeProxy()
-	}
-
 	config, err := c.fetchConfig(ctx, *webhook.URL)
 	if err != nil {
 		return nil, err
+	}
+
+	if webhook.ProxyURL != nil && *webhook.ProxyURL != "" { // TODO: In productive implementation this should be at the very start of the FetchOpenResourceDiscoveryDocuments function
+		if err := c.setProxy(ctx, *webhook.ProxyURL); err != nil {
+			return Documents{}, err
+		}
+		defer func() {
+			if err := c.removeProxy(); err != nil {
+				log.C(ctx).Errorf("Error occurred while reverting proxy transport configuration: %v", err.Error())
+			}
+		}()
 	}
 
 	docs := make([]*Document, 0, 0)
@@ -96,7 +100,7 @@ func (c *client) fetchOpenDiscoveryDocumentWithAccessStrategy(ctx context.Contex
 		return nil, err
 	}
 
-	httpRequest := &http.Request{URL: parsedURL}
+	httpRequest := &http.Request{URL: parsedURL, Header: map[string][]string{}}
 	if accessStrategy == BasicAccessStrategy {
 		httpRequest.SetBasicAuth(webhook.Auth.Credential.Basic.Username, webhook.Auth.Credential.Basic.Password)
 	}

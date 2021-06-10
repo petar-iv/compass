@@ -25,7 +25,7 @@ const (
 	TombstoneOrdIDRegex = "^([a-zA-Z0-9._\\-]+):(package|consumptionBundle|product|vendor|apiResource|eventResource):([a-zA-Z0-9._\\-]+):(alpha|beta|v[0-9]+|)$"
 
 	SystemInstanceBaseURLRegex        = "^http[s]?:\\/\\/[^:\\/\\s]+\\.[^:\\/\\s\\.]+$"
-	StringArrayElementRegex           = "^[a-zA-Z0-9 -\\.\\/]*$"
+	StringArrayElementRegex           = "^[a-zA-Z0-9 -_\\.\\/]*$"
 	CountryRegex                      = "^[A-Z]{2}$"
 	ApiOrdIDRegex                     = "^([a-zA-Z0-9._\\-]+):(apiResource):([a-zA-Z0-9._\\-]+):(alpha|beta|v[0-9]+)$"
 	EventOrdIDRegex                   = "^([a-zA-Z0-9._\\-]+):(eventResource):([a-zA-Z0-9._\\-]+):(alpha|beta|v[0-9]+)$"
@@ -38,6 +38,7 @@ const (
 const (
 	PolicyLevelSap        string = "sap"
 	PolicyLevelSapPartner string = "sap-partner"
+	PolicyLevelSapCore    string = "sap:core:v1"
 	PolicyLevelCustom     string = "custom"
 
 	ReleaseStatusBeta       string = "beta"
@@ -80,7 +81,7 @@ func ValidateSystemInstanceInput(app *model.Application) error {
 }
 
 func validateDocumentInput(doc *Document) error {
-	return validation.ValidateStruct(doc, validation.Field(&doc.OpenResourceDiscovery, validation.Required, validation.In("1.0-rc.3")))
+	return validation.ValidateStruct(doc, validation.Field(&doc.OpenResourceDiscovery, validation.Required, validation.In("1.0"))) // TODO: changed for POC only
 }
 
 func validatePackageInput(pkg *model.PackageInput) error {
@@ -90,7 +91,7 @@ func validatePackageInput(pkg *model.PackageInput) error {
 		validation.Field(&pkg.ShortDescription, shortDescriptionRules...),
 		validation.Field(&pkg.Description, validation.Required),
 		validation.Field(&pkg.Version, validation.Required, validation.Match(regexp.MustCompile(SemVerRegex))),
-		validation.Field(&pkg.PolicyLevel, validation.Required, validation.In(PolicyLevelSap, PolicyLevelSapPartner, PolicyLevelCustom), validation.When(pkg.CustomPolicyLevel != nil, validation.In(PolicyLevelCustom))),
+		validation.Field(&pkg.PolicyLevel, validation.Required, validation.In(PolicyLevelSap, PolicyLevelSapPartner, PolicyLevelSapCore, PolicyLevelCustom), validation.When(pkg.CustomPolicyLevel != nil, validation.In(PolicyLevelCustom))),
 		validation.Field(&pkg.CustomPolicyLevel, validation.When(pkg.PolicyLevel != PolicyLevelCustom, validation.Empty)),
 		validation.Field(&pkg.PackageLinks, validation.By(validatePackageLinks)),
 		validation.Field(&pkg.Links, validation.By(validateORDLinks)),
@@ -137,6 +138,19 @@ func validateBundleInput(bndl *model.BundleCreateInput) error {
 }
 
 func validateAPIInput(api *model.APIDefinitionInput, packagePolicyLevels map[string]string) error {
+	if api.TargetURLs == nil || len(api.TargetURLs) == 0 { // TODO: necessary as the poc system doesn't comply with the spec
+		api.TargetURLs = []byte(`[ "/sap/opu/odata/test"]`)
+	}
+
+	str := "test"
+	if api.ShortDescription == nil || *api.ShortDescription == "" {
+		api.ShortDescription = &str
+	}
+
+	if api.Description == nil || *api.Description == "" {
+		api.Description = &str
+	}
+
 	return validation.ValidateStruct(api,
 		validation.Field(&api.OrdID, validation.Required, validation.Match(regexp.MustCompile(ApiOrdIDRegex))),
 		validation.Field(&api.Name, validation.Required),
@@ -183,6 +197,19 @@ func validateAPIInput(api *model.APIDefinitionInput, packagePolicyLevels map[str
 }
 
 func validateEventInput(event *model.EventDefinitionInput) error {
+	str := "test"
+	if event.ShortDescription == nil || *event.ShortDescription == "" {
+		event.ShortDescription = &str
+	}
+
+	if event.Description == nil || *event.Description == "" {
+		event.Description = &str
+	}
+
+	if event.Name == "" {
+		event.Name = str
+	}
+
 	return validation.ValidateStruct(event,
 		validation.Field(&event.OrdID, validation.Required, validation.Match(regexp.MustCompile(EventOrdIDRegex))),
 		validation.Field(&event.Name, validation.Required),
