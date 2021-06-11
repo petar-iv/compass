@@ -38,11 +38,12 @@ func (c *converter) ToGraphQL(in *model.FetchRequest) (*graphql.FetchRequest, er
 	}
 
 	return &graphql.FetchRequest{
-		URL:    in.URL,
-		Auth:   auth,
-		Mode:   graphql.FetchMode(in.Mode),
-		Filter: in.Filter,
-		Status: c.statusToGraphQL(in.Status),
+		URL:      in.URL,
+		ProxyURL: &in.ProxyURL,
+		Auth:     auth,
+		Mode:     graphql.FetchMode(in.Mode),
+		Filter:   in.Filter,
+		Status:   c.statusToGraphQL(in.Status),
 	}, nil
 }
 
@@ -56,6 +57,10 @@ func (c *converter) InputFromGraphQL(in *graphql.FetchRequestInput) (*model.Fetc
 		tmp := model.FetchMode(*in.Mode)
 		mode = &tmp
 	}
+	proxyURL := ""
+	if in.ProxyURL != nil {
+		proxyURL = *in.ProxyURL
+	}
 
 	auth, err := c.authConverter.InputFromGraphQL(in.Auth)
 	if err != nil {
@@ -63,10 +68,11 @@ func (c *converter) InputFromGraphQL(in *graphql.FetchRequestInput) (*model.Fetc
 	}
 
 	return &model.FetchRequestInput{
-		URL:    in.URL,
-		Auth:   auth,
-		Mode:   mode,
-		Filter: in.Filter,
+		URL:      in.URL,
+		ProxyURL: proxyURL,
+		Auth:     auth,
+		Mode:     mode,
+		Filter:   in.Filter,
 	}, nil
 }
 
@@ -97,6 +103,7 @@ func (c *converter) ToEntity(in model.FetchRequest) (Entity, error) {
 		ID:              in.ID,
 		TenantID:        in.Tenant,
 		URL:             in.URL,
+		ProxyURL:        in.ProxyURL,
 		Auth:            auth,
 		SpecID:          specID,
 		DocumentID:      documentID,
@@ -129,10 +136,11 @@ func (c *converter) FromEntity(in Entity) (model.FetchRequest, error) {
 			Message:   repo.StringPtrFromNullableString(in.StatusMessage),
 			Condition: model.FetchRequestStatusCondition(in.StatusCondition),
 		},
-		URL:    in.URL,
-		Mode:   model.FetchMode(in.Mode),
-		Filter: repo.StringPtrFromNullableString(in.Filter),
-		Auth:   auth,
+		URL:      in.URL,
+		ProxyURL: in.ProxyURL,
+		Mode:     model.FetchMode(in.Mode),
+		Filter:   repo.StringPtrFromNullableString(in.Filter),
+		Auth:     auth,
 	}, nil
 }
 

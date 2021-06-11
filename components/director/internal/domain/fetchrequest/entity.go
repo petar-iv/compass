@@ -9,6 +9,7 @@ type Entity struct {
 	ID              string         `db:"id"`
 	TenantID        string         `db:"tenant_id"`
 	URL             string         `db:"url"`
+	ProxyURL        string         `db:"proxy_url"`
 	SpecID          sql.NullString `db:"spec_id"`
 	DocumentID      sql.NullString `db:"document_id"`
 	Mode            string         `db:"mode"`

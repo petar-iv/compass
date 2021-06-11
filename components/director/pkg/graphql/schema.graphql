@@ -498,6 +498,10 @@ input FetchRequestInput {
 	"""
 	url: String!
 	"""
+	**Validation:** valid URL, max=256
+	"""
+	proxyURL: String
+	"""
 	Currently unsupported, providing it will result in a failure
 	"""
 	auth: AuthInput
@@ -896,6 +900,7 @@ Compass performs fetch to validate if request is correct and stores a copy
 """
 type FetchRequest {
 	url: String!
+	proxyURL: String
 	auth: Auth @sanitize(path: "graphql.field.fetch_request.auth")
 	mode: FetchMode!
 	filter: String

@@ -111,8 +111,8 @@ func (rd *APIResourceDefinition) Validate() error {
 	)
 }
 
-func (a *APIResourceDefinition) ToSpec() *SpecInput {
-	return &SpecInput{
+func (a *APIResourceDefinition) ToSpec(proxyURL string, ordAuth *Auth) *SpecInput {
+	specInput := &SpecInput{
 		Format:     a.MediaType,
 		APIType:    &a.Type,
 		CustomType: &a.CustomType,
@@ -121,6 +121,23 @@ func (a *APIResourceDefinition) ToSpec() *SpecInput {
 			Auth: nil, // Currently only open AccessStrategy is defined by ORD, which means no auth
 		},
 	}
+
+	if proxyURL != "" {
+		specInput.FetchRequest.ProxyURL = proxyURL
+	}
+
+	if ordAuth != nil {
+		specInput.FetchRequest.Auth = &AuthInput{
+			Credential: &CredentialDataInput{
+				Basic: &BasicCredentialDataInput{
+					Username: ordAuth.Credential.Basic.Username,
+					Password: ordAuth.Credential.Basic.Password,
+				},
+			},
+		}
+	}
+
+	return specInput
 }
 
 type AccessStrategy struct {

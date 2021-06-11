@@ -164,7 +164,7 @@ func TestClient_FetchOpenResourceDiscoveryDocuments(t *testing.T) {
 			testHttpClient := NewTestClient(test.RoundTripFunc)
 
 			client := open_resource_discovery.NewClient(testHttpClient)
-			docs, err := client.FetchOpenResourceDiscoveryDocuments(context.TODO(), baseURL)
+			docs, _, err := client.FetchOpenResourceDiscoveryDocuments(context.TODO(), baseURL)
 
 			if test.ExpectedErr != nil {
 				require.Error(t, err)

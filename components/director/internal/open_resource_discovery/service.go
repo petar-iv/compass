@@ -109,20 +109,30 @@ func (s *Service) processApp(ctx context.Context, app *model.Application) error 
 	}
 	var documents Documents
 	var baseURL string
+	var proxyURL string
+	var ordAuth *model.Auth
+
 	for _, wh := range webhooks {
 		if wh.Type == model.WebhookTypeOpenResourceDiscovery && wh.URL != nil {
 			ctx = addFieldToLogger(ctx, "app_id", app.ID)
-			documents, err = s.ordClient.FetchOpenResourceDiscoveryDocuments(ctx, wh)
+			documents, baseURL, err = s.ordClient.FetchOpenResourceDiscoveryDocuments(ctx, wh)
 			if err != nil {
 				log.C(ctx).WithError(err).Errorf("error fetching ORD document for webhook with id %q: %v", wh.ID, err)
 			}
-			baseURL = *wh.URL
+			//baseURL = *wh.URL
+			if wh.ProxyURL != nil {
+				proxyURL = *wh.ProxyURL
+			}
+
+			if wh.Auth != nil {
+				ordAuth = wh.Auth
+			}
 			break
 		}
 	}
 	if len(documents) > 0 {
 		log.C(ctx).Info("Processing ORD documents")
-		if err := s.processDocuments(ctx, app.ID, baseURL, documents); err != nil {
+		if err := s.processDocuments(ctx, app.ID, baseURL, proxyURL, ordAuth, documents); err != nil {
 			log.C(ctx).WithError(err).Errorf("error processing ORD documents: %v", err)
 		} else {
 			log.C(ctx).Info("Successfully processed ORD documents")
@@ -132,7 +142,7 @@ func (s *Service) processApp(ctx context.Context, app *model.Application) error 
 	return nil
 }
 
-func (s *Service) processDocuments(ctx context.Context, appID string, baseURL string, documents Documents) error {
+func (s *Service) processDocuments(ctx context.Context, appID string, baseURL, proxyURL string, ordAuth *model.Auth, documents Documents) error {
 	if err := documents.Validate(baseURL); err != nil {
 		return errors.Wrap(err, "invalid documents")
 	}
@@ -178,12 +188,12 @@ func (s *Service) processDocuments(ctx context.Context, appID string, baseURL st
 		return err
 	}
 
-	apisFromDB, err := s.processAPIs(ctx, appID, bundlesFromDB, packagesFromDB, apisInput)
+	apisFromDB, err := s.processAPIs(ctx, appID, proxyURL, ordAuth, bundlesFromDB, packagesFromDB, apisInput)
 	if err != nil {
 		return err
 	}
 
-	eventsFromDB, err := s.processEvents(ctx, appID, bundlesFromDB, packagesFromDB, eventsInput)
+	eventsFromDB, err := s.processEvents(ctx, appID, proxyURL, ordAuth, bundlesFromDB, packagesFromDB, eventsInput)
 	if err != nil {
 		return err
 	}
@@ -300,14 +310,14 @@ func (s *Service) processBundles(ctx context.Context, appID string, bundles []*m
 	return s.bundleSvc.ListByApplicationIDNoPaging(ctx, appID)
 }
 
-func (s *Service) processAPIs(ctx context.Context, appID string, bundlesFromDB []*model.Bundle, packagesFromDB []*model.Package, apis []*model.APIDefinitionInput) ([]*model.APIDefinition, error) {
+func (s *Service) processAPIs(ctx context.Context, appID, proxyURL string, ordAuth *model.Auth, bundlesFromDB []*model.Bundle, packagesFromDB []*model.Package, apis []*model.APIDefinitionInput) ([]*model.APIDefinition, error) {
 	apisFromDB, err := s.apiSvc.ListByApplicationID(ctx, appID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error while listing apis for app with id %q", appID)
 	}
 
 	for _, api := range apis {
-		if err := s.resyncAPI(ctx, appID, apisFromDB, bundlesFromDB, packagesFromDB, *api); err != nil {
+		if err := s.resyncAPI(ctx, appID, proxyURL, ordAuth, apisFromDB, bundlesFromDB, packagesFromDB, *api); err != nil {
 			return nil, errors.Wrapf(err, "error while resyncing api with ORD ID %q", *api.OrdID)
 		}
 	}
@@ -315,14 +325,14 @@ func (s *Service) processAPIs(ctx context.Context, appID string, bundlesFromDB [
 	return s.apiSvc.ListByApplicationID(ctx, appID)
 }
 
-func (s *Service) processEvents(ctx context.Context, appID string, bundlesFromDB []*model.Bundle, packagesFromDB []*model.Package, events []*model.EventDefinitionInput) ([]*model.EventDefinition, error) {
+func (s *Service) processEvents(ctx context.Context, appID, proxyURL string, ordAuth *model.Auth, bundlesFromDB []*model.Bundle, packagesFromDB []*model.Package, events []*model.EventDefinitionInput) ([]*model.EventDefinition, error) {
 	eventsFromDB, err := s.eventSvc.ListByApplicationID(ctx, appID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error while listing events for app with id %q", appID)
 	}
 
 	for _, event := range events {
-		if err := s.resyncEvent(ctx, appID, eventsFromDB, bundlesFromDB, packagesFromDB, *event); err != nil {
+		if err := s.resyncEvent(ctx, appID, proxyURL, ordAuth, eventsFromDB, bundlesFromDB, packagesFromDB, *event); err != nil {
 			return nil, errors.Wrapf(err, "error while resyncing event with ORD ID %q", *event.OrdID)
 		}
 	}
@@ -389,7 +399,7 @@ func (s *Service) resyncVendor(ctx context.Context, appID string, vendorsFromDB 
 	return err
 }
 
-func (s *Service) resyncAPI(ctx context.Context, appID string, apisFromDB []*model.APIDefinition, bundlesFromDB []*model.Bundle, packagesFromDB []*model.Package, api model.APIDefinitionInput) error {
+func (s *Service) resyncAPI(ctx context.Context, appID, proxyURL string, ordAuth *model.Auth, apisFromDB []*model.APIDefinition, bundlesFromDB []*model.Bundle, packagesFromDB []*model.Package, api model.APIDefinitionInput) error {
 	ctx = addFieldToLogger(ctx, "api_ord_id", *api.OrdID)
 	i, isAPIFound := searchInSlice(len(apisFromDB), func(i int) bool {
 		return equalStrings(apisFromDB[i].OrdID, api.OrdID)
@@ -406,7 +416,7 @@ func (s *Service) resyncAPI(ctx context.Context, appID string, apisFromDB []*mod
 
 	specs := make([]*model.SpecInput, 0, len(api.ResourceDefinitions))
 	for _, resourceDef := range api.ResourceDefinitions {
-		specs = append(specs, resourceDef.ToSpec())
+		specs = append(specs, resourceDef.ToSpec(proxyURL, ordAuth))
 	}
 
 	if !isAPIFound {
@@ -439,7 +449,7 @@ func (s *Service) resyncAPI(ctx context.Context, appID string, apisFromDB []*mod
 	return nil
 }
 
-func (s *Service) resyncEvent(ctx context.Context, appID string, eventsFromDB []*model.EventDefinition, bundlesFromDB []*model.Bundle, packagesFromDB []*model.Package, event model.EventDefinitionInput) error {
+func (s *Service) resyncEvent(ctx context.Context, appID, proxyURL string, ordAuth *model.Auth, eventsFromDB []*model.EventDefinition, bundlesFromDB []*model.Bundle, packagesFromDB []*model.Package, event model.EventDefinitionInput) error {
 	ctx = addFieldToLogger(ctx, "event_ord_id", *event.OrdID)
 	i, isEventFound := searchInSlice(len(eventsFromDB), func(i int) bool {
 		return equalStrings(eventsFromDB[i].OrdID, event.OrdID)
@@ -463,7 +473,7 @@ func (s *Service) resyncEvent(ctx context.Context, appID string, eventsFromDB []
 
 	specs := make([]*model.SpecInput, 0, len(event.ResourceDefinitions))
 	for _, resourceDef := range event.ResourceDefinitions {
-		specs = append(specs, resourceDef.ToSpec())
+		specs = append(specs, resourceDef.ToSpec(proxyURL, ordAuth))
 	}
 
 	if !isEventFound {
