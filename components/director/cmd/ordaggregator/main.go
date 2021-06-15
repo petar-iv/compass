@@ -48,6 +48,8 @@ type config struct {
 	ConfigurationFileReload time.Duration `envconfig:"default=1m"`
 
 	ClientTimeout time.Duration `envconfig:"default=60s"`
+
+	CertConfig open_resource_discovery.CertificateConfig
 }
 
 func main() {
@@ -67,8 +69,10 @@ func main() {
 		exitOnError(err, "Error while closing the connection to the database")
 	}()
 
+	transport, err := open_resource_discovery.NewCertificateTransport(cfg.CertConfig, time.Minute)
 	ordAggregator := createORDAggregatorSvc(cfgProvider, cfg.Features, transact, &http.Client{
-		Timeout: cfg.ClientTimeout,
+		Timeout:   cfg.ClientTimeout,
+		Transport: transport,
 	})
 	err = ordAggregator.SyncORDDocuments(ctx)
 	exitOnError(err, "Error while synchronizing Open Resource Discovery Documents")
