@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
@@ -121,6 +122,17 @@ func (s *service) requestWithCredentials(ctx context.Context, fr *model.FetchReq
 	if fr.Auth.Credential.Basic != nil {
 		req.SetBasicAuth(fr.Auth.Credential.Basic.Username, fr.Auth.Credential.Basic.Password)
 
+		if fr.ProxyURL != "" {
+			if err := s.setProxy(ctx, fr.ProxyURL); err != nil {
+				return nil, err
+			}
+			defer func() {
+				if err := s.removeProxy(); err != nil {
+					log.C(ctx).Errorf("Error occurred while reverting proxy transport configuration: %v", err.Error())
+				}
+			}()
+		}
+
 		resp, err = s.client.Do(req)
 
 		if err == nil && resp.StatusCode == http.StatusOK {
@@ -163,4 +175,24 @@ func FixStatus(condition model.FetchRequestStatusCondition, message *string, tim
 		Message:   message,
 		Timestamp: timestamp,
 	}
+}
+
+func (s *service) setProxy(ctx context.Context, proxyURL string) error {
+	proxyUrl, err := url.Parse(proxyURL)
+	if err != nil {
+		log.C(ctx).WithError(err).Warnf("Got error parsing proxy url: %s", proxyUrl)
+		return err
+	}
+
+	transport := s.client.Transport.(*http.Transport)
+	transport.Proxy = http.ProxyURL(proxyUrl)
+
+	return nil
+}
+
+func (s *service) removeProxy() error {
+	transport := s.client.Transport.(*http.Transport)
+	transport.Proxy = nil
+
+	return nil
 }

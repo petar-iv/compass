@@ -274,11 +274,12 @@ type ComplexityRoot struct {
 	}
 
 	FetchRequest struct {
-		Auth   func(childComplexity int) int
-		Filter func(childComplexity int) int
-		Mode   func(childComplexity int) int
-		Status func(childComplexity int) int
-		URL    func(childComplexity int) int
+		Auth     func(childComplexity int) int
+		Filter   func(childComplexity int) int
+		Mode     func(childComplexity int) int
+		ProxyURL func(childComplexity int) int
+		Status   func(childComplexity int) int
+		URL      func(childComplexity int) int
 	}
 
 	FetchRequestStatus struct {
@@ -1726,6 +1727,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.FetchRequest.Mode(childComplexity), true
+
+	case "FetchRequest.proxyURL":
+		if e.complexity.FetchRequest.ProxyURL == nil {
+			break
+		}
+
+		return e.complexity.FetchRequest.ProxyURL(childComplexity), true
 
 	case "FetchRequest.status":
 		if e.complexity.FetchRequest.Status == nil {
@@ -3875,6 +3883,10 @@ input FetchRequestInput {
 	"""
 	url: String!
 	"""
+	**Validation:** valid URL, max=256
+	"""
+	proxyURL: String
+	"""
 	Currently unsupported, providing it will result in a failure
 	"""
 	auth: AuthInput
@@ -4273,6 +4285,7 @@ Compass performs fetch to validate if request is correct and stores a copy
 """
 type FetchRequest {
 	url: String!
+	proxyURL: String
 	auth: Auth @sanitize(path: "graphql.field.fetch_request.auth")
 	mode: FetchMode!
 	filter: String
@@ -11686,6 +11699,37 @@ func (ec *executionContext) _FetchRequest_url(ctx context.Context, field graphql
 	res := resTmp.(string)
 	fc.Result = res
 	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _FetchRequest_proxyURL(ctx context.Context, field graphql.CollectedField, obj *FetchRequest) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "FetchRequest",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ProxyURL, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _FetchRequest_auth(ctx context.Context, field graphql.CollectedField, obj *FetchRequest) (ret graphql.Marshaler) {
@@ -21951,6 +21995,12 @@ func (ec *executionContext) unmarshalInputFetchRequestInput(ctx context.Context,
 			if err != nil {
 				return it, err
 			}
+		case "proxyURL":
+			var err error
+			it.ProxyURL, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
 		case "auth":
 			var err error
 			it.Auth, err = ec.unmarshalOAuthInput2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐAuthInput(ctx, v)
@@ -23723,6 +23773,8 @@ func (ec *executionContext) _FetchRequest(ctx context.Context, sel ast.Selection
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
+		case "proxyURL":
+			out.Values[i] = ec._FetchRequest_proxyURL(ctx, field, obj)
 		case "auth":
 			out.Values[i] = ec._FetchRequest_auth(ctx, field, obj)
 		case "mode":

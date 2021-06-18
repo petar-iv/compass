@@ -148,24 +148,23 @@ func (docs Documents) Validate(webhookURL string) error {
 
 	// Validate entity relations
 	for _, doc := range docs {
-		/* TODO: poc system doesn't implement vendors or products on document level
 		for _, pkg := range doc.Packages {
 			if !vendorIDs[*pkg.Vendor] {
 				return errors.Errorf("package with id %q has a reference to unknown vendor %q", pkg.OrdID, *pkg.Vendor)
 			}
-			ordIDs := gjson.ParseBytes(pkg.PartOfProducts).Array()
-			for _, productID := range ordIDs {
-				if !productIDs[productID.String()] {
-					return errors.Errorf("package with id %q has a reference to unknown product %q", pkg.OrdID, productID.String())
-				}
-			}
+			//ordIDs := gjson.ParseBytes(pkg.PartOfProducts).Array()
+			//for _, productID := range ordIDs {
+			//	if !productIDs[productID.String()] {
+			//		return errors.Errorf("package with id %q has a reference to unknown product %q", pkg.OrdID, productID.String())
+			//	}
+			//}
 		}
 		for _, product := range doc.Products {
 			if !vendorIDs[product.Vendor] {
 				return errors.Errorf("product with id %q has a reference to unknown vendor %q", product.OrdID, product.Vendor)
 			}
 		}
-		*/
+
 		for _, api := range doc.APIResources {
 			if !packageIDs[*api.OrdPackageID] {
 				return errors.Errorf("api with id %q has a reference to unknown package %q", *api.OrdID, *api.OrdPackageID)

@@ -98,9 +98,9 @@ func (rd *EventResourceDefinition) Validate() error {
 	)
 }
 
-func (a *EventResourceDefinition) ToSpec() *SpecInput {
+func (a *EventResourceDefinition) ToSpec(proxyURL string, ordAuth *Auth) *SpecInput {
 	specType := EventSpecType(a.Type)
-	return &SpecInput{
+	specInput := &SpecInput{
 		Format:     SpecFormat(a.MediaType),
 		EventType:  &specType,
 		CustomType: &a.CustomType,
@@ -109,6 +109,23 @@ func (a *EventResourceDefinition) ToSpec() *SpecInput {
 			Auth: nil, // Currently only open AccessStrategy is defined by ORD, which means no auth
 		},
 	}
+
+	if proxyURL != "" {
+		specInput.FetchRequest.ProxyURL = proxyURL
+	}
+
+	if ordAuth != nil {
+		specInput.FetchRequest.Auth = &AuthInput{
+			Credential: &CredentialDataInput{
+				Basic: &BasicCredentialDataInput{
+					Username: ordAuth.Credential.Basic.Username,
+					Password: ordAuth.Credential.Basic.Password,
+				},
+			},
+		}
+	}
+
+	return specInput
 }
 
 func (e *EventDefinitionInput) ToEventDefinitionWithinBundle(id, appID, bndlID, tenant string) *EventDefinition {

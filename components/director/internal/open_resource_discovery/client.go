@@ -16,7 +16,7 @@ import (
 // Client represents ORD documents client
 //go:generate mockery --name=Client --output=automock --outpkg=automock --case=underscore
 type Client interface {
-	FetchOpenResourceDiscoveryDocuments(ctx context.Context, webhook *model.Webhook) (Documents, error)
+	FetchOpenResourceDiscoveryDocuments(ctx context.Context, webhook *model.Webhook) (Documents, string, error)
 }
 
 type client struct {
@@ -31,15 +31,15 @@ func NewClient(httpClient *http.Client) *client {
 }
 
 // FetchOpenResourceDiscoveryDocuments fetches all the documents for a single ORD .well-known endpoint
-func (c *client) FetchOpenResourceDiscoveryDocuments(ctx context.Context, webhook *model.Webhook) (Documents, error) {
+func (c *client) FetchOpenResourceDiscoveryDocuments(ctx context.Context, webhook *model.Webhook) (Documents, string, error) {
 	config, err := c.fetchConfig(ctx, *webhook.URL)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	if webhook.ProxyURL != nil && *webhook.ProxyURL != "" { // TODO: In productive implementation this should be at the very start of the FetchOpenResourceDiscoveryDocuments function
 		if err := c.setProxy(ctx, *webhook.ProxyURL); err != nil {
-			return Documents{}, err
+			return Documents{}, "", err
 		}
 		defer func() {
 			if err := c.removeProxy(); err != nil {
@@ -49,11 +49,13 @@ func (c *client) FetchOpenResourceDiscoveryDocuments(ctx context.Context, webhoo
 	}
 
 	docs := make([]*Document, 0, 0)
+	actualBaseURL := *webhook.URL // TODO: Workaround due to provider/described system mismatch...
 	for _, docDetails := range config.OpenResourceDiscoveryV1.Documents {
 		documentURL := *webhook.URL + docDetails.URL
-		_, err := url.ParseRequestURI(docDetails.URL)
+		u, err := url.ParseRequestURI(docDetails.URL)
 		if err == nil {
 			documentURL = docDetails.URL
+			actualBaseURL = u.Scheme + "://" + u.Hostname() + ":" + u.Port()
 		}
 
 		strategy, ok := docDetails.AccessStrategies.GetSupported()
@@ -64,13 +66,13 @@ func (c *client) FetchOpenResourceDiscoveryDocuments(ctx context.Context, webhoo
 
 		doc, err := c.fetchOpenDiscoveryDocumentWithAccessStrategy(ctx, webhook, documentURL, strategy)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error fetching ORD document from: %s", documentURL)
+			return nil, "", errors.Wrapf(err, "error fetching ORD document from: %s", documentURL)
 		}
 
 		docs = append(docs, doc)
 	}
 
-	return docs, nil
+	return docs, actualBaseURL, nil
 }
 
 func (c *client) setProxy(ctx context.Context, proxyURL string) error {

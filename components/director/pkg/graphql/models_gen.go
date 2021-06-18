@@ -376,16 +376,19 @@ type EventSpecInput struct {
 
 // Compass performs fetch to validate if request is correct and stores a copy
 type FetchRequest struct {
-	URL    string              `json:"url"`
-	Auth   *Auth               `json:"auth"`
-	Mode   FetchMode           `json:"mode"`
-	Filter *string             `json:"filter"`
-	Status *FetchRequestStatus `json:"status"`
+	URL      string              `json:"url"`
+	ProxyURL *string             `json:"proxyURL"`
+	Auth     *Auth               `json:"auth"`
+	Mode     FetchMode           `json:"mode"`
+	Filter   *string             `json:"filter"`
+	Status   *FetchRequestStatus `json:"status"`
 }
 
 type FetchRequestInput struct {
 	// **Validation:** valid URL, max=256
 	URL string `json:"url"`
+	// **Validation:** valid URL, max=256
+	ProxyURL *string `json:"proxyURL"`
 	// Currently unsupported, providing it will result in a failure
 	Auth *AuthInput `json:"auth"`
 	// Currently unsupported, providing it will result in a failure
