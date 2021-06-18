@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE webhooks
+    DROP COLUMN IF EXISTS proxy_url;
+
+COMMIT;

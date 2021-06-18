@@ -69,6 +69,7 @@ func main() {
 
 	ordAggregator := createORDAggregatorSvc(cfgProvider, cfg.Features, transact, &http.Client{
 		Timeout: cfg.ClientTimeout,
+		Transport: http.DefaultTransport,
 	})
 	err = ordAggregator.SyncORDDocuments(ctx)
 	exitOnError(err, "Error while synchronizing Open Resource Discovery Documents")

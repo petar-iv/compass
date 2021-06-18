@@ -3,9 +3,11 @@ package open_resource_discovery
 import (
 	"context"
 	"encoding/json"
+	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/pkg/errors"
@@ -14,7 +16,7 @@ import (
 // Client represents ORD documents client
 //go:generate mockery --name=Client --output=automock --outpkg=automock --case=underscore
 type Client interface {
-	FetchOpenResourceDiscoveryDocuments(ctx context.Context, url string) (Documents, error)
+	FetchOpenResourceDiscoveryDocuments(ctx context.Context, webhook *model.Webhook) (Documents, error)
 }
 
 type client struct {
@@ -29,22 +31,40 @@ func NewClient(httpClient *http.Client) *client {
 }
 
 // FetchOpenResourceDiscoveryDocuments fetches all the documents for a single ORD .well-known endpoint
-func (c *client) FetchOpenResourceDiscoveryDocuments(ctx context.Context, url string) (Documents, error) {
-	config, err := c.fetchConfig(ctx, url)
+func (c *client) FetchOpenResourceDiscoveryDocuments(ctx context.Context, webhook *model.Webhook) (Documents, error) {
+	config, err := c.fetchConfig(ctx, *webhook.URL)
 	if err != nil {
 		return nil, err
 	}
 
+	if webhook.ProxyURL != nil && *webhook.ProxyURL != "" { // TODO: In productive implementation this should be at the very start of the FetchOpenResourceDiscoveryDocuments function
+		if err := c.setProxy(ctx, *webhook.ProxyURL); err != nil {
+			return Documents{}, err
+		}
+		defer func() {
+			if err := c.removeProxy(); err != nil {
+				log.C(ctx).Errorf("Error occurred while reverting proxy transport configuration: %v", err.Error())
+			}
+		}()
+	}
+
 	docs := make([]*Document, 0, 0)
 	for _, docDetails := range config.OpenResourceDiscoveryV1.Documents {
+		documentURL := *webhook.URL + docDetails.URL
+		_, err := url.ParseRequestURI(docDetails.URL)
+		if err == nil {
+			documentURL = docDetails.URL
+		}
+
 		strategy, ok := docDetails.AccessStrategies.GetSupported()
 		if !ok {
-			log.C(ctx).Warnf("Unsupported access strategies for ORD Document %q", url+docDetails.URL)
+			log.C(ctx).Warnf("Unsupported access strategies for ORD Document %q", documentURL)
 			continue
 		}
-		doc, err := c.fetchOpenDiscoveryDocumentWithAccessStrategy(ctx, url+docDetails.URL, strategy)
+
+		doc, err := c.fetchOpenDiscoveryDocumentWithAccessStrategy(ctx, webhook, documentURL, strategy)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error fetching ORD document from: %s", url+docDetails.URL)
+			return nil, errors.Wrapf(err, "error fetching ORD document from: %s", documentURL)
 		}
 
 		docs = append(docs, doc)
@@ -53,9 +73,39 @@ func (c *client) FetchOpenResourceDiscoveryDocuments(ctx context.Context, url st
 	return docs, nil
 }
 
-func (c *client) fetchOpenDiscoveryDocumentWithAccessStrategy(ctx context.Context, documentURL string, accessStrategy AccessStrategyType) (*Document, error) {
+func (c *client) setProxy(ctx context.Context, proxyURL string) error {
+	proxyUrl, err := url.Parse(proxyURL)
+	if err != nil {
+		log.C(ctx).WithError(err).Warnf("Got error parsing proxy url: %s", proxyUrl)
+		return err
+	}
+
+	transport := c.Client.Transport.(*http.Transport)
+	transport.Proxy = http.ProxyURL(proxyUrl)
+
+	return nil
+}
+
+func (c *client) removeProxy() error {
+	transport := c.Client.Transport.(*http.Transport)
+	transport.Proxy = nil
+
+	return nil
+}
+
+func (c *client) fetchOpenDiscoveryDocumentWithAccessStrategy(ctx context.Context, webhook *model.Webhook, documentURL string, accessStrategy AccessStrategyType) (*Document, error) {
+	parsedURL, err := url.Parse(documentURL)
+	if err != nil {
+		return nil, err
+	}
+
+	httpRequest := &http.Request{URL: parsedURL, Header: map[string][]string{}}
+	if accessStrategy == BasicAccessStrategy {
+		httpRequest.SetBasicAuth(webhook.Auth.Credential.Basic.Username, webhook.Auth.Credential.Basic.Password)
+	}
+
 	log.C(ctx).Infof("Fetching ORD Document %q", documentURL)
-	resp, err := c.Get(documentURL)
+	resp, err := c.Do(httpRequest)
 	if err != nil {
 		return nil, err
 	}

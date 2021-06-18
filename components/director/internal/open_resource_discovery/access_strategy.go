@@ -14,11 +14,13 @@ func (a AccessStrategyType) IsSupported() bool {
 
 const (
 	OpenAccessStrategy   AccessStrategyType = "open"
+	BasicAccessStrategy  AccessStrategyType = "basic"
 	CustomAccessStrategy AccessStrategyType = "custom"
 )
 
 var supportedAccessStrategies = map[AccessStrategyType]bool{
-	OpenAccessStrategy: true,
+	OpenAccessStrategy:  true,
+	BasicAccessStrategy: true,
 }
 
 type AccessStrategies []AccessStrategy

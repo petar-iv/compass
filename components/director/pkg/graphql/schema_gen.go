@@ -522,6 +522,7 @@ type ComplexityRoot struct {
 		IntegrationSystemID   func(childComplexity int) int
 		Mode                  func(childComplexity int) int
 		OutputTemplate        func(childComplexity int) int
+		ProxyURL              func(childComplexity int) int
 		RetryInterval         func(childComplexity int) int
 		RuntimeID             func(childComplexity int) int
 		StatusTemplate        func(childComplexity int) int
@@ -3254,6 +3255,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Webhook.OutputTemplate(childComplexity), true
 
+	case "Webhook.proxyURL":
+		if e.complexity.Webhook.ProxyURL == nil {
+			break
+		}
+
+		return e.complexity.Webhook.ProxyURL(childComplexity), true
+
 	case "Webhook.retryInterval":
 		if e.complexity.Webhook.RetryInterval == nil {
 			break
@@ -4000,6 +4008,7 @@ input WebhookInput {
 	**Validation:** valid URL, max=256
 	"""
 	url: String
+	proxyURL: String
 	auth: AuthInput
 	mode: WebhookMode
 	correlationIdKey: String
@@ -4444,6 +4453,7 @@ type Webhook {
 	retryInterval: Int
 	timeout: Int
 	url: String
+	proxyURL: String
 	auth: Auth @sanitize(path: "graphql.field.webhooks.auth")
 	urlTemplate: String
 	inputTemplate: String
@@ -19827,6 +19837,37 @@ func (ec *executionContext) _Webhook_url(ctx context.Context, field graphql.Coll
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Webhook_proxyURL(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Webhook",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ProxyURL, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Webhook_auth(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -22249,6 +22290,12 @@ func (ec *executionContext) unmarshalInputWebhookInput(ctx context.Context, obj 
 		case "url":
 			var err error
 			it.URL, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "proxyURL":
+			var err error
+			it.ProxyURL, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -25249,6 +25296,8 @@ func (ec *executionContext) _Webhook(ctx context.Context, sel ast.SelectionSet, 
 			out.Values[i] = ec._Webhook_timeout(ctx, field, obj)
 		case "url":
 			out.Values[i] = ec._Webhook_url(ctx, field, obj)
+		case "proxyURL":
+			out.Values[i] = ec._Webhook_proxyURL(ctx, field, obj)
 		case "auth":
 			out.Values[i] = ec._Webhook_auth(ctx, field, obj)
 		case "urlTemplate":

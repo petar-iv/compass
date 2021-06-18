@@ -59,9 +59,11 @@ func (docs Documents) Validate(webhookURL string) error {
 			return errors.Wrap(err, "error validating system instance")
 		}
 
+		/* TODO: The current POC requires settings up a provider system for thee initial configuration endpoint - so the following check would result in error
 		if doc.DescribedSystemInstance != nil && doc.DescribedSystemInstance.BaseURL != nil && *doc.DescribedSystemInstance.BaseURL != webhookURL {
-			return errors.New("describedSystemInstance should be the same as the one providing the documents")
+			return errors.New("describedSystemInstance should be the same as the one providing the documents or providerSystemInstance should be defined")
 		}
+		*/
 	}
 
 	packageIDs := make(map[string]bool, 0)
@@ -146,6 +148,7 @@ func (docs Documents) Validate(webhookURL string) error {
 
 	// Validate entity relations
 	for _, doc := range docs {
+		/* TODO: poc system doesn't implement vendors or products on document level
 		for _, pkg := range doc.Packages {
 			if !vendorIDs[*pkg.Vendor] {
 				return errors.Errorf("package with id %q has a reference to unknown vendor %q", pkg.OrdID, *pkg.Vendor)
@@ -162,6 +165,7 @@ func (docs Documents) Validate(webhookURL string) error {
 				return errors.Errorf("product with id %q has a reference to unknown vendor %q", product.OrdID, product.Vendor)
 			}
 		}
+		*/
 		for _, api := range doc.APIResources {
 			if !packageIDs[*api.OrdPackageID] {
 				return errors.Errorf("api with id %q has a reference to unknown package %q", *api.OrdID, *api.OrdPackageID)
@@ -174,12 +178,14 @@ func (docs Documents) Validate(webhookURL string) error {
 				}
 			}
 
+			/*
 			ordIDs := gjson.ParseBytes(api.PartOfProducts).Array()
 			for _, productID := range ordIDs {
 				if !productIDs[productID.String()] {
 					return errors.Errorf("api with id %q has a reference to unknown product %q", *api.OrdID, productID.String())
 				}
 			}
+			*/
 		}
 		for _, event := range doc.EventResources {
 			if !packageIDs[*event.OrdPackageID] {
@@ -193,12 +199,14 @@ func (docs Documents) Validate(webhookURL string) error {
 				}
 			}
 
+			/*
 			ordIDs := gjson.ParseBytes(event.PartOfProducts).Array()
 			for _, productID := range ordIDs {
 				if !productIDs[productID.String()] {
 					return errors.Errorf("event with id %q has a reference to unknown product %q", *event.OrdID, productID.String())
 				}
 			}
+			*/
 		}
 	}
 
