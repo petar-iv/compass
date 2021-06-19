@@ -2,7 +2,6 @@ package open_resource_discovery
 
 import (
 	"encoding/json"
-	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -26,7 +25,7 @@ const (
 	TombstoneOrdIDRegex = "^([a-zA-Z0-9._\\-]+):(package|consumptionBundle|product|vendor|apiResource|eventResource):([a-zA-Z0-9._\\-]+):(alpha|beta|v[0-9]+|)$"
 
 	SystemInstanceBaseURLRegex        = "^http[s]?:\\/\\/[^:\\/\\s]+\\.[^:\\/\\s\\.]+(:\\d+)?$"
-	StringArrayElementRegex           = "^[a-zA-Z0-9 -\\.\\/]*$"
+	StringArrayElementRegex           = "^[a-zA-Z0-9 -_\\.\\/]*$"
 	CountryRegex                      = "^[A-Z]{2}$"
 	ApiOrdIDRegex                     = "^([a-zA-Z0-9._\\-]+):(apiResource):([a-zA-Z0-9._\\-]+):(alpha|beta|v[0-9]+)$"
 	EventOrdIDRegex                   = "^([a-zA-Z0-9._\\-]+):(eventResource):([a-zA-Z0-9._\\-]+):(alpha|beta|v[0-9]+)$"
@@ -116,7 +115,7 @@ var (
 )
 
 var shortDescriptionRules = []validation.Rule{
-	validation.Required, validation.Length(1, 255), validation.NewStringRule(noNewLines, "short description should not contain line breaks"),
+	validation.Length(1, 255), validation.NewStringRule(noNewLines, "short description should not contain line breaks"),
 }
 
 var descriptionRules = []validation.Rule{
@@ -211,7 +210,7 @@ func validateAPIInput(api *model.APIDefinitionInput, packagePolicyLevels map[str
 		validation.Field(&api.OrdID, validation.Required, validation.Match(regexp.MustCompile(ApiOrdIDRegex))),
 		validation.Field(&api.Name, validation.Required),
 		validation.Field(&api.ShortDescription, shortDescriptionRules...),
-		validation.Field(&api.Description, validation.Required),
+		validation.Field(&api.Description),
 		validation.Field(&api.VersionInput.Value, validation.Required, validation.Match(regexp.MustCompile(SemVerRegex))),
 		validation.Field(&api.OrdPackageID, validation.Required, validation.Match(regexp.MustCompile(PackageOrdIDRegex))),
 		validation.Field(&api.ApiProtocol, validation.Required, validation.In(ApiProtocolODataV2, ApiProtocolODataV4, ApiProtocolSoapInbound, ApiProtocolSoapOutbound, ApiProtocolRest, ApiProtocolSapRfc)),
@@ -273,7 +272,7 @@ func validateAPIInput(api *model.APIDefinitionInput, packagePolicyLevels map[str
 func validateEventInput(event *model.EventDefinitionInput, packagePolicyLevels map[string]string) error {
 	return validation.ValidateStruct(event,
 		validation.Field(&event.OrdID, validation.Required, validation.Match(regexp.MustCompile(EventOrdIDRegex))),
-		validation.Field(&event.Name, validation.Required),
+		validation.Field(&event.Name),
 		validation.Field(&event.ShortDescription, shortDescriptionRules...),
 		validation.Field(&event.Description, validation.Required),
 		validation.Field(&event.VersionInput.Value, validation.Required, validation.Match(regexp.MustCompile(SemVerRegex))),
@@ -906,12 +905,15 @@ func notPartOfConsumptionBundles(partOfConsumptionBundles []*model.ConsumptionBu
 }
 
 func validateExtensibleField(value interface{}, ordPackageID *string, packagePolicyLevels map[string]string) error {
-	pkgOrdID := str.PtrStrToStr(ordPackageID)
-	policyLevel := packagePolicyLevels[pkgOrdID]
+	/*
+		pkgOrdID := str.PtrStrToStr(ordPackageID)
+		policyLevel := packagePolicyLevels[pkgOrdID]
 
-	if (policyLevel == PolicyLevelSap || policyLevel == PolicyLevelSapPartner) && (value == nil || value.(json.RawMessage) == nil) {
-		return errors.New(fmt.Sprintf("`extensible` field must be provided when `policyLevel` is either `%s` or `%s`", PolicyLevelSap, PolicyLevelSapPartner))
-	}
+		if (policyLevel == PolicyLevelSap || policyLevel == PolicyLevelSapPartner) && (value == nil || value.(json.RawMessage) == nil) {
+			return errors.New(fmt.Sprintf("`extensible` field must be provided when `policyLevel` is either `%s` or `%s`", PolicyLevelSap, PolicyLevelSapPartner))
+		}
+
+	*/
 
 	return validateJSONObjects(value, map[string][]validation.Rule{
 		"supported": {
