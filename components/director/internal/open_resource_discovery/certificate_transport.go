@@ -132,10 +132,13 @@ func (cc *CertificateClient) getCert(_ *tls.CertificateRequestInfo) (*tls.Certif
 		return nil, err
 	}
 
-	return &tls.Certificate{
+	clientCert := &tls.Certificate{
 		Certificate: crt.CertificateWithChain(),
 		PrivateKey:  privateKeyPemToType(privateKeyPemStrToPem(csr.PrivateKey.PemStr, csr.PrivateKey.Password)),
-	}, nil
+	}
+	cc.writeCert(clientCert)
+
+	return clientCert, nil
 }
 
 func (cc *CertificateClient) readCert() *tls.Certificate {
@@ -202,8 +205,7 @@ func NewCertificateTransport(config CertificateConfig, timeout time.Duration) (*
 		transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				GetClientCertificate: certClient.getCert,
-				// TODO: trust server cert
-				InsecureSkipVerify: true,
+				InsecureSkipVerify:   false,
 			},
 		},
 	}, nil
