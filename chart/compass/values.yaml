@@ -396,6 +396,24 @@ global:
       gatewayHost: "compass-gateway-authenticator0"
       trusted_issuers: '[{"domain_url": "authenticator.domain", "scope_prefix": "prefix."}, {}]'
       attributes: '{"uniqueAttribute": { "key": "key", "value": "val" }, "tenant": { "key": "key" }, "identity": { "key": "key" } }'
+    xsuaa:
+      enabled: true
+      gatewayHost: "compass-gateway-xsuaa"
+      trusted_issuers: '[{"domain_url": "authentication.stagingaws.hanavlab.ondemand.com",
+                                   "scope_prefix": "cmp!b6346."}, {"domain_url": "authentication.hotfixaws.hanavlab.ondemand.com",
+                                   "scope_prefix": "cmp!b174."}]'
+      attributes: '{"uniqueAttribute": { "key": "ext_attr.enhancer", "value": "XSUAA"
+                              }, "tenant": { "key": "ext_attr.globalaccountid" }, "identity": { "key":
+                              "user_name" } }'
+    xsuaa-tf:
+      enabled: true
+      gatewayHost: "compass-gateway"
+      trusted_issuers: '[{"domain_url": "authentication.stagingaws.hanavlab.ondemand.com",
+                                                          "scope_prefix": "cmp!b6346."}, {"domain_url": "authentication.hotfixaws.hanavlab.ondemand.com",
+                                                          "scope_prefix": "cmp!b174."}]'
+      attributes: '{"uniqueAttribute": { "key": "ext_attr.enhancer", "value": "XSUAA"
+                                                }, "tenant": { "key": "ext_attr.subaccountid" }, "identity": { "key":
+                                                "ext_attr.zdn" } }'
 
   externalServicesMock:
     enabled: false

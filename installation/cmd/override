@@ -15,8 +15,6 @@ data:
       name: istio-system
     spec:
       values:
-        pilot:
-          jwksResolverExtraRootCA: "__CERT__"
         global:
           jwtPolicy: first-party-jwt
           proxy:
@@ -28,6 +26,8 @@ data:
               limits:
                 cpu: 100m
                 memory: 128Mi
+          pilot:
+            jwksResolverExtraRootCA: "-----BEGIN CERTIFICATE-----\nMIIDEDCCAfigAwIBAgIQTBr82aAY/MiwLxJyiZSARTANBgkqhkiG9w0BAQsFADAS\nMRAwDgYDVQQKEwdpMzIxNjU1MB4XDTIwMTIxNDEzNTEwMFoXDTIzMTEyOTEzNTEw\nMFowHjEcMBoGA1UECgwTaTMyMTY1NS48Ym9vdHN0cmFwPjCCASIwDQYJKoZIhvcN\nAQEBBQADggEPADCCAQoCggEBALZcuezCqceuWAkVQ5PfysxooS/MSYaduxsuliYi\nY2lmeePu9eC1DlCHP9it2z1buikBm4tMW+DvKQEQBL/s+XGk5iP7o64jwa+4LUjn\n05FOAcSG3LoZSRqSQQcpEeAHBcNCa9RiJUv2KpgAzAjXLlcIhHHryMSj796ZxJ6x\nZQ8PhBK5S3lzKPBXyHkhJdoyWFbLVHZsaxYc7M6anboL084DekERt0jfO5YRpDp5\nJ4TAYqDlkM+sdH6MXdc1RjA0Olf0H2jZGvkHv2MaM7FGJqk36M2xgySaMMkkifsg\nZjxE5K+W7lqkNMFOR6inPmshBkwDUo+SnPbsfTb8rp29t5sCAwEAAaNWMFQwDgYD\nVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAw\nHwYDVR0jBBgwFoAUhozr74cCWuzMJR7oFVuG4i2ZZgcwDQYJKoZIhvcNAQELBQAD\nggEBABm6HRU2qwIevEKme+NZlCnyMfxWb65wFM3LO+YFP/RfQqcYFMtlN3rA5VNb\n2/qh9ueXYbfyjrKJhfYfA9ewTYTq1kroy1/fomexOkl1oyNkqbHyagu6zt27jaXi\nNlSYFxtFZr3EmD7LqKATh4blTCV71WefpptgL9KCELRZ7FHCwNCgs6LQ3wzVv606\nDIZ3ubZn2bOryi+oNJaaGSC1CpSf8Vrtz8BrdvTLhpDIVLpEY2sGXQyqp+ReY0qk\ny/k+/Mgfr3iuDqD8/yvSZscfV2G4IE2dV+xsKOHoQYj0zx96fvlEwdABUNM14xrD\nYmNVWz7rNGrh4Z9DjAnLJYhpgbI=\n-----END CERTIFICATE-----"
 ---
 apiVersion: v1
 kind: ConfigMap

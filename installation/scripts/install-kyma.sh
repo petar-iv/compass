@@ -63,15 +63,30 @@ else
   KYMA_SOURCE="${KYMA_RELEASE}"
 fi
 
+cert=$(</Users//i321655/.minikube/ca.crt)
+cert="${cert//$'\n'/\\\\n}"
+
+contents_minimal=$(sed "s~\"__CERT__\"~\"$cert\"~" "${ROOT_PATH}"/installation/resources/kyma/installer-overrides-kyma-minimal-config-local.yaml)
+>"override-local-minimal.yaml" cat <<-EOF
+$contents_minimal
+EOF
+trap "rm -f override-local-minimal" EXIT
+
+contents_full=$(sed "s~\"__CERT__\"~\"$cert\"~" "${ROOT_PATH}"/installation/resources/kyma/installer-overrides-kyma-full-config-local.yaml)
+>"override-local-full.yaml" cat <<-EOF
+$contents_full
+EOF
+trap "rm -f override-local-full" EXIT
+
 echo "Using Kyma source '${KYMA_SOURCE}'..."
 
 echo "Installing Kyma..."
 set -o xtrace
 if [[ $KYMA_INSTALLATION == *full* ]]; then
   echo "Installing full Kyma"
-  kyma install -c $INSTALLER_CR_FULL_PATH -o $OVERRIDES_KYMA_FULL_CFG_LOCAL --source $KYMA_SOURCE
+  kyma install -c $INSTALLER_CR_FULL_PATH -o override-local-full.yaml --source $KYMA_SOURCE
 else
   echo "Installing minimal Kyma"
-  kyma install -c $INSTALLER_CR_PATH -o $OVERRIDES_KYMA_MINIMAL_CFG_LOCAL --source $KYMA_SOURCE
+  kyma install -c $INSTALLER_CR_PATH -o override-local-minimal.yaml --source $KYMA_SOURCE
 fi
 set +o xtrace

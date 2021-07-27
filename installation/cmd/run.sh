@@ -16,6 +16,7 @@ MIGRATOR_FILE=$(cat $ROOT_PATH/chart/compass/templates/migrator-job.yaml)
 MINIKUBE_MEMORY=8192
 MINIKUBE_TIMEOUT=25m
 MINIKUBE_CPUS=5
+APISERVER_VERSION=1.18.14
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]
@@ -69,6 +70,12 @@ do
             shift # past argument
             shift # past value
         ;;
+        --apiserver-version)
+            checkInputParameterValue "${2}"
+            APISERVER_VERSION="${2}"
+            shift # past argument
+            shift # past value
+        ;;
         --*)
             echo "Unknown flag ${1}"
             exit 1
@@ -80,61 +87,6 @@ do
     esac
 done
 set -- "${POSITIONAL[@]}" # restore positional parameters
-
-function generate_minikube_jwks() {
-  echo -e "\nInstall pem-jwk and jwt tools..."
-  npm install -g pem-jwk
-  npm install -g jwt-cli
-
-  echo -e "\nGetting the value of the kid property..."
-  OPERATIONS_SA_TOKEN=$(kubectl get secrets -n compass-system | grep operations | awk '{print $1}')
-  kubectl get secrets -n compass-system "$OPERATIONS_SA_TOKEN" -o jsonpath='{.data.token}' | base64 -d | jwt | grep "kid" | tr -d " "
-  KID_VALUE=$(kubectl get secrets -n compass-system "$OPERATIONS_SA_TOKEN" -o jsonpath='{.data.token}' | base64 -d | jwt | grep "kid" | awk '{print $3}' | tr -d '"' | cut -c -43)
-  echo "The kid value is: $KID_VALUE"
-
-  echo -e "\nGenerating minikube JWKS..."
-  minikube ssh sudo cat /var/lib/minikube/certs/sa.pub > public-key.pem
-  pem-jwk public-key.pem | jq . > jwks.json
-  jq --arg kid "$KID_VALUE" '.+{kid:$kid}' jwks.json > tmp.json && mv tmp.json jwks.json
-  jq '.+{alg:"RS256"}|.+{use:"sig"}' jwks.json > tmp.json && mv tmp.json jwks.json
-  jq '{"keys":[.]}' jwks.json | tee tmp.json && mv tmp.json jwks.json
-}
-
-function mount_minikube_jwks_to_ory() {
-  echo -e "\nMount the JWKS as volume to ory deployment..."
-
-  kubectl create configmap -n kyma-system minikube-jwks-config --from-file jwks.json
-
-  OATHKEEPER_DEPLOYMENT_NAME=$(kubectl get deployment -n kyma-system | grep oathkeeper | awk '{print $1}')
-  OATHKEEPER_CONTAINER_NAME=$(kubectl get deployment -n kyma-system "$OATHKEEPER_DEPLOYMENT_NAME" -o=jsonpath='{.spec.template.spec.containers[*].name}' | tr -s '[[:space:]]' '\n' | grep -v 'maester')
-
-  kubectl -n kyma-system patch deployment "$OATHKEEPER_DEPLOYMENT_NAME" \
- -p '{"spec":{"template":{"spec":{"volumes":[{"configMap":{"defaultMode": 420,"name": "minikube-jwks-config"},"name": "minikube-jwks-volume"}]}}}}'
-
-  kubectl -n kyma-system patch deployment "$OATHKEEPER_DEPLOYMENT_NAME" \
- -p '{"spec":{"template":{"spec":{"containers":[{"name": "'$OATHKEEPER_CONTAINER_NAME'","volumeMounts": [{ "mountPath": "'/minikube/jwks'","name": "minikube-jwks-volume"}]}]}}}}'
-}
-
-function cleanup {
-  popd
-  rm -rf "$WORK_DIR"
-  echo "Deleted temp working directory $WORK_DIR"
-}
-
-function provide_minikube_jwks() {
-  WORK_DIR=$(mktemp -d tmpDir.XXXX)
-  if [[ ! "$WORK_DIR" || ! -d "$WORK_DIR" ]]; then
-    echo "Could not create temp dir"
-    exit 1
-  fi
-
-  # register the cleanup function to be called on the EXIT signal
-  trap cleanup EXIT
-
-  pushd "$WORK_DIR"
-  generate_minikube_jwks
-  mount_minikube_jwks_to_ory
-}
 
 function revert_migrator_file() {
     echo "$MIGRATOR_FILE" > $ROOT_PATH/chart/compass/templates/migrator-job.yaml
@@ -173,9 +125,9 @@ fi
 if [[ ! ${SKIP_MINIKUBE_START} ]]; then
   echo "Provisioning Minikube cluster..."
   if [[ ! ${DOCKER_DRIVER} ]]; then
-    kyma provision minikube --cpus ${MINIKUBE_CPUS} --memory ${MINIKUBE_MEMORY} --timeout ${MINIKUBE_TIMEOUT}
+    kyma provision minikube --cpus ${MINIKUBE_CPUS} --memory ${MINIKUBE_MEMORY} --timeout ${MINIKUBE_TIMEOUT} --kube-version ${APISERVER_VERSION}
   else
-    kyma provision minikube --cpus ${MINIKUBE_CPUS} --memory ${MINIKUBE_MEMORY} --timeout ${MINIKUBE_TIMEOUT} --vm-driver docker --docker-ports 443:443 --docker-ports 80:80
+    kyma provision minikube --cpus ${MINIKUBE_CPUS} --memory ${MINIKUBE_MEMORY} --timeout ${MINIKUBE_TIMEOUT} --kube-version ${APISERVER_VERSION} --vm-driver docker --docker-ports 443:443 --docker-ports 80:80
   fi
 fi
 
@@ -207,10 +159,9 @@ if [[ `kubectl get TestDefinition dex-connection -n kyma-system` ]]; then
   kubectl patch TestDefinition dex-connection -n kyma-system --type=json -p="[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/image\", \"value\": \"eu.gcr.io/kyma-project/external/curlimages/curl:7.70.0\"}]"
 fi
 
+kubectl delete peerauthentications.security.istio.io ory-oathkeeper-maester-metrics -n kyma-system
 bash "${ROOT_PATH}"/installation/scripts/run-compass-installer.sh --kyma-installation ${KYMA_INSTALLATION}
 bash "${ROOT_PATH}"/installation/scripts/is-installed.sh
 
 echo "Adding Compass entries to /etc/hosts..."
 sudo sh -c 'echo "\n$(minikube ip) adapter-gateway.kyma.local adapter-gateway-mtls.kyma.local compass-gateway-mtls.kyma.local compass-gateway-auth-oauth.kyma.local compass-gateway.kyma.local compass-gateway-int.kyma.local compass.kyma.local compass-mf.kyma.local kyma-env-broker.kyma.local" >> /etc/hosts'
-
-provide_minikube_jwks

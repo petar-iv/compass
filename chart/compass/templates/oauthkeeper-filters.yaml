@@ -1,0 +1,83 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: x-authz-oathkeeper-header-rewrite
+  namespace: kyma-system
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/name: oathkeeper
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: "envoy.filters.http.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua.x_authz_header
+          typed_config:
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+            inlineCode: |
+              function envoy_on_request(request_handle)
+                local headers = request_handle:headers()
+                local xForwardedClientCert = headers:get("Authorization")
+
+                headers:add("X-Authorization",xForwardedClientCert)
+              end
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: inject-sa-token-filter
+  namespace: kyma-system
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/name: oathkeeper
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: "envoy.filters.http.router"
+      patch:
+        operation: INSERT_AFTER
+        value:
+          name: envoy.filters.http.lua.service_account_token
+          typed_config:
+            "@type": "type.googleapis.com/envoy.config.filter.http.lua.v2.Lua"
+            inlineCode: |
+              local function read_file(path)
+                local file = io.open(path, "rb")
+                if not file then return nil end
+                local content = file:read "*a"
+                file:close()
+                return content
+              end
+              function envoy_on_request(request_handle)
+                request_handle:logInfo("envoy_on_request >>> Service Account token override filter")
+                local authz = request_handle:headers():get("Authorization")
+                if authz ~= "true" then
+                  request_handle:logInfo("No Authz header found. Will inject SA token as authz header!")
+
+                  local token = read_file("/var/run/secrets/kubernetes.io/serviceaccount/token");
+                  if token~='' then
+                    request_handle:headers():replace("Authorization", "Bearer "..token)
+                    request_handle:logInfo("Successfully inejected SA Token as Authz header")
+                  else
+                    request_handle:logError("Could not find SA token on filesystem!.")
+                  end
+                else
+                  request_handle:logInfo("Authorization header is already present. Will not rewrite it!")
+                end
+              end

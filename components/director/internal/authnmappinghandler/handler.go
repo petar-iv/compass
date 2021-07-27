@@ -106,11 +106,12 @@ func NewHandler(reqDataParser tenantmapping.ReqDataParser, httpClient *http.Clie
 	}
 }
 
+//TODO in prod impl, include ZID check = sap-provisioning as well
 func (h *Handler) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost {
-		http.Error(writer, fmt.Sprintf("Bad request method. Got %s, expected POST", req.Method), http.StatusBadRequest)
-		return
-	}
+	//if req.Method != http.MethodPost {
+	//	http.Error(writer, fmt.Sprintf("Bad request method. Got %s, expected POST", req.Method), http.StatusBadRequest)
+	//	return
+	//}
 
 	ctx := req.Context()
 
@@ -139,7 +140,7 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) verifyToken(ctx context.Context, reqData oathkeeper.ReqData) (TokenData, authenticator.Coordinates, error) {
-	authorizationHeader := reqData.Header.Get("Authorization")
+	authorizationHeader := reqData.Header.Get("X-Authorization")
 	if authorizationHeader == "" || !strings.HasPrefix(strings.ToLower(authorizationHeader), "bearer ") {
 		return nil, authenticator.Coordinates{}, errors.New(fmt.Sprintf("unexpected or empty authorization header with length %d", len(authorizationHeader)))
 	}
@@ -250,7 +251,8 @@ func (h *Handler) getAuthenticatorCoordinates(payload []byte, issuerURL string) 
 	var authConfig *authenticator.Config
 	for i, authn := range h.authenticators {
 		uniqueAttribute := gjson.GetBytes(payload, authn.Attributes.UniqueAttribute.Key).String()
-		if uniqueAttribute != "" || uniqueAttribute == authn.Attributes.UniqueAttribute.Value {
+		identityExists := gjson.GetBytes(payload, authn.Attributes.IdentityAttribute.Key).Exists()
+		if uniqueAttribute != "" || uniqueAttribute == authn.Attributes.UniqueAttribute.Value && identityExists {
 			authConfig = &h.authenticators[i]
 			break
 		}

@@ -11,6 +11,9 @@ spec:
     url: <http|https>://{{ .Values.global.gateway.tls.secure.oauth.host }}.{{ .Values.global.ingress.domainName }}<(:(80|443))?>{{ .Values.global.director.prefix }}/graphql
   authenticators:
   - handler: oauth2_introspection
+    config:
+      token_from:
+        header: X-Authorization
   authorizer:
     handler: allow
   mutators:
@@ -32,7 +35,10 @@ spec:
     methods: ["GET"]
     url: <http|https>://{{ .Values.global.gateway.tls.host }}.{{ .Values.global.ingress.domainName }}<(:(80|443))?><{{ .Values.global.ordService.prefix }}|{{ .Values.global.ordService.staticPrefix }}>/<.*>
   authenticators:
-    - handler: oauth2_introspection
+  - handler: oauth2_introspection
+    config:
+      token_from:
+        header: X-Authorization
   authorizer:
     handler: allow
   mutators:
@@ -57,6 +63,8 @@ spec:
   - handler: jwt
     config:
       trusted_issuers: ["https://dex.{{ .Values.global.ingress.domainName }}"]
+      token_from:
+        header: X-Authorization
   authorizer:
     handler: allow
   mutators:
@@ -106,6 +114,8 @@ spec:
   - handler: jwt
     config:
       jwks_urls: ["https://container.googleapis.com/v1beta1/projects/sap-cp-cmp-dev/locations/europe-west1/clusters/sap-cp-cmp-dev-validation/jwks", "file:///minikube/jwks/jwks.json"]
+      token_from:
+        header: X-Authorization
   authorizer:
     handler: allow
   mutators:
@@ -249,6 +259,30 @@ spec:
   mutators:
   - handler: hydrator
 {{ toYaml .Values.global.oathkeeper.mutators.certificateResolverService | indent 4 }}
+  - handler: hydrator
+{{ toYaml .Values.global.oathkeeper.mutators.tenantMappingService | indent 4 }}
+  - handler: id_token
+    config:
+      claims: {{ .Values.global.oathkeeper.idTokenConfig.claims | quote }}
+---
+apiVersion: oathkeeper.ory.sh/v1alpha1
+kind: Rule
+metadata:
+  name: compass-gateway-tenant-fetcher
+spec:
+  description: Configuration of oathkeeper for endpoint secured by tokens on compass tenant fetcher
+  upstream:
+    url: "http://{{ .Values.global.oathkeeper.host }}:{{ .Values.global.oathkeeper.port }}"
+  match:
+    methods: ["GET"]
+    url: <http|https>://{{ .Values.global.gateway.tls.host }}.{{ .Values.global.ingress.domainName }}<(:(80|443))?>{{ .Values.global.tenantFetcher.prefix }}/<.*>
+  authenticators:
+  - handler: noop
+  authorizer:
+    handler: allow
+  mutators:
+  - handler: hydrator
+{{ toYaml .Values.global.oathkeeper.mutators.authenticationMappingService | indent 4 }}
   - handler: hydrator
 {{ toYaml .Values.global.oathkeeper.mutators.tenantMappingService | indent 4 }}
   - handler: id_token
