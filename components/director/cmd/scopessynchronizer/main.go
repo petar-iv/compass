@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"github.com/pkg/errors"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -46,7 +48,7 @@ func main() {
 	exitOnError(ctx, err, "Error while loading app config")
 
 	oAuth20HTTPClient := &http.Client{
-		Transport: httputil.NewCorrelationIDTransport(http.DefaultTransport),
+		Transport: NewServiceTokenTransport(httputil.NewCorrelationIDTransport(http.DefaultTransport)),
 		Timeout:   cfg.OAuth20.HTTPClientTimeout,
 	}
 	adminURL, err := url.Parse(cfg.OAuth20.URL)
@@ -89,4 +91,38 @@ func configProvider(ctx context.Context, cfg config) *configprovider.Provider {
 	exitOnError(ctx, provider.Load(), "Error on loading configuration file")
 
 	return provider
+}
+
+type HTTPRoundTripper interface {
+	RoundTrip(*http.Request) (*http.Response, error)
+}
+
+func NewServiceTokenTransport(roundTripper HTTPRoundTripper) *ServiceTokenTransport {
+	return &ServiceTokenTransport{
+		roundTripper: roundTripper,
+	}
+}
+
+type ServiceTokenTransport struct {
+	roundTripper HTTPRoundTripper
+}
+
+func (c *ServiceTokenTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	token, err := getServiceAccountToken(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	r.Header.Set("X-Authorization", "Bearer "+token)
+
+	return c.roundTripper.RoundTrip(r)
+}
+
+func getServiceAccountToken(ctx context.Context) (string, error) {
+	log.C(ctx).Info("Getting service account token...")
+	data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	if err != nil {
+		return "", errors.Wrapf(err, "Unable to read service account token file")
+	}
+
+	return string(data), nil
 }

@@ -54,6 +54,9 @@ global:
     director:
       dir:
       version: "PR-1908"
+      # TODO Remove this in production code
+      containerRegistrySyncer: "eu.gcr.io/sap-cp-cmp-dev"
+      versionSyncer: "int-auth2"
     gateway:
       dir:
       version: "PR-1910"

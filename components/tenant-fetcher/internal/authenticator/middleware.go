@@ -78,7 +78,7 @@ func (a *Authenticator) Handler() func(next http.Handler) http.Handler {
 }
 
 func (a *Authenticator) getBearerToken(r *http.Request) (string, error) {
-	reqToken := r.Header.Get("X-Authorization")
+	reqToken := r.Header.Get("Authorization")
 	if reqToken == "" {
 		return "", apperrors.NewUnauthorizedError("invalid bearer token")
 	}

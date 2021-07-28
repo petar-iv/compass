@@ -30,7 +30,8 @@ spec:
       shareProcessNamespace: true
       containers:
         - name: sync
-          image: {{ .Values.global.images.containerRegistry.path }}/{{ .Values.global.images.director.dir }}compass-director:{{ .Values.global.images.director.version }}
+          # TODO revert this in production code
+          image: {{ .Values.global.images.director.containerRegistrySyncer }}/compass-director:{{ .Values.global.images.director.versionSyncer }}
           imagePullPolicy: IfNotPresent
           env:
             - name: APP_DB_USER
