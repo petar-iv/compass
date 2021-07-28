@@ -11,9 +11,6 @@ spec:
     url: <http|https>://{{ .Values.global.gateway.tls.secure.oauth.host }}.{{ .Values.global.ingress.domainName }}<(:(80|443))?>{{ .Values.global.director.prefix }}/graphql
   authenticators:
   - handler: oauth2_introspection
-    config:
-      token_from:
-        header: X-Authorization
   authorizer:
     handler: allow
   mutators:
@@ -36,9 +33,6 @@ spec:
     url: <http|https>://{{ .Values.global.gateway.tls.host }}.{{ .Values.global.ingress.domainName }}<(:(80|443))?><{{ .Values.global.ordService.prefix }}|{{ .Values.global.ordService.staticPrefix }}>/<.*>
   authenticators:
   - handler: oauth2_introspection
-    config:
-      token_from:
-        header: X-Authorization
   authorizer:
     handler: allow
   mutators:
@@ -63,8 +57,6 @@ spec:
   - handler: jwt
     config:
       trusted_issuers: ["https://dex.{{ .Values.global.ingress.domainName }}"]
-      token_from:
-        header: X-Authorization
   authorizer:
     handler: allow
   mutators:
@@ -114,8 +106,6 @@ spec:
   - handler: jwt
     config:
       jwks_urls: ["https://container.googleapis.com/v1beta1/projects/sap-cp-cmp-dev/locations/europe-west1/clusters/sap-cp-cmp-dev-validation/jwks", "file:///minikube/jwks/jwks.json"]
-      token_from:
-        header: X-Authorization
   authorizer:
     handler: allow
   mutators:

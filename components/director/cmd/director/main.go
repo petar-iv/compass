@@ -97,10 +97,10 @@ type config struct {
 
 	Database                      persistence.DatabaseConfig
 	APIEndpoint                   string `envconfig:"default=/graphql"`
-	TenantMappingEndpoint         string `envconfig:"default=/hydrators/tenant-mapping"`
-	RuntimeMappingEndpoint        string `envconfig:"default=/hydrators/runtime-mapping"`
-	AuthenticationMappingEndpoint string `envconfig:"default=/hydrators/authn-mapping"`
-    InternalAuthenticationEndpoint string `envconfig:"default=/hydrators/internal-auth/sub-path/nested-path"`
+	TenantMappingEndpoint         string `envconfig:"default=/tenant-mapping"`
+	RuntimeMappingEndpoint        string `envconfig:"default=/runtime-mapping"`
+	AuthenticationMappingEndpoint string `envconfig:"default=/authn-mapping"`
+    InternalAuthenticationEndpoint string `envconfig:"default=/internal-auth/sub-path/nested-path"`
 	OperationPath                 string `envconfig:"default=/operation"`
 	LastOperationPath             string `envconfig:"default=/last_operation"`
 	PlaygroundAPIEndpoint         string `envconfig:"default=/graphql"`

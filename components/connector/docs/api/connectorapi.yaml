@@ -10,7 +10,7 @@ paths:
         '200':
           description: 'The service is up.'
 
-  /hydrators/v1/tokens/resolve:
+  /v1/tokens/resolve:
     post:
       parameters:
       - in: header
@@ -33,7 +33,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/appError'
 
-  /hydrators/v1/certificate/data/resolve:
+  /v1/certificate/data/resolve:
     post:
       parameters:
       - in: header
