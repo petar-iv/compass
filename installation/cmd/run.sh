@@ -105,6 +105,8 @@ function mount_minikube_ca_to_ory() {
 
   kubectl -n kyma-system patch deployment "$OATHKEEPER_DEPLOYMENT_NAME" \
  -p '{"spec":{"template":{"spec":{"containers":[{"name": "'$OATHKEEPER_CONTAINER_NAME'","volumeMounts": [{ "mountPath": "'/etc/ssl/certs/mk-ca.crt'","name": "minikube-ca-volume","subPath": "mk-ca.crt"}]}]}}}}'
+
+  rm mk-ca.crt
 }
 
 if [[ ${DUMP_DB} ]]; then
