@@ -92,6 +92,21 @@ function revert_migrator_file() {
     echo "$MIGRATOR_FILE" > $ROOT_PATH/chart/compass/templates/migrator-job.yaml
 }
 
+function mount_minikube_ca_to_ory() {
+  echo -e "\nMounting minikube CA cert into ory container..."
+  minikube ssh sudo cat /var/lib/minikube/certs/ca.crt > mk-ca.crt
+  kubectl create configmap -n kyma-system minikube-ca --from-file mk-ca.crt
+
+  OATHKEEPER_DEPLOYMENT_NAME=$(kubectl get deployment -n kyma-system | grep oathkeeper | awk '{print $1}')
+  OATHKEEPER_CONTAINER_NAME=$(kubectl get deployment -n kyma-system "$OATHKEEPER_DEPLOYMENT_NAME" -o=jsonpath='{.spec.template.spec.containers[*].name}' | tr -s '[[:space:]]' '\n' | grep -v 'maester')
+
+  kubectl -n kyma-system patch deployment "$OATHKEEPER_DEPLOYMENT_NAME" \
+ -p '{"spec":{"template":{"spec":{"volumes":[{"configMap":{"defaultMode": 420,"name": "minikube-ca"},"name": "minikube-ca-volume"}]}}}}'
+
+  kubectl -n kyma-system patch deployment "$OATHKEEPER_DEPLOYMENT_NAME" \
+ -p '{"spec":{"template":{"spec":{"containers":[{"name": "'$OATHKEEPER_CONTAINER_NAME'","volumeMounts": [{ "mountPath": "'/etc/ssl/certs/mk-ca.crt'","name": "minikube-ca-volume","subPath": "mk-ca.crt"}]}]}}}}'
+}
+
 if [[ ${DUMP_DB} ]]; then
     trap revert_migrator_file EXIT
 fi
@@ -158,6 +173,8 @@ if [[ `kubectl get TestDefinition dex-connection -n kyma-system` ]]; then
   # Patch dex-connection TestDefinition
   kubectl patch TestDefinition dex-connection -n kyma-system --type=json -p="[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/image\", \"value\": \"eu.gcr.io/kyma-project/external/curlimages/curl:7.70.0\"}]"
 fi
+
+mount_minikube_ca_to_ory
 
 kubectl delete peerauthentications.security.istio.io ory-oathkeeper-maester-metrics -n kyma-system
 bash "${ROOT_PATH}"/installation/scripts/run-compass-installer.sh --kyma-installation ${KYMA_INSTALLATION}

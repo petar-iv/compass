@@ -5,12 +5,12 @@ metadata:
   namespace: compass-system
 spec:
   jwtRules:
-    - issuer: kubernetes/serviceaccount
-      jwksUri: https://kubernetes.default.svc.cluster.local:443/openid/v1/jwks
-      forwardOriginalToken: true
-      fromHeaders:
-      - name: X-Authorization
-        prefix: "Bearer "
+  - issuer: kubernetes/serviceaccount
+    jwksUri: https://kubernetes.default.svc.cluster.local:443/openid/v1/jwks
+    forwardOriginalToken: true
+    fromHeaders:
+    - name: X-Authorization
+      prefix: "Bearer "
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -21,41 +21,38 @@ spec:
   action: ALLOW
   rules:
     - to:
-        - operation:
-            methods:
-              - GET
-            paths:
-              - /healthz*
-        - operation:
-            methods:
-              - GET
-            paths:
-              - /readyz*
-        - operation:
-            methods:
-              - GET
-            paths:
-              - /livez*
-        - operation:
-            methods:
-              - GET
-            paths:
-              - /metrics*
+      - operation:
+          methods:
+          - GET
+          paths:
+          - /healthz*
+      - operation:
+          methods:
+            - GET
+          paths:
+            - /readyz*
+      - operation:
+          methods:
+            - GET
+          paths:
+            - /livez*
+      - operation:
+          methods:
+            - GET
+          paths:
+            - /metrics*
     - to:
-        - operation:
-            ports:
-              - "5432"
+      - operation:
+          ports:
+          - "5432"
     - to:
-        - operation:
-            hosts:
-              - compass.kyma.local
-              - compass-mf.kyma.local
+      - operation:
+          hosts:
+          - compass.kyma.local
+          - compass-mf.kyma.local
     - from:
-        - source:
-            notNamespaces: ["compass-system"]
-    - from:
-        - source:
-            requestPrincipals: ["*"]
+      - source:
+          requestPrincipals: ["*"]
 ---
 apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
@@ -67,12 +64,12 @@ spec:
     matchLabels:
       app.kubernetes.io/name: hydra
   jwtRules:
-    - issuer: "kubernetes/serviceaccount"
-      jwksUri: https://kubernetes.default.svc.cluster.local:443/openid/v1/jwks
-      forwardOriginalToken: true
-      fromHeaders:
-        - name: X-Authorization
-          prefix: "Bearer "
+  - issuer: "kubernetes/serviceaccount"
+    jwksUri: https://kubernetes.default.svc.cluster.local:443/openid/v1/jwks
+    forwardOriginalToken: true
+    fromHeaders:
+      - name: X-Authorization
+        prefix: "Bearer "
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -86,6 +83,6 @@ spec:
   action: ALLOW
   rules:
     - from:
-        - source:
-            requestPrincipals: ['*']
+      - source:
+          requestPrincipals: ['*']
 ## /var/run/secrets/kubernetes.io/serviceaccount/ca.crt in jwksResolverExtraRootCA of istio pilot config
