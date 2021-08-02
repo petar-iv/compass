@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/tidwall/gjson"
 	"net/http"
 	"strings"
 
@@ -108,8 +109,13 @@ func (d *ReqData) GetAuthIDWithAuthenticators(ctx context.Context, authenticator
 			}
 
 			log.C(ctx).Infof("Request token matches %q authenticator", authn.Name)
-			identity, ok := d.Body.Extra[authn.Attributes.IdentityAttribute.Key]
-			if !ok {
+			extra, err := d.MarshalExtra()
+			if err != nil {
+				return nil, err
+			}
+
+			identity := gjson.Get(extra, authn.Attributes.IdentityAttribute.Key).String()
+			if len(identity) == 0 {
 				return nil, apperrors.NewInvalidDataError("missing identity attribute from %q authenticator token", authn.Name)
 			}
 

@@ -1,9 +1,11 @@
 package tenantmapping
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/authenticator"
@@ -66,6 +68,7 @@ func NewHandler(
 func (h *Handler) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 
+	logBody(req, writer)
 	if req.Method != http.MethodPost {
 		err := fmt.Sprintf("Bad request method. Got %s, expected POST", req.Method)
 		log.C(ctx).Errorf(err)
@@ -79,7 +82,7 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		respond(ctx, writer, reqData.Body)
 		return
 	}
-
+	log.C(ctx).Errorf("req data %+v", reqData)
 	authDetails, err := reqData.GetAuthIDWithAuthenticators(ctx, h.authenticators)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("An error occurred while determining the auth details for the request: %v", err)
@@ -92,6 +95,8 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		"authFlow":      authDetails.AuthFlow,
 		"authenticator": authDetails.Authenticator,
 	})
+
+	logger.Info("Successfully extracted auth details from request data")
 
 	newCtx := log.ContextWithLogger(ctx, logger)
 
@@ -156,4 +161,19 @@ func respond(ctx context.Context, writer http.ResponseWriter, body oathkeeper.Re
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("An error occurred while encoding data: %v", err)
 	}
+}
+
+func logBody(r *http.Request, w http.ResponseWriter) error {
+	buf, bodyErr := ioutil.ReadAll(r.Body)
+	if bodyErr != nil {
+		http.Error(w, bodyErr.Error(), http.StatusInternalServerError)
+		return nil
+	}
+
+	rdr1 := ioutil.NopCloser(bytes.NewBuffer(buf))
+	rdr2 := ioutil.NopCloser(bytes.NewBuffer(buf))
+	log.C(r.Context()).Infof("BODY: %q", rdr1)
+	r.Body = rdr2
+
+	return nil
 }

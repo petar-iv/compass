@@ -57,6 +57,7 @@ func (m *authenticatorContextProvider) GetObjectContext(ctx context.Context, req
 	authn := authDetails.Authenticator
 
 	log.C(ctx).Info("Getting scopes from token attribute")
+	log.C(ctx).Infof("Prefix is %s", authDetails.ScopePrefix)
 	userScopes, err := reqData.GetUserScopes(authDetails.ScopePrefix)
 	if err != nil {
 		return ObjectContext{}, err

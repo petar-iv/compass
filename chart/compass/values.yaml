@@ -56,7 +56,7 @@ global:
       version: "PR-1908"
       # TODO Remove this in production code
       containerRegistrySyncer: "eu.gcr.io/sap-cp-cmp-dev"
-      versionSyncer: "int-auth2"
+      versionSyncer: "int-auth"
     gateway:
       dir:
       version: "PR-1910"
@@ -64,6 +64,8 @@ global:
       dir:
       version: "PR-1910"
     tenant_fetcher:
+      containerRegistrySyncer: "eu.gcr.io/sap-cp-cmp-dev"
+      versionSyncer: "int-auth"
       dir:
       version: "PR-1910"
     ord_service:
@@ -276,7 +278,7 @@ global:
     port: 4455
     timeout_ms: 120000
     idTokenConfig:
-      claims: '{"scopes": "{{ print .Extra.scope }}", "tenant": "{{ print .Extra.tenant }}", "externalTenant": "{{ print .Extra.externalTenant }}", "consumerID": "{{ print .Extra.consumerID}}", "consumerType": "{{ print .Extra.consumerType }}"}'
+      claims: '{"zid": "{{ print .Extra.zid }}", "scopes": "{{ print .Extra.scope }}", "tenant": "{{ print .Extra.tenant }}", "externalTenant": "{{ print .Extra.externalTenant }}", "consumerID": "{{ print .Extra.consumerID}}", "consumerType": "{{ print .Extra.consumerType }}"}'
     mutators:
       internalAuthenticationService:
         config:
@@ -326,9 +328,8 @@ global:
     prefix: /tenants
     port: 3000
     authentication:
-      allowJWTSigningNone: true
       jwksEndpoints: '["http://ory-oathkeeper-api.kyma-system.svc.cluster.local:4456/.well-known/jwks.json"]'
-      identityZone: "id-zone"
+      identityZone: "sap-provisioning"
     tenantProvider:
       tenantIdProperty: "tenantId"
       name: "provider"
@@ -397,28 +398,33 @@ global:
     authenticator0:
       enabled: true
       gatewayHost: "compass-gateway-authenticator0"
+      upstreamComponent: "compass-gateway"
       trusted_issuers: '[{"domain_url": "authenticator.domain", "scope_prefix": "prefix."}, {}]'
       attributes: '{"uniqueAttribute": { "key": "key", "value": "val" }, "tenant": { "key": "key" }, "identity": { "key": "key" } }'
+    # TODO RM in productization
     xsuaa:
       enabled: true
       gatewayHost: "compass-gateway-xsuaa"
-      trusted_issuers: '[{"domain_url": "authentication.stagingaws.hanavlab.ondemand.com",
-                                   "scope_prefix": "cmp!b6346."}, {"domain_url": "authentication.hotfixaws.hanavlab.ondemand.com",
-                                   "scope_prefix": "cmp!b174."}]'
+      upstreamComponent: "compass-gateway"
+      trusted_issuers: '[{"domain_url": "authentication.sap.hana.ondemand.com",
+                                   "scope_prefix": "simple-sass-refapp!b14566."}, {"domain_url": "authentication.hotfixaws.hanavlab.ondemand.com",
+                                   "scope_prefix": "simple-sass-refapp!b14566."}]'
       attributes: '{"uniqueAttribute": { "key": "ext_attr.enhancer", "value": "XSUAA"
                               }, "tenant": { "key": "ext_attr.globalaccountid" }, "identity": { "key":
                               "user_name" } }'
-      path: /director/graphql
+      path: director/graphql
+    # TODO RM in productization
     xsuaa-tf:
       enabled: true
       gatewayHost: "compass-gateway"
-      trusted_issuers: '[{"domain_url": "authentication.stagingaws.hanavlab.ondemand.com",
-                                                          "scope_prefix": "cmp!b6346."}, {"domain_url": "authentication.hotfixaws.hanavlab.ondemand.com",
-                                                          "scope_prefix": "cmp!b174."}]'
+      upstreamComponent: "compass-tenant-fetcher"
+      trusted_issuers: '[{"domain_url": "authentication.sap.hana.ondemand.com",
+                                                          "scope_prefix": "simple-sass-refapp!b14566."}, {"domain_url": "authentication.hotfixaws.hanavlab.ondemand.com",
+                                                          "scope_prefix": "simple-sass-refapp!b14566."}]'
       attributes: '{"uniqueAttribute": { "key": "ext_attr.enhancer", "value": "XSUAA"
                                                 }, "tenant": { "key": "ext_attr.subaccountid" }, "identity": { "key":
                                                 "ext_attr.zdn" } }'
-      path: /tenants/<.*>
+      path: tenants/<.*>
 
   externalServicesMock:
     enabled: false

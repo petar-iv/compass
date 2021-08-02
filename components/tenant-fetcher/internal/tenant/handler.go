@@ -9,7 +9,6 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 
 	"github.com/gorilla/mux"
-	"github.com/kyma-incubator/compass/components/director/pkg/authenticator"
 	"github.com/kyma-incubator/compass/components/director/pkg/executor"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
@@ -33,7 +32,7 @@ type Config struct {
 
 const compassURL = "https://github.com/kyma-incubator/compass"
 
-func RegisterHandler(ctx context.Context, router *mux.Router, cfg Config, authConfig []authenticator.Config, transact persistence.Transactioner) error {
+func RegisterHandler(ctx context.Context, router *mux.Router, cfg Config, transact persistence.Transactioner) error {
 	logger := log.C(ctx)
 
 	var jwks []string
@@ -46,8 +45,6 @@ func RegisterHandler(ctx context.Context, router *mux.Router, cfg Config, authCo
 		jwks,
 		cfg.IdentityZone,
 		cfg.SubscriptionCallbackScope,
-		extractTrustedIssuersScopePrefixes(authConfig),
-		cfg.AllowJWTSigningNone,
 	)
 
 	router.Use(middleware.Handler())
@@ -73,20 +70,4 @@ func RegisterHandler(ctx context.Context, router *mux.Router, cfg Config, authCo
 	router.HandleFunc(cfg.HandlerEndpoint, service.DeleteByExternalID).Methods(http.MethodDelete)
 
 	return nil
-}
-
-func extractTrustedIssuersScopePrefixes(config []authenticator.Config) []string {
-	var prefixes []string
-
-	for _, authenticator := range config {
-		if len(authenticator.TrustedIssuers) == 0 {
-			continue
-		}
-
-		for _, trustedIssuers := range authenticator.TrustedIssuers {
-			prefixes = append(prefixes, trustedIssuers.ScopePrefix)
-		}
-	}
-
-	return prefixes
 }

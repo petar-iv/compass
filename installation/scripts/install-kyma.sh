@@ -63,7 +63,7 @@ else
   KYMA_SOURCE="${KYMA_RELEASE}"
 fi
 
-cert=$(</Users/i507827/.minikube/ca.crt)
+cert=$(<$HOME/.minikube/ca.crt)
 cert="${cert//$'\n'/\\\\n}"
 
 contents_minimal=$(sed "s~\"__CERT__\"~\"$cert\"~" "${ROOT_PATH}"/installation/resources/kyma/installer-overrides-kyma-minimal-config-local.yaml)
