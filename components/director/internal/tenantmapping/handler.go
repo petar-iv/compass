@@ -52,6 +52,10 @@ type TenantRepository interface {
 	GetByExternalTenant(ctx context.Context, externalTenant string) (*model.BusinessTenantMapping, error)
 }
 
+type TenantService interface {
+	CreateManyIfNotExists(ctx context.Context, tenantInputs ...model.BusinessTenantMappingInput) error
+}
+
 // Handler missing godoc
 type Handler struct {
 	authenticators         []authenticator.Config

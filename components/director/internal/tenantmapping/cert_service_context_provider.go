@@ -2,22 +2,27 @@ package tenantmapping
 
 import (
 	"context"
-
 	"github.com/kyma-incubator/compass/components/director/internal/consumer"
+	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/internal/oathkeeper"
+	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
+	"github.com/kyma-incubator/compass/components/director/pkg/tenant"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
 // NewCertServiceContextProvider implements the ObjectContextProvider interface by looking for tenant information directly populated in the certificate.
-func NewCertServiceContextProvider(tenantRepo TenantRepository) *certServiceContextProvider {
+func NewCertServiceContextProvider(tenantRepo TenantRepository, tenantSvc TenantService) *certServiceContextProvider {
 	return &certServiceContextProvider{
 		tenantRepo: tenantRepo,
+		tenantSvc: tenantSvc,
 	}
 }
 
 type certServiceContextProvider struct {
 	tenantRepo TenantRepository
+	tenantSvc TenantService
 }
 
 // GetObjectContext is the certServiceContextProvider implementation of the ObjectContextProvider interface
@@ -32,7 +37,14 @@ func (m *certServiceContextProvider) GetObjectContext(ctx context.Context, _ oat
 
 	externalTenantID := authDetails.AuthID
 
-	/* TODO: Uncomment once we start storing subaccounts as tenants
+	if err := m.tenantSvc.CreateManyIfNotExists(ctx, model.BusinessTenantMappingInput{
+		ExternalTenant: externalTenantID,
+		Type:           tenant.TypeToStr(tenant.Subaccount),
+		Provider:       "tenant-mapping",
+	}); err != nil {
+		return ObjectContext{}, err
+	}
+
 	log.C(ctx).Infof("Getting the tenant with external ID: %s", externalTenantID)
 	tenantMapping, err := m.tenantRepo.GetByExternalTenant(ctx, externalTenantID)
 	if err != nil {
@@ -40,16 +52,12 @@ func (m *certServiceContextProvider) GetObjectContext(ctx context.Context, _ oat
 			log.C(ctx).Warningf("Could not find tenant with external ID: %s, error: %s", externalTenantID, err.Error())
 
 			log.C(ctx).Infof("Returning tenant context with empty internal tenant ID and external ID %s", externalTenantID)
-			return NewObjectContext(NewTenantContext(externalTenantID, ""), "", authDetails.AuthID, consumer.Runtime), nil
+			return NewObjectContext(NewTenantContext(externalTenantID, ""), "runtime:write", authDetails.AuthID, consumer.Runtime), nil
 		}
 		return ObjectContext{}, errors.Wrapf(err, "while getting external tenant mapping [ExternalTenantID=%s]", externalTenantID)
 	}
 
-	objCtx := NewObjectContext(NewTenantContext(externalTenantID, tenantMapping.ID), "", authDetails.AuthID, consumer.Runtime)
-
-	*/
-
-	objCtx := NewObjectContext(NewTenantContext(externalTenantID, externalTenantID), "", authDetails.AuthID, consumer.Runtime)
+	objCtx := NewObjectContext(NewTenantContext(externalTenantID, tenantMapping.ID), "runtime:write", authDetails.AuthID, consumer.Runtime)
 
 	log.C(ctx).Infof("Successfully got object context: %+v", objCtx)
 
