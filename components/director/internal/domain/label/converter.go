@@ -30,6 +30,7 @@ func (c *converter) ToEntity(in model.Label) (Entity, error) {
 	var appID sql.NullString
 	var rtmID sql.NullString
 	var rtmCtxID sql.NullString
+	var bndlID sql.NullString
 	switch in.ObjectType {
 	case model.ApplicationLabelableObject:
 		appID = sql.NullString{
@@ -46,6 +47,11 @@ func (c *converter) ToEntity(in model.Label) (Entity, error) {
 			Valid:  true,
 			String: in.ObjectID,
 		}
+	case model.BundleLabelableObject:
+		bndlID = sql.NullString{
+			Valid:  true,
+			String: in.ObjectID,
+		}
 	}
 
 	return Entity{
@@ -54,6 +60,7 @@ func (c *converter) ToEntity(in model.Label) (Entity, error) {
 		AppID:            appID,
 		RuntimeID:        rtmID,
 		RuntimeContextID: rtmCtxID,
+		BundleID:         bndlID,
 		Key:              in.Key,
 		Value:            string(valueMarshalled),
 	}, nil
@@ -81,6 +88,9 @@ func (c *converter) FromEntity(in Entity) (model.Label, error) {
 	} else if in.RuntimeContextID.Valid {
 		objectID = in.RuntimeContextID.String
 		objectType = model.RuntimeContextLabelableObject
+	} else if in.BundleID.Valid {
+		objectID = in.BundleID.String
+		objectType = model.BundleLabelableObject
 	}
 
 	return model.Label{

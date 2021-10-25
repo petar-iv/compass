@@ -44,6 +44,8 @@ const (
 	ApplicationLabelableObject LabelableObject = "Application"
 	// TenantLabelableObject missing godoc
 	TenantLabelableObject LabelableObject = "Tenant"
+	// BundleLabelableObject is a constant used when labelling bundles.
+	BundleLabelableObject LabelableObject = "Bundle"
 )
 
 // NewLabelForRuntimeContext missing godoc
@@ -77,6 +79,18 @@ func NewLabelForApplication(app Application, key string, value interface{}) *Lab
 		Tenant:     app.Tenant,
 		ObjectType: ApplicationLabelableObject,
 		ObjectID:   app.ID,
+		Key:        key,
+		Value:      value,
+	}
+}
+
+// NewLabelForRuntimeContext missing godoc
+func NewLabelForBundle(bundle Bundle, key string, value interface{}) *Label {
+	return &Label{
+		ID:         uuid.New().String(),
+		Tenant:     bundle.TenantID,
+		ObjectType: BundleLabelableObject,
+		ObjectID:   bundle.ID,
 		Key:        key,
 		Value:      value,
 	}
