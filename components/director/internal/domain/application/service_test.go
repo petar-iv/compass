@@ -2798,8 +2798,7 @@ func TestService_ListGlobal(t *testing.T) {
 	}
 }
 
-func TestService_ListByRuntimeID(t *testing.T) {
-	runtimeUUID := uuid.New()
+func TestService_ListByScenarios(t *testing.T) {
 	testError := errors.New("test error")
 	tenantUUID := uuid.New()
 	externalTenantUUID := uuid.New()
@@ -2808,12 +2807,7 @@ func TestService_ListByRuntimeID(t *testing.T) {
 
 	first := 10
 	cursor := "test"
-	scenarios := []interface{}{"Easter", "Christmas", "Winter-Sale"}
-	scenarioLabel := model.Label{
-		ID:    uuid.New().String(),
-		Key:   model.ScenariosKey,
-		Value: scenarios,
-	}
+	scenarios := []string{"Easter", "Christmas", "Winter-Sale"}
 	hidingSelectors := map[string][]string{"foo": {"bar", "baz"}}
 
 	applications := []*model.Application{
@@ -2827,33 +2821,19 @@ func TestService_ListByRuntimeID(t *testing.T) {
 		PageInfo:   &pagination.Page{StartCursor: "", EndCursor: "", HasNextPage: false}}
 
 	testCases := []struct {
-		Name                string
-		Input               uuid.UUID
-		RuntimeRepositoryFn func() *automock.RuntimeRepository
-		LabelRepositoryFn   func() *automock.LabelRepository
-		AppRepositoryFn     func() *automock.ApplicationRepository
-		ConfigProviderFn    func() *automock.ApplicationHideCfgProvider
-		ExpectedResult      *model.ApplicationPage
-		ExpectedError       error
+		Name             string
+		Input            []string
+		AppRepositoryFn  func() *automock.ApplicationRepository
+		ConfigProviderFn func() *automock.ApplicationHideCfgProvider
+		ExpectedResult   *model.ApplicationPage
+		ExpectedError    error
 	}{
 		{
 			Name:  "Success",
-			Input: runtimeUUID,
-			RuntimeRepositoryFn: func() *automock.RuntimeRepository {
-				runtimeRepository := &automock.RuntimeRepository{}
-				runtimeRepository.On("Exists", ctx, tenantUUID.String(), runtimeUUID.String()).
-					Return(true, nil).Once()
-				return runtimeRepository
-			},
-			LabelRepositoryFn: func() *automock.LabelRepository {
-				labelRepository := &automock.LabelRepository{}
-				labelRepository.On("GetByKey", ctx, tenantUUID.String(), model.RuntimeLabelableObject, runtimeUUID.String(), model.ScenariosKey).
-					Return(&scenarioLabel, nil).Once()
-				return labelRepository
-			},
+			Input: scenarios,
 			AppRepositoryFn: func() *automock.ApplicationRepository {
 				appRepository := &automock.ApplicationRepository{}
-				appRepository.On("ListByScenarios", ctx, tenantUUID, convertToStringArray(t, scenarios), first, cursor, hidingSelectors).
+				appRepository.On("ListByScenarios", ctx, tenantUUID, scenarios, first, cursor, hidingSelectors).
 					Return(applicationPage, nil).Once()
 				return appRepository
 			},
@@ -2866,127 +2846,11 @@ func TestService_ListByRuntimeID(t *testing.T) {
 			ExpectedResult: applicationPage,
 		},
 		{
-			Name:  "Success when scenarios label not set",
-			Input: runtimeUUID,
-			RuntimeRepositoryFn: func() *automock.RuntimeRepository {
-				runtimeRepository := &automock.RuntimeRepository{}
-				runtimeRepository.On("Exists", ctx, tenantUUID.String(), runtimeUUID.String()).
-					Return(true, nil).Once()
-				return runtimeRepository
-			},
-			LabelRepositoryFn: func() *automock.LabelRepository {
-				labelRepository := &automock.LabelRepository{}
-				labelRepository.On("GetByKey", ctx, tenantUUID.String(), model.RuntimeLabelableObject, runtimeUUID.String(), model.ScenariosKey).
-					Return(nil, apperrors.NewNotFoundError(resource.Application, "")).Once()
-				return labelRepository
-			},
-			AppRepositoryFn: func() *automock.ApplicationRepository {
-				appRepository := &automock.ApplicationRepository{}
-				return appRepository
-			},
-			ConfigProviderFn: func() *automock.ApplicationHideCfgProvider {
-				cfgProvider := &automock.ApplicationHideCfgProvider{}
-				return cfgProvider
-			},
-			ExpectedError: nil,
-			ExpectedResult: &model.ApplicationPage{
-				Data:       []*model.Application{},
-				PageInfo:   &pagination.Page{},
-				TotalCount: 0,
-			},
-		},
-		{
-			Name:  "Return error when checking of runtime existence failed",
-			Input: runtimeUUID,
-			RuntimeRepositoryFn: func() *automock.RuntimeRepository {
-				runtimeRepository := &automock.RuntimeRepository{}
-				runtimeRepository.On("Exists", ctx, tenantUUID.String(), runtimeUUID.String()).
-					Return(false, testError).Once()
-				return runtimeRepository
-			},
-			LabelRepositoryFn: func() *automock.LabelRepository {
-				labelRepository := &automock.LabelRepository{}
-				return labelRepository
-			},
-			AppRepositoryFn: func() *automock.ApplicationRepository {
-				appRepository := &automock.ApplicationRepository{}
-				return appRepository
-			},
-			ConfigProviderFn: func() *automock.ApplicationHideCfgProvider {
-				cfgProvider := &automock.ApplicationHideCfgProvider{}
-				return cfgProvider
-			},
-			ExpectedError:  testError,
-			ExpectedResult: nil,
-		},
-		{
-			Name:  "Return error when runtime not exits",
-			Input: runtimeUUID,
-			RuntimeRepositoryFn: func() *automock.RuntimeRepository {
-				runtimeRepository := &automock.RuntimeRepository{}
-				runtimeRepository.On("Exists", ctx, tenantUUID.String(), runtimeUUID.String()).
-					Return(false, nil).Once()
-				return runtimeRepository
-			},
-			LabelRepositoryFn: func() *automock.LabelRepository {
-				labelRepository := &automock.LabelRepository{}
-				return labelRepository
-			},
-			AppRepositoryFn: func() *automock.ApplicationRepository {
-				appRepository := &automock.ApplicationRepository{}
-				return appRepository
-			},
-			ConfigProviderFn: func() *automock.ApplicationHideCfgProvider {
-				cfgProvider := &automock.ApplicationHideCfgProvider{}
-				return cfgProvider
-			},
-			ExpectedError:  errors.New("runtime does not exist"),
-			ExpectedResult: nil,
-		},
-		{
-			Name:  "Return error when getting runtime scenarios by RuntimeID failed",
-			Input: runtimeUUID,
-			RuntimeRepositoryFn: func() *automock.RuntimeRepository {
-				runtimeRepository := &automock.RuntimeRepository{}
-				runtimeRepository.On("Exists", ctx, tenantUUID.String(), runtimeUUID.String()).
-					Return(true, nil).Once()
-				return runtimeRepository
-			},
-			LabelRepositoryFn: func() *automock.LabelRepository {
-				labelRepository := &automock.LabelRepository{}
-				labelRepository.On("GetByKey", ctx, tenantUUID.String(), model.RuntimeLabelableObject, runtimeUUID.String(), model.ScenariosKey).
-					Return(nil, testError).Once()
-				return labelRepository
-			},
-			AppRepositoryFn: func() *automock.ApplicationRepository {
-				appRepository := &automock.ApplicationRepository{}
-				return appRepository
-			},
-			ConfigProviderFn: func() *automock.ApplicationHideCfgProvider {
-				cfgProvider := &automock.ApplicationHideCfgProvider{}
-				return cfgProvider
-			},
-			ExpectedError:  testError,
-			ExpectedResult: nil,
-		},
-		{
 			Name:  "Return error when listing application by scenarios failed",
-			Input: runtimeUUID,
-			RuntimeRepositoryFn: func() *automock.RuntimeRepository {
-				runtimeRepository := &automock.RuntimeRepository{}
-				runtimeRepository.On("Exists", ctx, tenantUUID.String(), runtimeUUID.String()).
-					Return(true, nil).Once()
-				return runtimeRepository
-			},
-			LabelRepositoryFn: func() *automock.LabelRepository {
-				labelRepository := &automock.LabelRepository{}
-				labelRepository.On("GetByKey", ctx, tenantUUID.String(), model.RuntimeLabelableObject, runtimeUUID.String(), model.ScenariosKey).
-					Return(&scenarioLabel, nil).Once()
-				return labelRepository
-			},
+			Input: scenarios,
 			AppRepositoryFn: func() *automock.ApplicationRepository {
 				appRepository := &automock.ApplicationRepository{}
-				appRepository.On("ListByScenarios", ctx, tenantUUID, convertToStringArray(t, scenarios), first, cursor, hidingSelectors).
+				appRepository.On("ListByScenarios", ctx, tenantUUID, scenarios, first, cursor, hidingSelectors).
 					Return(nil, testError).Once()
 				return appRepository
 			},
@@ -3000,25 +2864,15 @@ func TestService_ListByRuntimeID(t *testing.T) {
 		},
 		{
 			Name:  "Return empty page when runtime is not assigned to any scenario",
-			Input: runtimeUUID,
-			RuntimeRepositoryFn: func() *automock.RuntimeRepository {
-				runtimeRepository := &automock.RuntimeRepository{}
-				runtimeRepository.On("Exists", ctx, tenantUUID.String(), runtimeUUID.String()).
-					Return(true, nil).Once()
-				return runtimeRepository
-			},
-			LabelRepositoryFn: func() *automock.LabelRepository {
-				labelRepository := &automock.LabelRepository{}
-				labelRepository.On("GetByKey", ctx, tenantUUID.String(), model.RuntimeLabelableObject, runtimeUUID.String(), model.ScenariosKey).
-					Return(&model.Label{ID: uuid.New().String(), Key: model.ScenariosKey, Value: []interface{}{}}, nil).Once()
-				return labelRepository
-			},
+			Input: scenarios,
 			AppRepositoryFn: func() *automock.ApplicationRepository {
 				appRepository := &automock.ApplicationRepository{}
+				appRepository.On("ListByScenarios", ctx, tenantUUID, scenarios, first, cursor, hidingSelectors).Return(&emptyPage, nil).Once()
 				return appRepository
 			},
 			ConfigProviderFn: func() *automock.ApplicationHideCfgProvider {
 				cfgProvider := &automock.ApplicationHideCfgProvider{}
+				cfgProvider.On("GetApplicationHideSelectors").Return(hidingSelectors, nil).Once()
 				return cfgProvider
 			},
 			ExpectedError:  nil,
@@ -3026,19 +2880,7 @@ func TestService_ListByRuntimeID(t *testing.T) {
 		},
 		{
 			Name:  "Return error when config provider returns error",
-			Input: runtimeUUID,
-			RuntimeRepositoryFn: func() *automock.RuntimeRepository {
-				runtimeRepository := &automock.RuntimeRepository{}
-				runtimeRepository.On("Exists", ctx, tenantUUID.String(), runtimeUUID.String()).
-					Return(true, nil).Once()
-				return runtimeRepository
-			},
-			LabelRepositoryFn: func() *automock.LabelRepository {
-				labelRepository := &automock.LabelRepository{}
-				labelRepository.On("GetByKey", ctx, tenantUUID.String(), model.RuntimeLabelableObject, runtimeUUID.String(), model.ScenariosKey).
-					Return(&scenarioLabel, nil).Once()
-				return labelRepository
-			},
+			Input: scenarios,
 			AppRepositoryFn: func() *automock.ApplicationRepository {
 				appRepository := &automock.ApplicationRepository{}
 				return appRepository
@@ -3056,14 +2898,12 @@ func TestService_ListByRuntimeID(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			//GIVEN
-			runtimeRepository := testCase.RuntimeRepositoryFn()
-			labelRepository := testCase.LabelRepositoryFn()
 			appRepository := testCase.AppRepositoryFn()
 			cfgProvider := testCase.ConfigProviderFn()
-			svc := application.NewService(nil, cfgProvider, appRepository, nil, runtimeRepository, labelRepository, nil, nil, nil, nil, nil)
+			svc := application.NewService(nil, cfgProvider, appRepository, nil, nil, nil, nil, nil, nil, nil, nil)
 
 			//WHEN
-			results, err := svc.ListByRuntimeID(ctx, testCase.Input, first, cursor)
+			results, err := svc.ListByScenarios(ctx, testCase.Input, first, cursor)
 
 			//THEN
 			if testCase.ExpectedError != nil {
@@ -3074,8 +2914,6 @@ func TestService_ListByRuntimeID(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, testCase.ExpectedResult, results)
-			runtimeRepository.AssertExpectations(t)
-			labelRepository.AssertExpectations(t)
 			appRepository.AssertExpectations(t)
 			cfgProvider.AssertExpectations(t)
 		})

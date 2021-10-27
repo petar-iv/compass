@@ -376,7 +376,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 						Condition: model.BundleInstanceAuthStatusConditionSucceeded,
 					},
 				}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{auth}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{auth}, nil)
 				svc.On("Update", contextParam, auth).Return(nil)
 				return svc
 			},
@@ -420,7 +420,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 						Condition: model.BundleInstanceAuthStatusConditionSucceeded,
 					},
 				}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{auth}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{auth}, nil)
 				svc.On("Update", contextParam, auth).Return(nil)
 				return svc
 			},
@@ -522,7 +522,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",
@@ -556,7 +556,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",
@@ -589,7 +589,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return(nil, testErr)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return(nil, testErr)
 				return svc
 			},
 			InputID:         "foo",
@@ -628,7 +628,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 						Condition: model.BundleInstanceAuthStatusConditionSucceeded,
 					},
 				}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{auth}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{auth}, nil)
 				svc.On("Update", contextParam, auth).Return(testErr)
 				return svc
 			},
@@ -667,7 +667,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",
@@ -702,7 +702,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",
@@ -742,7 +742,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",
@@ -781,7 +781,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",
@@ -822,7 +822,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",
@@ -862,7 +862,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",
@@ -905,7 +905,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",
@@ -958,7 +958,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",
@@ -1014,7 +1014,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",
@@ -1062,7 +1062,7 @@ func TestResolver_DeleteRuntime(t *testing.T) {
 			},
 			BundleInstanceAuthSvcFn: func() *automock.BundleInstanceAuthService {
 				svc := &automock.BundleInstanceAuthService{}
-				svc.On("ListByRuntimeID", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
+				svc.On("ListByScenarios", contextParam, modelRuntime.ID).Return([]*model.BundleInstanceAuth{}, nil)
 				return svc
 			},
 			InputID:         "foo",

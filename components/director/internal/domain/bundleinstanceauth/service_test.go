@@ -709,7 +709,7 @@ func TestService_ListByRuntimeID(t *testing.T) {
 			Name: "Success",
 			RepositoryFn: func() *automock.Repository {
 				repo := &automock.Repository{}
-				repo.On("ListByRuntimeID", ctx, tnt, testRuntimeID).Return(bundleInstanceAuths, nil).Once()
+				repo.On("ListByScenarios", ctx, tnt, testRuntimeID).Return(bundleInstanceAuths, nil).Once()
 				return repo
 			},
 			ExpectedResult:     bundleInstanceAuths,
@@ -719,7 +719,7 @@ func TestService_ListByRuntimeID(t *testing.T) {
 			Name: "Returns error when Bundle Instance Auth listing by runtime ID failed",
 			RepositoryFn: func() *automock.Repository {
 				repo := &automock.Repository{}
-				repo.On("ListByRuntimeID", ctx, tnt, testRuntimeID).Return(nil, testErr).Once()
+				repo.On("ListByScenarios", ctx, tnt, testRuntimeID).Return(nil, testErr).Once()
 				return repo
 			},
 			ExpectedResult:     nil,
