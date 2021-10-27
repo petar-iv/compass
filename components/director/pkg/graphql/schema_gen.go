@@ -189,6 +189,7 @@ type ComplexityRoot struct {
 		InstanceAuth                   func(childComplexity int, id string) int
 		InstanceAuthRequestInputSchema func(childComplexity int) int
 		InstanceAuths                  func(childComplexity int) int
+		Labels                         func(childComplexity int, key *string) int
 		Name                           func(childComplexity int) int
 		UpdatedAt                      func(childComplexity int) int
 	}
@@ -349,6 +350,7 @@ type ComplexityRoot struct {
 		DeleteAutomaticScenarioAssignmentsForSelector func(childComplexity int, selector LabelSelectorInput) int
 		DeleteBundle                                  func(childComplexity int, id string) int
 		DeleteBundleInstanceAuth                      func(childComplexity int, authID string) int
+		DeleteBundleLabel                             func(childComplexity int, bundleID string, key string) int
 		DeleteDefaultEventingForApplication           func(childComplexity int, appID string) int
 		DeleteDocument                                func(childComplexity int, id string) int
 		DeleteEventDefinition                         func(childComplexity int, id string) int
@@ -374,6 +376,7 @@ type ComplexityRoot struct {
 		RequestOneTimeTokenForRuntime                 func(childComplexity int, id string, systemAuthID *string) int
 		SetApplicationLabel                           func(childComplexity int, applicationID string, key string, value interface{}) int
 		SetBundleInstanceAuth                         func(childComplexity int, authID string, in BundleInstanceAuthSetInput) int
+		SetBundleLabel                                func(childComplexity int, bundleID string, key string, value interface{}) int
 		SetDefaultEventingForApplication              func(childComplexity int, appID string, runtimeID string) int
 		SetRuntimeLabel                               func(childComplexity int, runtimeID string, key string, value interface{}) int
 		UnregisterApplication                         func(childComplexity int, id string, mode *OperationMode) int
@@ -561,6 +564,8 @@ type ApplicationTemplateResolver interface {
 	Webhooks(ctx context.Context, obj *ApplicationTemplate) ([]*Webhook, error)
 }
 type BundleResolver interface {
+	Labels(ctx context.Context, obj *Bundle, key *string) (Labels, error)
+
 	InstanceAuth(ctx context.Context, obj *Bundle, id string) (*BundleInstanceAuth, error)
 	InstanceAuths(ctx context.Context, obj *Bundle) ([]*BundleInstanceAuth, error)
 
@@ -634,6 +639,8 @@ type MutationResolver interface {
 	AddBundle(ctx context.Context, applicationID string, in BundleCreateInput) (*Bundle, error)
 	UpdateBundle(ctx context.Context, id string, in BundleUpdateInput) (*Bundle, error)
 	DeleteBundle(ctx context.Context, id string) (*Bundle, error)
+	SetBundleLabel(ctx context.Context, bundleID string, key string, value interface{}) (*Label, error)
+	DeleteBundleLabel(ctx context.Context, bundleID string, key string) (*Label, error)
 	CreateAutomaticScenarioAssignment(ctx context.Context, in AutomaticScenarioAssignmentSetInput) (*AutomaticScenarioAssignment, error)
 	DeleteAutomaticScenarioAssignmentForScenario(ctx context.Context, scenarioName string) (*AutomaticScenarioAssignment, error)
 	DeleteAutomaticScenarioAssignmentsForSelector(ctx context.Context, selector LabelSelectorInput) ([]*AutomaticScenarioAssignment, error)
@@ -1349,6 +1356,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Bundle.InstanceAuths(childComplexity), true
+
+	case "Bundle.labels":
+		if e.complexity.Bundle.Labels == nil {
+			break
+		}
+
+		args, err := ec.field_Bundle_labels_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Bundle.Labels(childComplexity, args["key"].(*string)), true
 
 	case "Bundle.name":
 		if e.complexity.Bundle.Name == nil {
@@ -2125,6 +2144,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.DeleteBundleInstanceAuth(childComplexity, args["authID"].(string)), true
 
+	case "Mutation.deleteBundleLabel":
+		if e.complexity.Mutation.DeleteBundleLabel == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteBundleLabel_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteBundleLabel(childComplexity, args["bundleID"].(string), args["key"].(string)), true
+
 	case "Mutation.deleteDefaultEventingForApplication":
 		if e.complexity.Mutation.DeleteDefaultEventingForApplication == nil {
 			break
@@ -2424,6 +2455,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.SetBundleInstanceAuth(childComplexity, args["authID"].(string), args["in"].(BundleInstanceAuthSetInput)), true
+
+	case "Mutation.setBundleLabel":
+		if e.complexity.Mutation.SetBundleLabel == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_setBundleLabel_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.SetBundleLabel(childComplexity, args["bundleID"].(string), args["key"].(string), args["value"].(interface{})), true
 
 	case "Mutation.setDefaultEventingForApplication":
 		if e.complexity.Mutation.SetDefaultEventingForApplication == nil {
@@ -4240,6 +4283,7 @@ type Bundle {
 	id: ID!
 	name: String!
 	description: String
+	labels(key: String): Labels
 	instanceAuthRequestInputSchema: JSONSchema
 	instanceAuth(id: ID!): BundleInstanceAuth @sanitize(path: "graphql.field.bundle.instance_auth")
 	instanceAuths: [BundleInstanceAuth!] @sanitize(path: "graphql.field.bundle.instance_auths")
@@ -4884,6 +4928,8 @@ type Mutation {
 	- [delete bundle](examples/delete-bundle/delete-bundle.graphql)
 	"""
 	deleteBundle(id: ID!): Bundle! @hasScopes(path: "graphql.mutation.deleteBundle")
+	setBundleLabel(bundleID: ID!, key: String!, value: Any!): Label! @hasScopes(path: "graphql.mutation.setBundleLabel")
+	deleteBundleLabel(bundleID: ID!, key: String!): Label! @hasScopes(path: "graphql.mutation.deleteBundleLabel")
 	"""
 	**Examples**
 	- [create automatic scenario assignment](examples/create-automatic-scenario-assignment/create-automatic-scenario-assignment.graphql)
@@ -5174,6 +5220,20 @@ func (ec *executionContext) field_Bundle_instanceAuth_args(ctx context.Context, 
 		}
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Bundle_labels_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *string
+	if tmp, ok := rawArgs["key"]; ok {
+		arg0, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["key"] = arg0
 	return args, nil
 }
 
@@ -5531,6 +5591,28 @@ func (ec *executionContext) field_Mutation_deleteBundleInstanceAuth_args(ctx con
 		}
 	}
 	args["authID"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteBundleLabel_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["bundleID"]; ok {
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["bundleID"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["key"]; ok {
+		arg1, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["key"] = arg1
 	return args, nil
 }
 
@@ -6072,6 +6154,36 @@ func (ec *executionContext) field_Mutation_setBundleInstanceAuth_args(ctx contex
 		}
 	}
 	args["in"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_setBundleLabel_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["bundleID"]; ok {
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["bundleID"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["key"]; ok {
+		arg1, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["key"] = arg1
+	var arg2 interface{}
+	if tmp, ok := rawArgs["value"]; ok {
+		arg2, err = ec.unmarshalNAny2interface(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["value"] = arg2
 	return args, nil
 }
 
@@ -9540,6 +9652,44 @@ func (ec *executionContext) _Bundle_description(ctx context.Context, field graph
 	res := resTmp.(*string)
 	fc.Result = res
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Bundle_labels(ctx context.Context, field graphql.CollectedField, obj *Bundle) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Bundle",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Bundle_labels_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Bundle().Labels(rctx, obj, args["key"].(*string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(Labels)
+	fc.Result = res
+	return ec.marshalOLabels2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐLabels(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Bundle_instanceAuthRequestInputSchema(ctx context.Context, field graphql.CollectedField, obj *Bundle) (ret graphql.Marshaler) {
@@ -16421,6 +16571,136 @@ func (ec *executionContext) _Mutation_deleteBundle(ctx context.Context, field gr
 	res := resTmp.(*Bundle)
 	fc.Result = res
 	return ec.marshalNBundle2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐBundle(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_setBundleLabel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_setBundleLabel_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Mutation().SetBundleLabel(rctx, args["bundleID"].(string), args["key"].(string), args["value"].(interface{}))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			path, err := ec.unmarshalNString2string(ctx, "graphql.mutation.setBundleLabel")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.HasScopes == nil {
+				return nil, errors.New("directive hasScopes is not implemented")
+			}
+			return ec.directives.HasScopes(ctx, nil, directive0, path)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, err
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*Label); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kyma-incubator/compass/components/director/pkg/graphql.Label`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*Label)
+	fc.Result = res
+	return ec.marshalNLabel2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐLabel(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_deleteBundleLabel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_deleteBundleLabel_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Mutation().DeleteBundleLabel(rctx, args["bundleID"].(string), args["key"].(string))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			path, err := ec.unmarshalNString2string(ctx, "graphql.mutation.deleteBundleLabel")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.HasScopes == nil {
+				return nil, errors.New("directive hasScopes is not implemented")
+			}
+			return ec.directives.HasScopes(ctx, nil, directive0, path)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, err
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*Label); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kyma-incubator/compass/components/director/pkg/graphql.Label`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*Label)
+	fc.Result = res
+	return ec.marshalNLabel2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐLabel(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createAutomaticScenarioAssignment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -23682,6 +23962,17 @@ func (ec *executionContext) _Bundle(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "description":
 			out.Values[i] = ec._Bundle_description(ctx, field, obj)
+		case "labels":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Bundle_labels(ctx, field, obj)
+				return res
+			})
 		case "instanceAuthRequestInputSchema":
 			out.Values[i] = ec._Bundle_instanceAuthRequestInputSchema(ctx, field, obj)
 		case "instanceAuth":
@@ -24819,6 +25110,16 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			}
 		case "deleteBundle":
 			out.Values[i] = ec._Mutation_deleteBundle(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "setBundleLabel":
+			out.Values[i] = ec._Mutation_setBundleLabel(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "deleteBundleLabel":
+			out.Values[i] = ec._Mutation_deleteBundleLabel(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}

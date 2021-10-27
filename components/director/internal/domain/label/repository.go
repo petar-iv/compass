@@ -18,7 +18,7 @@ const (
 	tenantColumn string = "tenant_id"
 )
 
-var tableColumns = []string{"id", tenantColumn, "app_id", "runtime_id", "runtime_context_id", "key", "value"}
+var tableColumns = []string{"id", tenantColumn, "app_id", "runtime_id", "runtime_context_id", "bundle_id", "key", "value"}
 
 // Converter missing godoc
 //go:generate mockery --name=Converter --output=automock --outpkg=automock --case=underscore
@@ -40,7 +40,7 @@ type repository struct {
 // NewRepository missing godoc
 func NewRepository(conv Converter) *repository {
 	return &repository{
-		upserter:     repo.NewUpserter(resource.Label, tableName, tableColumns, []string{tenantColumn, "coalesce(app_id, '00000000-0000-0000-0000-000000000000')", "coalesce(runtime_id, '00000000-0000-0000-0000-000000000000')", "coalesce(runtime_context_id, '00000000-0000-0000-0000-000000000000')", "key"}, []string{"value"}),
+		upserter:     repo.NewUpserter(resource.Label, tableName, tableColumns, []string{tenantColumn, "coalesce(app_id, '00000000-0000-0000-0000-000000000000')", "coalesce(runtime_id, '00000000-0000-0000-0000-000000000000')", "coalesce(runtime_context_id, '00000000-0000-0000-0000-000000000000')", "coalesce(bundle_id, '00000000-0000-0000-0000-000000000000')", "key"}, []string{"value"}),
 		lister:       repo.NewLister(resource.Label, tableName, tenantColumn, tableColumns),
 		listerGlobal: repo.NewListerGlobal(resource.Label, tableName, tableColumns),
 		deleter:      repo.NewDeleter(resource.Label, tableName, tenantColumn),
@@ -88,6 +88,7 @@ func (r *repository) ListForObject(ctx context.Context, tenant string, objectTyp
 		conditions = append(conditions, repo.NewNullCondition(labelableObjectField(model.ApplicationLabelableObject)))
 		conditions = append(conditions, repo.NewNullCondition(labelableObjectField(model.RuntimeContextLabelableObject)))
 		conditions = append(conditions, repo.NewNullCondition(labelableObjectField(model.RuntimeLabelableObject)))
+		conditions = append(conditions, repo.NewNullCondition(labelableObjectField(model.BundleLabelableObject)))
 	}
 
 	if err := r.lister.List(ctx, tenant, &entities, conditions...); err != nil {
@@ -254,6 +255,8 @@ func labelableObjectField(objectType model.LabelableObject) string {
 		return "runtime_id"
 	case model.RuntimeContextLabelableObject:
 		return "runtime_context_id"
+	case model.BundleLabelableObject:
+		return "bundle_id"
 	case model.TenantLabelableObject:
 		return "tenant_id"
 	}

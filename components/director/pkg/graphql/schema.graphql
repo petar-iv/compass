@@ -768,6 +768,7 @@ type Bundle {
 	id: ID!
 	name: String!
 	description: String
+	labels(key: String): Labels
 	instanceAuthRequestInputSchema: JSONSchema
 	instanceAuth(id: ID!): BundleInstanceAuth @sanitize(path: "graphql.field.bundle.instance_auth")
 	instanceAuths: [BundleInstanceAuth!] @sanitize(path: "graphql.field.bundle.instance_auths")
@@ -1412,6 +1413,8 @@ type Mutation {
 	- [delete bundle](examples/delete-bundle/delete-bundle.graphql)
 	"""
 	deleteBundle(id: ID!): Bundle! @hasScopes(path: "graphql.mutation.deleteBundle")
+	setBundleLabel(bundleID: ID!, key: String!, value: Any!): Label! @hasScopes(path: "graphql.mutation.setBundleLabel")
+	deleteBundleLabel(bundleID: ID!, key: String!): Label! @hasScopes(path: "graphql.mutation.deleteBundleLabel")
 	"""
 	**Examples**
 	- [create automatic scenario assignment](examples/create-automatic-scenario-assignment/create-automatic-scenario-assignment.graphql)

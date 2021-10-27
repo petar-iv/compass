@@ -2,6 +2,11 @@ package bundle
 
 import (
 	"context"
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/label"
+	"github.com/kyma-incubator/compass/components/director/internal/labelfilter"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/pagination"
 
@@ -140,7 +145,7 @@ func (r *pgRepository) GetForApplication(ctx context.Context, tenant string, id 
 	return bndlModel, nil
 }
 
-// ListByApplicationIDs missing godoc
+// ListByApplicationIDs retrieves a page of bundles for a given number of application IDs.
 func (r *pgRepository) ListByApplicationIDs(ctx context.Context, tenantID string, applicationIDs []string, pageSize int, cursor string) ([]*model.BundlePage, error) {
 	var bundleCollection BundleCollection
 	counts, err := r.unionLister.List(ctx, tenantID, applicationIDs, "app_id", pageSize, cursor, orderByColumns, &bundleCollection)
@@ -190,6 +195,114 @@ func (r *pgRepository) ListByApplicationIDNoPaging(ctx context.Context, tenantID
 	if err := r.lister.List(ctx, tenantID, &bundleCollection, repo.NewEqualCondition("app_id", appID)); err != nil {
 		return nil, err
 	}
+	bundles := make([]*model.Bundle, 0, bundleCollection.Len())
+	for _, bundle := range bundleCollection {
+		bundleModel, err := r.conv.FromEntity(&bundle)
+		if err != nil {
+			return nil, err
+		}
+		bundles = append(bundles, bundleModel)
+	}
+	return bundles, nil
+}
+
+// ListByApplicationIDsForScenarios retrieves a page of bundles that are part of at least one of the provided scenarios for a given number of application IDs.
+func (r *pgRepository) ListByApplicationIDsForScenarios(ctx context.Context, tenantID string, applicationIDs []string, scenarios []string, pageSize int, cursor string) ([]*model.BundlePage, error) {
+	var bundleCollection BundleCollection
+
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, apperrors.NewInvalidDataError("tenantID is not UUID")
+	}
+
+	scenariosFilters := make([]*labelfilter.LabelFilter, 0, len(scenarios))
+	for _, scenarioValue := range scenarios {
+		query := fmt.Sprintf(`$[*] ? (@ == "%s")`, scenarioValue)
+		scenariosFilters = append(scenariosFilters, labelfilter.NewForKeyWithQuery(model.ScenariosKey, query))
+	}
+
+	scenariosSubquery, scenariosArgs, err := label.FilterQuery(model.BundleLabelableObject, label.UnionSet, tenantUUID, scenariosFilters)
+	if err != nil {
+		return nil, errors.Wrap(err, "while creating scenarios filter query")
+	}
+
+	counts, err := r.unionLister.List(ctx,
+		tenantID,
+		applicationIDs,
+		"app_id",
+		pageSize,
+		cursor,
+		orderByColumns,
+		&bundleCollection,
+		repo.NewInConditionForSubQuery("id", scenariosSubquery, scenariosArgs))
+	if err != nil {
+		return nil, err
+	}
+
+	bundleByID := map[string][]*model.Bundle{}
+	for _, bundleEnt := range bundleCollection {
+		m, err := r.conv.FromEntity(&bundleEnt)
+		if err != nil {
+			return nil, errors.Wrap(err, "while creating Bundle model from entity")
+		}
+		bundleByID[bundleEnt.ApplicationID] = append(bundleByID[bundleEnt.ApplicationID], m)
+	}
+
+	offset, err := pagination.DecodeOffsetCursor(cursor)
+	if err != nil {
+		return nil, errors.Wrap(err, "while decoding page cursor")
+	}
+
+	bundlePages := make([]*model.BundlePage, 0, len(applicationIDs))
+	for _, appID := range applicationIDs {
+		totalCount := counts[appID]
+		hasNextPage := false
+		endCursor := ""
+		if totalCount > offset+len(bundleByID[appID]) {
+			hasNextPage = true
+			endCursor = pagination.EncodeNextOffsetCursor(offset, pageSize)
+		}
+
+		page := &pagination.Page{
+			StartCursor: cursor,
+			EndCursor:   endCursor,
+			HasNextPage: hasNextPage,
+		}
+
+		bundlePages = append(bundlePages, &model.BundlePage{Data: bundleByID[appID], TotalCount: totalCount, PageInfo: page})
+	}
+
+	return bundlePages, nil
+}
+
+// ListByApplicationIDsForScenariosNoPaging retrieves bundles part of a set of applications that are part of at least one of the provided scenarios.
+func (r *pgRepository) ListByApplicationIDsForScenariosNoPaging(ctx context.Context, tenantID string, applicationIDs []string, scenarios []string) ([]*model.Bundle, error) {
+	var bundleCollection BundleCollection
+
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, apperrors.NewInvalidDataError("tenantID is not UUID")
+	}
+
+	scenariosFilters := make([]*labelfilter.LabelFilter, 0, len(scenarios))
+	for _, scenarioValue := range scenarios {
+		query := fmt.Sprintf(`$[*] ? (@ == "%s")`, scenarioValue)
+		scenariosFilters = append(scenariosFilters, labelfilter.NewForKeyWithQuery(model.ScenariosKey, query))
+	}
+
+	scenariosSubquery, scenariosArgs, err := label.FilterQuery(model.BundleLabelableObject, label.UnionSet, tenantUUID, scenariosFilters)
+	if err != nil {
+		return nil, errors.Wrap(err, "while creating scenarios filter query")
+	}
+
+	if err := r.lister.List(ctx,
+		tenantID,
+		&bundleCollection,
+		repo.NewInConditionForStringValues("app_id", applicationIDs),
+		repo.NewInConditionForSubQuery("id", scenariosSubquery, scenariosArgs)); err != nil {
+		return nil, err
+	}
+
 	bundles := make([]*model.Bundle, 0, bundleCollection.Len())
 	for _, bundle := range bundleCollection {
 		bundleModel, err := r.conv.FromEntity(&bundle)

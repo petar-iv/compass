@@ -172,7 +172,7 @@ func NewRootResolver(
 	oAuth20Svc := oauth20.NewService(cfgProvider, uidSvc, oAuth20Cfg.PublicAccessTokenEndpoint, hydra.Admin)
 	intSysSvc := integrationsystem.NewService(intSysRepo, uidSvc)
 	eventingSvc := eventing.NewService(appNameNormalizer, runtimeRepo, labelRepo)
-	bundleSvc := bundleutil.NewService(bundleRepo, apiSvc, eventAPISvc, docSvc, uidSvc)
+	bundleSvc := bundleutil.NewService(bundleRepo, apiSvc, eventAPISvc, docSvc, labelRepo, labelUpsertSvc, uidSvc)
 	appSvc := application.NewService(appNameNormalizer, cfgProvider, applicationRepo, webhookRepo, runtimeRepo, labelRepo, intSysRepo, labelUpsertSvc, scenariosSvc, bundleSvc, uidSvc)
 	timeService := time.NewService()
 	tokenSvc := onetimetoken.NewTokenService(systemAuthSvc, appSvc, appConverter, tenantSvc, internalHTTPClient, onetimetoken.NewTokenGenerator(tokenLength), oneTimeTokenCfg, pairingAdaptersMapping, timeService)
@@ -180,7 +180,7 @@ func NewRootResolver(
 
 	return &RootResolver{
 		appNameNormalizer:  appNameNormalizer,
-		app:                application.NewResolver(transact, appSvc, webhookSvc, oAuth20Svc, systemAuthSvc, appConverter, webhookConverter, systemAuthConverter, eventingSvc, bundleSvc, bundleConverter),
+		app:                application.NewResolver(transact, appSvc, runtimeSvc, webhookSvc, oAuth20Svc, systemAuthSvc, appConverter, webhookConverter, systemAuthConverter, eventingSvc, bundleSvc, bundleConverter),
 		appTemplate:        apptemplate.NewResolver(transact, appSvc, appConverter, appTemplateSvc, appTemplateConverter, webhookSvc, webhookConverter),
 		api:                api.NewResolver(transact, apiSvc, runtimeSvc, bundleSvc, bundleReferenceSvc, apiConverter, frConverter, specSvc, specConverter),
 		eventAPI:           eventdef.NewResolver(transact, eventAPISvc, bundleSvc, bundleReferenceSvc, eventAPIConverter, frConverter, specSvc, specConverter),
@@ -456,6 +456,14 @@ func (r *queryResolver) AutomaticScenarioAssignments(ctx context.Context, first 
 
 type mutationResolver struct {
 	*RootResolver
+}
+
+func (r *mutationResolver) SetBundleLabel(ctx context.Context, bundleID string, key string, value interface{}) (*graphql.Label, error) {
+	return r.mpBundle.SetBundleLabel(ctx, bundleID, key, value)
+}
+
+func (r *mutationResolver) DeleteBundleLabel(ctx context.Context, bundleID string, key string) (*graphql.Label, error) {
+	return r.mpBundle.DeleteBundleLabel(ctx, bundleID, key)
 }
 
 // RegisterApplication missing godoc
@@ -866,6 +874,10 @@ func (r *runtimeContextResolver) Labels(ctx context.Context, obj *graphql.Runtim
 
 // BundleResolver missing godoc
 type BundleResolver struct{ *RootResolver }
+
+func (r *BundleResolver) Labels(ctx context.Context, obj *graphql.Bundle, key *string) (graphql.Labels, error) {
+	return r.mpBundle.Labels(ctx, obj, key)
+}
 
 // InstanceAuth missing godoc
 func (r *BundleResolver) InstanceAuth(ctx context.Context, obj *graphql.Bundle, id string) (*graphql.BundleInstanceAuth, error) {

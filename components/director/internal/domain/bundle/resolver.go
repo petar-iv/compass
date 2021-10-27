@@ -2,6 +2,9 @@ package bundle
 
 import (
 	"context"
+	"strings"
+
+	"github.com/kyma-incubator/compass/components/director/pkg/inputvalidation"
 
 	dataloader "github.com/kyma-incubator/compass/components/director/internal/dataloaders"
 
@@ -24,12 +27,17 @@ type BundleService interface {
 	Update(ctx context.Context, id string, in model.BundleUpdateInput) error
 	Delete(ctx context.Context, id string) error
 	Get(ctx context.Context, id string) (*model.Bundle, error)
+	SetLabel(ctx context.Context, in *model.LabelInput) error
+	GetLabel(ctx context.Context, bundleID string, key string) (*model.Label, error)
+	ListLabels(ctx context.Context, bundleID string) (map[string]*model.Label, error)
+	DeleteLabel(ctx context.Context, bundleID string, key string) error
 }
 
 // BundleConverter missing godoc
 //go:generate mockery --name=BundleConverter --output=automock --outpkg=automock --case=underscore
 type BundleConverter interface {
 	ToGraphQL(in *model.Bundle) (*graphql.Bundle, error)
+	MultipleToGraphQL(in []*model.Bundle) ([]*graphql.Bundle, error)
 	CreateInputFromGraphQL(in graphql.BundleCreateInput) (model.BundleCreateInput, error)
 	UpdateInputFromGraphQL(in graphql.BundleUpdateInput) (*model.BundleUpdateInput, error)
 }
@@ -293,6 +301,75 @@ func (r *Resolver) DeleteBundle(ctx context.Context, id string) (*graphql.Bundle
 
 	log.C(ctx).Infof("Bundle with id %s successfully deleted.", id)
 	return deletedBndl, nil
+}
+
+// SetBundleLabel labels one or more bundles with the same key-value pair.
+// TODO: Can be mutation that puts the same single label to multiple bundles at once.
+func (r *Resolver) SetBundleLabel(ctx context.Context, bundleID string, key string, value interface{}) (*graphql.Label, error) {
+	// TODO: Use @validation directive on input type instead, after resolving https://github.com/kyma-incubator/compass/issues/515
+	gqlLabel := graphql.LabelInput{Key: key, Value: value}
+	if err := inputvalidation.Validate(&gqlLabel); err != nil {
+		return nil, errors.Wrap(err, "validation error for type LabelInput")
+	}
+
+	tx, err := r.transact.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer r.transact.RollbackUnlessCommitted(ctx, tx)
+
+	ctx = persistence.SaveToContext(ctx, tx)
+
+	err = r.bundleSvc.SetLabel(ctx, &model.LabelInput{
+		Key:        key,
+		Value:      value,
+		ObjectType: model.BundleLabelableObject,
+		ObjectID:   bundleID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	return &graphql.Label{
+		Key:   key,
+		Value: value,
+	}, nil
+}
+
+// DeleteBundleLabel deletes a label by its key from a given bundle.
+func (r *Resolver) DeleteBundleLabel(ctx context.Context, bundleID string, key string) (*graphql.Label, error) {
+	tx, err := r.transact.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer r.transact.RollbackUnlessCommitted(ctx, tx)
+
+	ctx = persistence.SaveToContext(ctx, tx)
+
+	label, err := r.bundleSvc.GetLabel(ctx, bundleID, key)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.bundleSvc.DeleteLabel(ctx, bundleID, key)
+	if err != nil {
+		return nil, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	return &graphql.Label{
+		Key:   key,
+		Value: label.Value,
+	}, nil
 }
 
 // InstanceAuth missing godoc
@@ -734,6 +811,45 @@ func (r *Resolver) DocumentsDataLoader(keys []dataloader.ParamDocument) ([]*grap
 	}
 
 	return gqlDocumentPages, nil
+}
+
+// Labels retrieves all labels corresponding to a given bundle.
+func (r *Resolver) Labels(ctx context.Context, obj *graphql.Bundle, key *string) (graphql.Labels, error) {
+	if obj == nil {
+		return nil, apperrors.NewInternalError("Bundle cannot be empty")
+	}
+
+	tx, err := r.transact.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer r.transact.RollbackUnlessCommitted(ctx, tx)
+
+	ctx = persistence.SaveToContext(ctx, tx)
+
+	itemMap, err := r.bundleSvc.ListLabels(ctx, obj.ID)
+	if err != nil {
+		if strings.Contains(err.Error(), "doesn't exist") {
+			return nil, tx.Commit()
+		}
+		return nil, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	resultLabels := make(map[string]interface{})
+
+	for _, label := range itemMap {
+		if key == nil || label.Key == *key {
+			resultLabels[label.Key] = label.Value
+		}
+	}
+
+	var gqlLabels graphql.Labels = resultLabels
+	return gqlLabels, nil
 }
 
 func getBundleReferenceForAPI(apiID string, bundleReferences []*model.BundleReference) (*model.BundleReference, error) {

@@ -7,6 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/kyma-incubator/compass/components/director/internal/domain/label"
+
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 
@@ -406,6 +410,42 @@ func (s *service) ListLabels(ctx context.Context, runtimeID string) (map[string]
 	}
 
 	return extractUnProtectedLabels(labels, s.protectedLabelPattern)
+}
+
+// ListScenarios retrieves all scenarios that this runtime is added in.
+func (s *service) ListScenarios(ctx context.Context, runtimeID string) ([]string, error) {
+	tenantID, err := tenant.LoadFromContext(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "while loading tenant from context")
+	}
+
+	exist, err := s.repo.Exists(ctx, tenantID, runtimeID)
+	if err != nil {
+		return nil, errors.Wrap(err, "while checking if runtime exits")
+	}
+
+	if !exist {
+		return nil, apperrors.NewInvalidDataError("runtime does not exist")
+	}
+
+	_, err = uuid.Parse(runtimeID)
+	if err != nil {
+		return nil, errors.Wrap(err, "while converting runtimeID to UUID")
+	}
+
+	scenariosLabel, err := s.labelRepo.GetByKey(ctx, tenantID, model.RuntimeLabelableObject, runtimeID, model.ScenariosKey)
+	if err != nil {
+		if apperrors.IsNotFoundError(err) {
+			return []string{}, nil
+		}
+		return nil, errors.Wrap(err, "while getting scenarios for runtime")
+	}
+
+	scenarios, err := label.ValueToStringsSlice(scenariosLabel.Value)
+	if err != nil {
+		return nil, errors.Wrap(err, "while converting scenarios labels")
+	}
+	return scenarios, nil
 }
 
 // UpdateTenantID missing godoc

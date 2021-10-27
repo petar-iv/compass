@@ -77,6 +77,8 @@ graphql:
     addBundle: ["application:write"]
     updateBundle: ["application:write"]
     deleteBundle: ["application:write"]
+    setBundleLabel: ["application:write"]
+    deleteBundleLabel: ["application:write"]
     createAutomaticScenarioAssignment: ["automatic_scenario_assignment:write"]
     deleteAutomaticScenarioAssignmentForScenario: ["automatic_scenario_assignment:write"]
     deleteAutomaticScenarioAssignmentsForSelector: ["automatic_scenario_assignment:write"]

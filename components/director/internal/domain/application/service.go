@@ -163,10 +163,9 @@ func (s *service) ListGlobal(ctx context.Context, pageSize int, cursor string) (
 	return s.appRepo.ListGlobal(ctx, pageSize, cursor)
 }
 
-// ListByRuntimeID missing godoc
-func (s *service) ListByRuntimeID(ctx context.Context, runtimeID uuid.UUID, pageSize int, cursor string) (*model.ApplicationPage, error) {
+// ListByScenarios retrieves all applications for given scenarios.
+func (s *service) ListByScenarios(ctx context.Context, scenarios []string, pageSize int, cursor string) (*model.ApplicationPage, error) {
 	tenantID, err := tenant.LoadFromContext(ctx)
-
 	if err != nil {
 		return nil, errors.Wrapf(err, "while loading tenant from context")
 	}
@@ -174,32 +173,6 @@ func (s *service) ListByRuntimeID(ctx context.Context, runtimeID uuid.UUID, page
 	tenantUUID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return nil, apperrors.NewInvalidDataError("tenantID is not UUID")
-	}
-
-	exist, err := s.runtimeRepo.Exists(ctx, tenantID, runtimeID.String())
-	if err != nil {
-		return nil, errors.Wrap(err, "while checking if runtime exits")
-	}
-
-	if !exist {
-		return nil, apperrors.NewInvalidDataError("runtime does not exist")
-	}
-
-	scenariosLabel, err := s.labelRepo.GetByKey(ctx, tenantID, model.RuntimeLabelableObject, runtimeID.String(), model.ScenariosKey)
-	if err != nil {
-		if apperrors.IsNotFoundError(err) {
-			return &model.ApplicationPage{
-				Data:       []*model.Application{},
-				PageInfo:   &pagination.Page{},
-				TotalCount: 0,
-			}, nil
-		}
-		return nil, errors.Wrap(err, "while getting scenarios for runtime")
-	}
-
-	scenarios, err := label.ValueToStringsSlice(scenariosLabel.Value)
-	if err != nil {
-		return nil, errors.Wrap(err, "while converting scenarios labels")
 	}
 	if len(scenarios) == 0 {
 		return &model.ApplicationPage{

@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 
+	gqlgen "github.com/99designs/gqlgen/graphql"
+
 	dataloader "github.com/kyma-incubator/compass/components/director/internal/dataloaders"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
@@ -33,7 +35,7 @@ type ApplicationService interface {
 	Get(ctx context.Context, id string) (*model.Application, error)
 	Delete(ctx context.Context, id string) error
 	List(ctx context.Context, filter []*labelfilter.LabelFilter, pageSize int, cursor string) (*model.ApplicationPage, error)
-	ListByRuntimeID(ctx context.Context, runtimeUUID uuid.UUID, pageSize int, cursor string) (*model.ApplicationPage, error)
+	ListByScenarios(ctx context.Context, scenarios []string, pageSize int, cursor string) (*model.ApplicationPage, error)
 	SetLabel(ctx context.Context, label *model.LabelInput) error
 	GetLabel(ctx context.Context, applicationID string, key string) (*model.Label, error)
 	ListLabels(ctx context.Context, applicationID string) (map[string]*model.Label, error)
@@ -98,6 +100,7 @@ type OAuth20Service interface {
 //go:generate mockery --name=RuntimeService --output=automock --outpkg=automock --case=underscore
 type RuntimeService interface {
 	List(ctx context.Context, filter []*labelfilter.LabelFilter, pageSize int, cursor string) (*model.RuntimePage, error)
+	ListScenarios(ctx context.Context, runtimeID string) ([]string, error)
 	GetLabel(ctx context.Context, runtimeID string, key string) (*model.Label, error)
 }
 
@@ -106,7 +109,10 @@ type RuntimeService interface {
 type BundleService interface {
 	GetForApplication(ctx context.Context, id string, applicationID string) (*model.Bundle, error)
 	ListByApplicationIDs(ctx context.Context, applicationIDs []string, pageSize int, cursor string) ([]*model.BundlePage, error)
+	ListByApplicationIDsForScenarios(ctx context.Context, applicationIDs []string, scenarios []string, pageSize int, cursor string) ([]*model.BundlePage, error)
+	ListByApplicationIDsForScenariosNoPaging(ctx context.Context, applicationIDs []string, scenarios []string) ([]*model.Bundle, error)
 	CreateMultiple(ctx context.Context, applicationID string, in []*model.BundleCreateInput) error
+	SetLabel(ctx context.Context, in *model.LabelInput) error
 }
 
 // BundleConverter missing godoc
@@ -130,6 +136,8 @@ type Resolver struct {
 	appSvc       ApplicationService
 	appConverter ApplicationConverter
 
+	runtimeSvc RuntimeService
+
 	webhookSvc WebhookService
 	oAuth20Svc OAuth20Service
 	sysAuthSvc SystemAuthService
@@ -144,6 +152,7 @@ type Resolver struct {
 // NewResolver missing godoc
 func NewResolver(transact persistence.Transactioner,
 	svc ApplicationService,
+	runtimeSvc RuntimeService,
 	webhookSvc WebhookService,
 	oAuth20Svc OAuth20Service,
 	sysAuthSvc SystemAuthService,
@@ -156,6 +165,7 @@ func NewResolver(transact persistence.Transactioner,
 	return &Resolver{
 		transact:         transact,
 		appSvc:           svc,
+		runtimeSvc:       runtimeSvc,
 		webhookSvc:       webhookSvc,
 		oAuth20Svc:       oAuth20Svc,
 		sysAuthSvc:       sysAuthSvc,
@@ -256,12 +266,12 @@ func (r *Resolver) ApplicationsForRuntime(ctx context.Context, runtimeID string,
 		return nil, apperrors.NewInvalidDataError("missing required parameter 'first'")
 	}
 
-	runtimeUUID, err := uuid.Parse(runtimeID)
+	scenarios, err := r.runtimeSvc.ListScenarios(ctx, runtimeID)
 	if err != nil {
-		return nil, errors.Wrap(err, "while converting runtimeID to UUID")
+		return nil, errors.Wrapf(err, "while listing all Scenarios for Runtime %s", runtimeID)
 	}
 
-	appPage, err := r.appSvc.ListByRuntimeID(ctx, runtimeUUID, *first, cursor)
+	appPage, err := r.appSvc.ListByScenarios(ctx, scenarios, *first, cursor)
 	if err != nil {
 		return nil, errors.Wrap(err, "while getting all Application for Runtime")
 	}
@@ -619,7 +629,21 @@ func (r *Resolver) BundlesDataLoader(keys []dataloader.ParamBundle) ([]*graphql.
 
 	ctx = persistence.SaveToContext(ctx, tx)
 
-	bndlPages, err := r.bndlSvc.ListByApplicationIDs(ctx, applicationIDs, *keys[0].First, cursor)
+	bndlPages, err := make([]*model.BundlePage, 0), nil
+	gqlctx := gqlgen.GetFieldContext(ctx)
+	if gqlctx.Parent != nil && gqlctx.Parent.Parent != nil && gqlctx.Parent.Parent.Parent != nil && gqlctx.Parent.Parent.Parent.Args["runtimeID"] != nil {
+		runtimeID, _ := gqlctx.Parent.Parent.Parent.Args["runtimeID"]
+		scenarios, err := r.runtimeSvc.ListScenarios(ctx, runtimeID.(string))
+		if err != nil {
+			return nil, []error{errors.Wrapf(err, "while listing all Scenarios for Runtime %s", runtimeID)}
+		}
+
+		if len(scenarios) > 0 {
+			bndlPages, err = r.bndlSvc.ListByApplicationIDsForScenarios(ctx, applicationIDs, scenarios, *keys[0].First, cursor)
+		}
+	} else {
+		bndlPages, err = r.bndlSvc.ListByApplicationIDs(ctx, applicationIDs, *keys[0].First, cursor)
+	}
 	if err != nil {
 		return nil, []error{err}
 	}
