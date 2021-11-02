@@ -9,7 +9,7 @@ graphql:
     updateApplication: [1,2,3]
     empty:
 
-clientCredentialsRegistrationScopes:
+scopesPerConsumerType:
   runtime:
     - "runtime:read"
     - "runtime:write"
