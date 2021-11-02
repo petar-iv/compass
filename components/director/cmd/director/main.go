@@ -223,7 +223,7 @@ func main() {
 	}
 
 	executableSchema := graphql.NewExecutableSchema(gqlCfg)
-	claimsValidator := claims.NewValidator(runtimeSvc(cfg), cfg.Features.SubscriptionProviderLabelKey, cfg.Features.ConsumerSubaccountIDsLabelKey)
+	claimsValidator := claims.NewValidator(transact, runtimeSvc(cfg), cfg.Features.SubscriptionProviderLabelKey, cfg.Features.ConsumerSubaccountIDsLabelKey)
 
 	logger.Infof("Registering GraphQL endpoint on %s...", cfg.APIEndpoint)
 	authMiddleware := mp_authenticator.New(cfg.JWKSEndpoint, cfg.AllowJWTSigningNone, cfg.ClientIDHTTPHeaderKey, claimsValidator)
@@ -424,11 +424,16 @@ func getTenantMappingHandlerFunc(transact persistence.Transactioner, authenticat
 	tenantConverter := tenant.NewConverter()
 	tenantRepo := tenant.NewRepository(tenantConverter)
 
+	//runtime svc
+	runtimeConv := runtime.NewConverter()
+	runtimeRepo := runtime.NewRepository(runtimeConv)
+	runtimeSvc := runtime.NewService(runtimeRepo, nil, nil, nil, nil, nil, "")
+
 	objectContextProviders := map[string]tenantmapping.ObjectContextProvider{
 		tenantmapping.UserObjectContextProvider:          tenantmapping.NewUserContextProvider(staticUsersRepo, staticGroupsRepo, tenantRepo),
 		tenantmapping.SystemAuthObjectContextProvider:    tenantmapping.NewSystemAuthContextProvider(systemAuthSvc, cfgProvider, tenantRepo),
 		tenantmapping.AuthenticatorObjectContextProvider: tenantmapping.NewAuthenticatorContextProvider(tenantRepo, authenticators),
-		tenantmapping.CertServiceObjectContextProvider:   tenantmapping.NewCertServiceContextProvider(tenantRepo),
+		tenantmapping.CertServiceObjectContextProvider:   tenantmapping.NewCertServiceContextProvider(tenantRepo, runtimeSvc, cfgProvider),
 	}
 	reqDataParser := oathkeeper.NewReqDataParser()
 
@@ -597,7 +602,7 @@ func tokenService(cfg config, cfgProvider *configprovider.Provider, httpClient, 
 	eventAPISvc := eventdef.NewService(eventAPIRepo, uidSvc, specSvc, bundleReferenceSvc)
 	documentSvc := document.NewService(docRepo, fetchRequestRepo, uidSvc)
 	bundleSvc := bundle.NewService(bundleRepo, apiSvc, eventAPISvc, documentSvc, uidSvc)
-	appSvc := application.NewService(&normalizer.DefaultNormalizator{}, cfgProvider, applicationRepo, webhookRepo, runtimeRepo, labelRepo, intSysRepo, labelUpsertSvc, scenariosSvc, bundleSvc, uidSvc)
+	appSvc := application.NewService(&normalizer.DefaultNormalizator{}, cfgProvider, applicationRepo, webhookRepo, runtimeRepo, labelRepo, intSysRepo, labelUpsertSvc, scenariosSvc, bundleSvc, uidSvc, nil)
 	timeService := directorTime.NewService()
 	return onetimetoken.NewTokenService(systemAuthSvc, appSvc, appConverter, tenantSvc, internalHTTPClient, onetimetoken.NewTokenGenerator(cfg.OneTimeToken.Length), cfg.OneTimeToken, pairingAdapters, timeService)
 }

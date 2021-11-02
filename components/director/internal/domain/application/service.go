@@ -107,6 +107,10 @@ type ApplicationHideCfgProvider interface {
 	GetApplicationHideSelectors() (map[string][]string, error)
 }
 
+type AutomaticScenarioAssignmentService interface {
+	ListForSelector(context.Context, model.LabelSelector) ([]*model.AutomaticScenarioAssignment, error)
+}
+
 type service struct {
 	appNameNormalizer  normalizer.Normalizator
 	appHideCfgProvider ApplicationHideCfgProvider
@@ -122,10 +126,11 @@ type service struct {
 	uidService         UIDService
 	bndlService        BundleService
 	timestampGen       timestamp.Generator
+	asaSvc             AutomaticScenarioAssignmentService
 }
 
 // NewService missing godoc
-func NewService(appNameNormalizer normalizer.Normalizator, appHideCfgProvider ApplicationHideCfgProvider, app ApplicationRepository, webhook WebhookRepository, runtimeRepo RuntimeRepository, labelRepo LabelRepository, intSystemRepo IntegrationSystemRepository, labelUpsertService LabelUpsertService, scenariosService ScenariosService, bndlService BundleService, uidService UIDService) *service {
+func NewService(appNameNormalizer normalizer.Normalizator, appHideCfgProvider ApplicationHideCfgProvider, app ApplicationRepository, webhook WebhookRepository, runtimeRepo RuntimeRepository, labelRepo LabelRepository, intSystemRepo IntegrationSystemRepository, labelUpsertService LabelUpsertService, scenariosService ScenariosService, bndlService BundleService, uidService UIDService, asaSvc AutomaticScenarioAssignmentService) *service {
 	return &service{
 		appNameNormalizer:  appNameNormalizer,
 		appHideCfgProvider: appHideCfgProvider,
@@ -139,6 +144,7 @@ func NewService(appNameNormalizer normalizer.Normalizator, appHideCfgProvider Ap
 		bndlService:        bndlService,
 		uidService:         uidService,
 		timestampGen:       timestamp.DefaultGenerator,
+		asaSvc:             asaSvc,
 	}
 }
 
@@ -218,6 +224,52 @@ func (s *service) ListByRuntimeID(ctx context.Context, runtimeID uuid.UUID, page
 	hidingSelectors, err := s.appHideCfgProvider.GetApplicationHideSelectors()
 	if err != nil {
 		return nil, errors.Wrap(err, "while getting application hide selectors from config")
+	}
+
+	return s.appRepo.ListByScenarios(ctx, tenantUUID, scenarios, pageSize, cursor, hidingSelectors)
+}
+
+func (s *service) ListForSubaccount(ctx context.Context, subaccountID string, pageSize int, cursor string) (*model.ApplicationPage, error) {
+	asas, err := s.asaSvc.ListForSelector(ctx, model.LabelSelector{
+		Key:   "subaccount_id",
+		Value: subaccountID,
+	})
+	log.C(ctx).Infof("will list subaccount_id %s", subaccountID)
+
+	if err != nil {
+		return nil, err
+	}
+	var scenarios []string
+	for _, asa := range asas {
+		scenarios = append(scenarios, asa.ScenarioName)
+	}
+
+	if len(scenarios) == 0 {
+		return &model.ApplicationPage{
+			Data:       []*model.Application{},
+			TotalCount: 0,
+			PageInfo: &pagination.Page{
+				StartCursor: "",
+				EndCursor:   "",
+				HasNextPage: false,
+			},
+		}, nil
+	}
+
+	hidingSelectors, err := s.appHideCfgProvider.GetApplicationHideSelectors()
+	if err != nil {
+		return nil, errors.Wrap(err, "while getting application hide selectors from config")
+	}
+
+	tenantID, err := tenant.LoadFromContext(ctx)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "while loading tenant from context")
+	}
+
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, apperrors.NewInvalidDataError("tenantID is not UUID")
 	}
 
 	return s.appRepo.ListByScenarios(ctx, tenantUUID, scenarios, pageSize, cursor, hidingSelectors)

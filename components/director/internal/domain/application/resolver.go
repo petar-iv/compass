@@ -2,8 +2,10 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
+	"github.com/kyma-incubator/compass/components/director/internal/consumer"
 	dataloader "github.com/kyma-incubator/compass/components/director/internal/dataloaders"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
@@ -34,6 +36,7 @@ type ApplicationService interface {
 	Delete(ctx context.Context, id string) error
 	List(ctx context.Context, filter []*labelfilter.LabelFilter, pageSize int, cursor string) (*model.ApplicationPage, error)
 	ListByRuntimeID(ctx context.Context, runtimeUUID uuid.UUID, pageSize int, cursor string) (*model.ApplicationPage, error)
+	ListForSubaccount(ctx context.Context, subaccountTenant string, pageSize int, cursor string) (*model.ApplicationPage, error)
 	SetLabel(ctx context.Context, label *model.LabelInput) error
 	GetLabel(ctx context.Context, applicationID string, key string) (*model.Label, error)
 	ListLabels(ctx context.Context, applicationID string) (map[string]*model.Label, error)
@@ -125,6 +128,10 @@ type OneTimeTokenService interface {
 	IsTokenValid(systemAuth *model.SystemAuth) (bool, error)
 }
 
+type TenantService interface {
+	GetTenantByExternalID(context.Context, string) (*model.BusinessTenantMapping, error)
+}
+
 // Resolver missing godoc
 type Resolver struct {
 	transact persistence.Transactioner
@@ -141,6 +148,7 @@ type Resolver struct {
 	sysAuthConv      SystemAuthConverter
 	eventingSvc      EventingService
 	bndlConv         BundleConverter
+	tenantSvc        TenantService
 }
 
 // NewResolver missing godoc
@@ -154,7 +162,8 @@ func NewResolver(transact persistence.Transactioner,
 	sysAuthConv SystemAuthConverter,
 	eventingSvc EventingService,
 	bndlSvc BundleService,
-	bndlConverter BundleConverter) *Resolver {
+	bndlConverter BundleConverter,
+	tenantSvc TenantService) *Resolver {
 	return &Resolver{
 		transact:         transact,
 		appSvc:           svc,
@@ -167,6 +176,7 @@ func NewResolver(transact persistence.Transactioner,
 		eventingSvc:      eventingSvc,
 		bndlSvc:          bndlSvc,
 		bndlConv:         bndlConverter,
+		tenantSvc:        tenantSvc,
 	}
 }
 
@@ -263,9 +273,37 @@ func (r *Resolver) ApplicationsForRuntime(ctx context.Context, runtimeID string,
 		return nil, errors.Wrap(err, "while converting runtimeID to UUID")
 	}
 
-	appPage, err := r.appSvc.ListByRuntimeID(ctx, runtimeUUID, *first, cursor)
+	consumerInfo, err := consumer.LoadFromContext(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "while getting all Application for Runtime")
+		return nil, err
+	}
+
+	var appPage *model.ApplicationPage
+	if consumerInfo.OnBehalfOf != "" {
+		// replace tenant in context, since the resources belong to the parent tenant
+		saTnt, err := tenant.LoadExternalFromContext(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "while getting tenant from context")
+		}
+		dbTennat, err := r.tenantSvc.GetTenantByExternalID(ctx, saTnt)
+		if err != nil {
+			return nil, errors.Wrap(err, "while getting tenant from DB")
+		}
+		if len(dbTennat.Parent) == 0 {
+			return nil, fmt.Errorf("tenant with ID %s does not have a parent", saTnt)
+		}
+		ctx = tenant.SaveToContext(ctx, dbTennat.Parent, "")
+
+		// validate ASA with subaccount subscribed to the runtime exists
+		appPage, err = r.appSvc.ListForSubaccount(ctx, saTnt, *first, cursor)
+		if err != nil {
+			return nil, errors.Wrap(err, "while getting all Application for Runtime")
+		}
+	} else {
+		appPage, err = r.appSvc.ListByRuntimeID(ctx, runtimeUUID, *first, cursor)
+		if err != nil {
+			return nil, errors.Wrap(err, "while getting all Application for Runtime")
+		}
 	}
 
 	err = tx.Commit()

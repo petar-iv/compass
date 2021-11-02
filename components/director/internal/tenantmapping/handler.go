@@ -145,14 +145,14 @@ func (h Handler) processRequest(ctx context.Context, reqData oathkeeper.ReqData)
 		return reqData.Body
 	}
 
-	if err := addTenantsToExtra(objCtxs, reqData); err != nil {
+	if err := addTenantsToExtra(ctx, objCtxs, reqData); err != nil {
 		log.C(ctx).WithError(err).Errorf("An error occurred while adding tenants to extra: %v", err)
 		return reqData.Body
 	}
 
 	addScopesToExtra(objCtxs, reqData)
 
-	addConsumersToExtra(objCtxs, reqData)
+	addConsumersToExtra(ctx, objCtxs, reqData)
 
 	return reqData.Body
 }
@@ -217,7 +217,7 @@ func respond(ctx context.Context, writer http.ResponseWriter, body oathkeeper.Re
 	}
 }
 
-func addTenantsToExtra(objectContexts []ObjectContext, reqData oathkeeper.ReqData) error {
+func addTenantsToExtra(ctx context.Context, objectContexts []ObjectContext, reqData oathkeeper.ReqData) error {
 	tenants := make(map[string]string)
 	for _, objCtx := range objectContexts {
 		tenants[objCtx.TenantKey] = objCtx.TenantID
@@ -227,6 +227,7 @@ func addTenantsToExtra(objectContexts []ObjectContext, reqData oathkeeper.ReqDat
 	_, consumerExists := tenants[ConsumerTenantKey]
 	_, externalExists := tenants[ExternalTenantKey]
 	if !consumerExists && !externalExists {
+		log.C(ctx).Infof("Consumer tenants not found, only provider")
 		tenants[ConsumerTenantKey] = tenants[ProviderTenantKey]
 		tenants[ExternalTenantKey] = tenants[ProviderExternalTenantKey]
 	}
@@ -238,6 +239,7 @@ func addTenantsToExtra(objectContexts []ObjectContext, reqData oathkeeper.ReqDat
 
 	tenantsStr := string(tenantsJSON)
 
+	log.C(ctx).Infof("TENANTS: %s", tenantsStr)
 	escaped := strings.ReplaceAll(tenantsStr, `"`, `\"`)
 	reqData.Body.Extra["tenant"] = escaped
 
@@ -258,7 +260,7 @@ func addScopesToExtra(objectContexts []ObjectContext, reqData oathkeeper.ReqData
 	reqData.Body.Extra["scope"] = joined
 }
 
-func addConsumersToExtra(objectContexts []ObjectContext, reqData oathkeeper.ReqData) {
+func addConsumersToExtra(ctx context.Context, objectContexts []ObjectContext, reqData oathkeeper.ReqData) {
 	consumer := consumer.Consumer{}
 	if len(objectContexts) == 1 {
 		consumer.ConsumerID = objectContexts[0].ConsumerID
@@ -266,7 +268,7 @@ func addConsumersToExtra(objectContexts []ObjectContext, reqData oathkeeper.ReqD
 		consumer.Flow = objectContexts[0].AuthFlow
 	} else {
 		consumer = getCertServiceObjectContextProviderConsumer(objectContexts)
-		consumer.OnBehalfOf = getOnBehalfConsumer(objectContexts)
+		consumer.OnBehalfOf = getOnBehalfConsumer(ctx, objectContexts)
 	}
 
 	reqData.Body.Extra["consumerID"] = consumer.ConsumerID
@@ -289,9 +291,10 @@ func getCertServiceObjectContextProviderConsumer(objectContexts []ObjectContext)
 	return consumer
 }
 
-func getOnBehalfConsumer(objectContexts []ObjectContext) string {
+func getOnBehalfConsumer(ctx context.Context, objectContexts []ObjectContext) string {
 	for _, objCtx := range objectContexts {
 		if objCtx.ContextProvider != CertServiceObjectContextProvider {
+			log.C(ctx).Infof("using consumer with ID %s from ctx provider %s as on behalf", objCtx.ConsumerID, objCtx.ContextProvider)
 			return objCtx.ConsumerID
 		}
 	}
