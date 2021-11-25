@@ -12,7 +12,6 @@ import (
 
 var (
 	cachedToken []byte
-	tokenMutex  = sync.Mutex{}
 )
 
 // DefaultServiceAccountTokenPath missing godoc
@@ -61,7 +60,6 @@ func (tr *serviceAccountTokenTransport) RoundTrip(r *http.Request) (*http.Respon
 	log.C(r.Context()).Info("[LOGGER] Inside Service Account Token Transport")
 	fmt.Println("[FMT PRINTLN] Inside Service Account Token Transport")
 
-	tokenMutex.Lock()
 	var token []byte
 	if len(cachedToken) != 0 {
 		log.C(r.Context()).Info("Will reuse Service Account token from cache")
@@ -75,7 +73,6 @@ func (tr *serviceAccountTokenTransport) RoundTrip(r *http.Request) (*http.Respon
 		token = tkn
 		cachedToken = tkn
 	}
-	tokenMutex.Unlock()
 
 	headerName := InternalAuthorizationHeader
 	if tr.headerName != "" {
