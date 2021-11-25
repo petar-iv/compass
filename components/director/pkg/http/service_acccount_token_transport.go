@@ -5,7 +5,6 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"io/ioutil"
 	"net/http"
-	"sync"
 
 	"github.com/pkg/errors"
 )
