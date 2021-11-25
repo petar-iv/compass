@@ -1,10 +1,18 @@
 package http
 
 import (
+	"fmt"
+	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"io/ioutil"
 	"net/http"
+	"sync"
 
 	"github.com/pkg/errors"
+)
+
+var (
+	cachedToken []byte
+	tokenMutex  = sync.Mutex{}
 )
 
 // DefaultServiceAccountTokenPath missing godoc
@@ -49,10 +57,25 @@ func (tr *serviceAccountTokenTransport) RoundTrip(r *http.Request) (*http.Respon
 	if len(path) == 0 {
 		path = DefaultServiceAccountTokenPath
 	}
-	token, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to read service account token file")
+
+	log.C(r.Context()).Info("[LOGGER] Inside Service Account Token Transport")
+	fmt.Println("[FMT PRINTLN] Inside Service Account Token Transport")
+
+	tokenMutex.Lock()
+	var token []byte
+	if len(cachedToken) != 0 {
+		log.C(r.Context()).Info("Will reuse Service Account token from cache")
+		token = cachedToken
+	} else {
+		log.C(r.Context()).Info("Service Account token missing in cache")
+		tkn, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unable to read service account token file")
+		}
+		token = tkn
+		cachedToken = tkn
 	}
+	tokenMutex.Unlock()
 
 	headerName := InternalAuthorizationHeader
 	if tr.headerName != "" {
