@@ -51,6 +51,7 @@ func (m *systemAuthContextProvider) GetObjectContext(ctx context.Context, reqDat
 		sysAuth.Value.OneTimeToken = nil
 		sysAuth.Value.CertCommonName = authDetails.AuthID
 
+		//TODO magic
 		if err := m.systemAuthSvc.Update(ctx, sysAuth); err != nil {
 			return ObjectContext{}, errors.Wrap(err, "while updating system auth")
 		}

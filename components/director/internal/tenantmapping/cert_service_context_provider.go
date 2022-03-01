@@ -39,6 +39,7 @@ type certServiceContextProvider struct {
 func (p *certServiceContextProvider) GetObjectContext(ctx context.Context, reqData oathkeeper.ReqData, authDetails oathkeeper.AuthDetails) (ObjectContext, error) {
 	externalTenantID := authDetails.AuthID
 
+	//todo magic inside
 	consumerType := reqData.ConsumerType()
 	logger := log.C(ctx).WithFields(logrus.Fields{
 		"consumer_type": consumerType,
@@ -64,6 +65,7 @@ func (p *certServiceContextProvider) GetObjectContext(ctx context.Context, reqDa
 	}
 
 	objCtx := NewObjectContext(NewTenantContext(externalTenantID, tenantMapping.ID), p.tenantKeys, scopes, mergeWithOtherScopes,
+		//todo magic inside
 		authDetails.Region, "", getConsumerID(reqData, authDetails), authDetails.AuthFlow, consumer.ConsumerType(consumerType), CertServiceObjectContextProvider)
 	log.C(ctx).Infof("Successfully got object context: %+v", objCtx)
 	return objCtx, nil
@@ -94,5 +96,12 @@ func getConsumerID(data oathkeeper.ReqData, details oathkeeper.AuthDetails) stri
 	if id := data.InternalConsumerID(); id != "" {
 		return id
 	}
+	//todo so for self regged runtimes and for ext cert int sys it seems the consumer id will be the subacc id which is set as auth id and then in director validator.go int sys magic validation will pass
 	return details.AuthID
 }
+
+//TODO move all subject mapping in db
+// for self regged ext cert, create system auth during reg
+// for subjectmapping ext cert,  ?? ask for self reg for int systems
+
+//TODO opt 2 - rm system auths - put external tenant in connector cert subject, simply keep a single column table called OTTs and auto grant csr fetch scope

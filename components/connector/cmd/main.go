@@ -44,15 +44,14 @@ func main() {
 	exitOnError(err, "Filed to configure logger")
 
 	log.C(ctx).Info("Starting Connector Service")
-	log.C(ctx).Infof("Config: %s", cfg.String())
+	//log.C(ctx).Infof("Config: %s", cfg.String())
 
 	k8sClientSet, appErr := newK8SClientSet(ctx, cfg.KubernetesClient.PollInteval, cfg.KubernetesClient.PollTimeout, cfg.KubernetesClient.Timeout)
 	exitOnError(appErr, "Failed to initialize Kubernetes client.")
 
 	directorGCLI := newInternalGraphQLClient(cfg.OneTimeTokenURL, cfg.HTTPClientTimeout, cfg.HttpClientSkipSslValidation)
-	internalComponents, certsLoader, revokedCertsLoader := config.InitInternalComponents(cfg, k8sClientSet, directorGCLI)
+	internalComponents, certsLoader := config.InitInternalComponents(cfg, k8sClientSet, directorGCLI)
 	go certsLoader.Run(ctx)
-	go revokedCertsLoader.Run(ctx)
 
 	certificateResolver := api.NewCertificateResolver(
 		internalComponents.Authenticator,
@@ -68,14 +67,10 @@ func main() {
 	externalGqlServer, err := config.PrepareExternalGraphQLServer(cfg, certificateResolver, correlation.AttachCorrelationIDToContext(), log.RequestLogger(), authContextMiddleware.PropagateAuthentication)
 	exitOnError(err, "Failed configuring external graphQL handler")
 
-	hydratorServer, err := config.PrepareHydratorServer(cfg, internalComponents.CSRSubjectConsts, internalComponents.ExternalIssuerSubjectConsts, internalComponents.RevokedCertsRepository, correlation.AttachCorrelationIDToContext(), log.RequestLogger())
-	exitOnError(err, "Failed configuring hydrator handler")
-
 	wg := &sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(1)
 
 	go startServer(ctx, externalGqlServer, wg)
-	go startServer(ctx, hydratorServer, wg)
 
 	wg.Wait()
 }

@@ -1,7 +1,5 @@
 package oathkeeper
 
-import "net/http"
-
 const (
 	ConnectorTokenHeader string = "Connector-Token"
 
@@ -16,8 +14,8 @@ const (
 	ExternalIssuer  = "certificate-service"
 )
 
-type AuthenticationSession struct {
-	Subject string                 `json:"subject"`
-	Extra   map[string]interface{} `json:"extra"`
-	Header  http.Header            `json:"header"`
-}
+//type AuthenticationSession struct {
+//	Subject string                 `json:"subject"`
+//	Extra   map[string]interface{} `json:"extra"`
+//	Header  http.Header            `json:"header"`
+//}

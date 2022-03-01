@@ -56,6 +56,7 @@ func (p *accessLevelContextProvider) GetObjectContext(ctx context.Context, reqDa
 		return ObjectContext{}, errors.Wrapf(err, "while getting external tenant mapping [ExternalTenantID=%s]", externalTenantID)
 	}
 
+	//TODO this requires us to exchange the external to internal tenant as part of the tenant mapping flow
 	if err := p.verifyTenantAccessLevels(tenantMapping, authDetails, reqData); err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to verify tenant access level: %v", err)
 		return ObjectContext{}, err

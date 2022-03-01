@@ -63,6 +63,7 @@ func (v *validator) Validate(ctx context.Context, claims Claims) error {
 	switch claims.ConsumerType {
 	case consumer.Runtime:
 		return v.validateRuntimeConsumer(ctx, claims)
+		// TODO: can we RM this case ?
 	case consumer.IntegrationSystem:
 		return v.validateIntegrationSystemConsumer(ctx, claims)
 	default:
