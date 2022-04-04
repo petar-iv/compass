@@ -1,0 +1,62 @@
+# This Resource Type Definition is applied as part of the Managed Service
+apiVersion: system.resource.api.sap/v1
+type: ResourceTypeDefinition
+metadata:
+  name: systemactivations.ucl.orchestration.api.sap
+spec:
+  group: ucl.orchestration.api.sap
+  version: v1
+  names:
+    type: SystemActivation
+    plural: systemactivations
+    singular: systemactivation
+  schema:
+    jsonSchema:
+      "$schema": http://json-schema.org/draft-04/schema#
+      type: object
+      properties:
+        apiVersion:
+          type: string
+        type:
+          type: string
+        metadata:
+          type: object
+          properties:
+            name:
+              type: string
+            path:
+              type: string
+          required:
+            - name
+            - path
+        spec:
+          description: Defines the desired state of the sampledb
+          properties:
+            tenantRef:
+              description: Reference to the tenant
+              type: object
+              properties:
+                uuid:
+                  type: string
+                name:
+                  type: string
+                group:
+                  type: string
+                version:
+                  type: string
+            secret:
+              description: The secret object
+              type: object
+              properties:
+                name:
+                  type: string
+                origin:
+                  type: string
+            url:
+              type: string
+          type: object
+      required:
+        - apiVersion
+        - type
+        - metadata
+        - spec

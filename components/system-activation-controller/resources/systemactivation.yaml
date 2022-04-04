@@ -1,0 +1,13 @@
+apiVersion: ucl.orchestration.api.sap/v1
+type: SystemActivation
+metadata:
+  name: my-first-application-integration3а
+  path: /sap/core/ucl/team-falcon/operator/rg
+spec:
+  tenantRef:
+    uuid: "42343242343434"
+    name: "tenant"
+  secret:
+    name: "secret-test"
+    origin: "secret"
+  url: http://dummy-app-icea-app.compass-system.svc.cluster.local:8080/integrate

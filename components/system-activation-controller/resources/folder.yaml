@@ -1,0 +1,8 @@
+apiVersion: accounts.resource.api.sap/v1
+type: Folder
+metadata:
+  path: /sap/core/ucl/team-falcon
+  name: operator
+spec:
+  displayName: Operator
+  description: Operator folder

@@ -1,0 +1,8 @@
+apiVersion: accounts.resource.api.sap/v1
+type: ResourceGroup
+metadata:
+  path: /sap/core/ucl/team-falcon/operator
+  name: rg
+spec:
+  displayName: RG for instances
+  description: Resources of the operator

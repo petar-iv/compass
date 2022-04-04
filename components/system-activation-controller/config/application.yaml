@@ -1,0 +1,14 @@
+webhooks:
+  admission:
+    port: 3005
+    tls: true
+  x509:
+    path: ../resource-manager-core-controllers/config/webhook/cert
+    certificate: server.crt
+    key: server.key
+
+apiconfig: ./config/apiconfig.yaml
+
+log:
+  enabled: true
+  level: debug # debug|info|warn|error

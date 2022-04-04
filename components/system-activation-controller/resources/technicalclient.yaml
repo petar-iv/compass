@@ -1,0 +1,8 @@
+apiVersion: system.resource.api.sap/v1
+type: TechnicalClient
+metadata:
+  name: system-activation
+  path: /sap/core/ucl/team-falcon
+spec:
+  secretName: system-activation-secret
+  duration: 8760h0m0s
