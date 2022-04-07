@@ -26,6 +26,8 @@ type SystemActivationReconciler struct {
 	Log logr.Logger
 }
 
+const customerRTDPathKey = "instance-path"
+
 /*
 	The Reconcile function is called each time an event for a SystemActivation is sent by the Unified Resource Manager.
 	Parameter runtime.ResourceKey is an object that specifies the Name and Path of the SystemActivation.
@@ -43,7 +45,6 @@ func (r *SystemActivationReconciler) Reconcile(ctx context.Context, key runtime.
 	var isChanged = false
 
 	if err := r.Get(ctx, key, systemActivation); err != nil {
-		// If the object was not found, we have no SystemActivation to reconcile
 		if IsNotFound(err) {
 			log.Info("SystemActivation object not found.")
 		}
@@ -66,6 +67,11 @@ func (r *SystemActivationReconciler) Reconcile(ctx context.Context, key runtime.
 		}
 
 		return controllers.Result{}, r.Update(ctx, systemActivation)
+	}
+
+	secretPath, err := r.getPathForSecret(systemActivation)
+	if err != nil {
+		return controllers.Result{}, err
 	}
 
 	if IsObjectBeingDeleted(systemActivation) {
@@ -96,7 +102,7 @@ func (r *SystemActivationReconciler) Reconcile(ctx context.Context, key runtime.
 	if systemActivation.Status.SecretRef == nil {
 		systemActivation.Status.SecretRef = &v1.SecretRefStatus{
 			Name: systemActivation.Spec.Secret.Name,
-			Path: systemActivation.Path,
+			Path: secretPath,
 		}
 		isChanged = true
 	}
@@ -139,7 +145,6 @@ func (r *SystemActivationReconciler) ControllerWithManager(mgr *manager.Controll
 func (r *SystemActivationReconciler) handleDeletion(ctx context.Context, log logr.Logger, systemActivation *v1.SystemActivation) error {
 	log.Info("Handling deletion")
 
-	// Remove the secret
 	if systemActivation.Status.SecretRef != nil {
 		if err := r.deleteSecret(ctx, log, runtime.ResourceKey{Path: systemActivation.Path, Name: systemActivation.Status.SecretRef.Name}); err != nil {
 			log.Error(err, "Secret deletion error")
@@ -241,4 +246,13 @@ func (r *SystemActivationReconciler) createSecret(ctx context.Context, secretVal
 		return err
 	}
 	return nil
+}
+
+func (r SystemActivationReconciler) getPathForSecret(systemActivation *v1.SystemActivation) (string, error) {
+	secretPath, ok := systemActivation.GetAnnotations()[customerRTDPathKey]
+	if !ok {
+		return "", errors.Errorf("Missing key %+v in resource annotations", customerRTDPathKey)
+	}
+
+	return secretPath, nil
 }
