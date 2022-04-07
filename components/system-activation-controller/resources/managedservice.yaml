@@ -1,7 +1,7 @@
 apiVersion: services.resource.api.sap/v1
 type: ManagedService
 metadata:
-  name: system-activation-ms-1
+  name: system-activation-ms
   path: /sap/core/ucl/team-falcon
 spec:
   provisioning:
@@ -11,7 +11,7 @@ spec:
           name: /sap/core/ucl/team-falcon/system-activation
       providerRelatedResources:
         - type: secret
-          jsonPath: spec.secret
+          jsonPath: spec.secret.name
       rtd:
         apiVersion: system.resource.api.sap/v1
         type: ResourceTypeDefinition
