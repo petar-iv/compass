@@ -14,7 +14,7 @@ const (
 	SystemActivationSingular = "systemactivation"
 
 	// Finalizers added and removed by the operator, used to block garbage collection until reconcile is finished
-	Finalizer = "ucl.orchestration.api.sap/systemActivation-finalizer"
+	Finalizer = "ucl.orchestration.api.sap/systemactivation-finalizer"
 
 	// Conditions are used in the Status section
 	ReadyCondition = "Ready" // Ready = True/False is the convention of whether the resource reconcile has finished

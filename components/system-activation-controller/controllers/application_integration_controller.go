@@ -37,15 +37,11 @@ func (r *SystemActivationReconciler) Reconcile(ctx context.Context, key runtime.
 	log := r.Log.WithValues("path", key.GetPath(), "name", key.GetName())
 	log.Info("Starting SystemActivation reconcile")
 
-	// Before getting an object, you must use its New() method to instantiate it
 	systemActivation := v1.NewSystemActivation()
 
 	// Indicator for status changes - indicates whether resource should be updated or not.
-	// the only changes can be done over the 'spec.secret' property ('spec.size' property is not being used)
 	var isChanged = false
 
-	// Get the actual resource from Unified Resource Manager using its Name and Path (specified in the key runtime.Key),
-	// and populate the empty systemActivation with its data
 	if err := r.Get(ctx, key, systemActivation); err != nil {
 		// If the object was not found, we have no SystemActivation to reconcile
 		if IsNotFound(err) {
@@ -68,11 +64,10 @@ func (r *SystemActivationReconciler) Reconcile(ctx context.Context, key runtime.
 				LastTransitionTime: time.Now(),
 			},
 		}
-		// Update to re-trigger reconciliation, after setting the initial status.
+
 		return controllers.Result{}, r.Update(ctx, systemActivation)
 	}
 
-	// Handling a deletion flow
 	if IsObjectBeingDeleted(systemActivation) {
 		systemActivation.Status.Conditions = []metav1.Condition{
 			{
@@ -84,22 +79,20 @@ func (r *SystemActivationReconciler) Reconcile(ctx context.Context, key runtime.
 				LastTransitionTime: time.Now(),
 			},
 		}
+
 		return controllers.Result{}, r.handleDeletion(ctx, log, systemActivation)
 	}
 
-	// Adding a finalizer to the SystemActivation object allows us to block its deletion until after we are done with de-provisioning
 	if !meta.ContainsFinalizer(systemActivation, v1.Finalizer) {
 		log.Info("Adding finalizer")
 		meta.AddFinalizer(systemActivation, v1.Finalizer)
+		return controllers.Result{}, r.Update(ctx, systemActivation)
 	}
 
-	// Maintain SystemActivation's secret
 	if err := r.handleSecret(ctx, log, systemActivation); err != nil {
 		return controllers.Result{}, err
 	}
 
-	// If the desired and current state of the secret is different,
-	// update the status and indicate that the resource's status has changed (so an update will be triggered)
 	if systemActivation.Status.SecretRef == nil {
 		systemActivation.Status.SecretRef = &v1.SecretRefStatus{
 			Name: systemActivation.Spec.Secret.Name,
@@ -122,12 +115,16 @@ func (r *SystemActivationReconciler) Reconcile(ctx context.Context, key runtime.
 		isChanged = true
 	}
 
-	// Reconcile finished successfully
 	// Update the resource if needed (causing re-triggering the reconciliation process with no changed)
 	if isChanged == false {
 		return controllers.Result{}, nil
 	}
-	return controllers.Result{}, r.Update(ctx, systemActivation)
+
+	if err := r.Update(ctx, systemActivation); err != nil {
+		log.Error(err, "Update failed")
+		return controllers.Result{}, err
+	}
+	return controllers.Result{}, nil
 }
 
 // ControllerWithManager registers the SystemActivationController as a controller in the controllers manager
@@ -145,6 +142,7 @@ func (r *SystemActivationReconciler) handleDeletion(ctx context.Context, log log
 	// Remove the secret
 	if systemActivation.Status.SecretRef != nil {
 		if err := r.deleteSecret(ctx, log, runtime.ResourceKey{Path: systemActivation.Path, Name: systemActivation.Status.SecretRef.Name}); err != nil {
+			log.Error(err, "Secret deletion error")
 			return err
 		}
 	}
@@ -170,11 +168,13 @@ func (r *SystemActivationReconciler) handleSecret(ctx context.Context, log logr.
 	externalAppURL := systemActivation.Spec.URL
 	req, err := http.NewRequest("GET", externalAppURL, nil)
 	if err != nil {
+		log.Error(err, "New request error")
 		return err
 	}
 
 	resp, err := r.HttpClient.Do(req)
 	if err != nil {
+		log.Error(err, "HttpClient request error")
 		return err
 	}
 
@@ -186,18 +186,24 @@ func (r *SystemActivationReconciler) handleSecret(ctx context.Context, log logr.
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("wrong status code, got [%d], expected [%d]", resp.StatusCode, http.StatusOK)
+		err = fmt.Errorf("wrong status code, got [%d], expected [%d]", resp.StatusCode, http.StatusOK)
+		log.Error(err, "Wrong status code")
+		return err
 	}
 
 	responseBody := SystemActivationCredentials{}
 	if err := json.NewDecoder(resp.Body).Decode(&responseBody); err != nil {
+		log.Error(err, "While decoding response")
 		return errors.Wrap(err, "while decoding response")
 	}
 
 	secretName := systemActivation.Spec.Secret.Name
 
-	log.Info("Creating Secret")
-	return r.createSecret(ctx, responseBody.Secret, log, runtime.ResourceKey{Path: systemActivation.Path, Name: secretName})
+	if err := r.createSecret(ctx, responseBody.Secret, log, runtime.ResourceKey{Path: systemActivation.Path, Name: secretName}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *SystemActivationReconciler) deleteSecret(ctx context.Context, log logr.Logger, resourceKey runtime.ResourceKey) error {
