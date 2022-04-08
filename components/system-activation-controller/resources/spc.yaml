@@ -1,0 +1,8 @@
+apiVersion: accounts.commercial.resource.api.sap/v1
+type: ServicePublishConfiguration
+metadata:
+  name: system-activation-spc
+  path: /sap/core/ucl/team-falcon
+spec:
+  managedServiceName: "system-activation-ms"
+  recursive: true
