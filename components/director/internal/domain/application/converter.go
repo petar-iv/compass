@@ -185,6 +185,7 @@ func (c *converter) UpdateInputFromGraphQL(in graphql.ApplicationUpdateInput) mo
 	}
 	return model.ApplicationUpdateInput{
 		Description:         in.Description,
+		BaseURL:             in.BaseURL,
 		HealthCheckURL:      in.HealthCheckURL,
 		IntegrationSystemID: in.IntegrationSystemID,
 		ProviderName:        in.ProviderName,

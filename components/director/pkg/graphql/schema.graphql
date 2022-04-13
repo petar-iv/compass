@@ -303,6 +303,7 @@ input ApplicationTemplateUpdateInput {
 }
 
 input ApplicationUpdateInput {
+	baseUrl: String
 	"""
 	**Validation:** max=256
 	"""

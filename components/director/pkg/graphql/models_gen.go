@@ -140,6 +140,7 @@ type ApplicationTemplateUpdateInput struct {
 }
 
 type ApplicationUpdateInput struct {
+	BaseURL *string `json:"baseUrl"`
 	// **Validation:** max=256
 	ProviderName *string `json:"providerName"`
 	// **Validation:** max=2000

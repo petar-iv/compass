@@ -3982,6 +3982,7 @@ input ApplicationTemplateUpdateInput {
 }
 
 input ApplicationUpdateInput {
+	baseUrl: String
 	"""
 	**Validation:** max=256
 	"""
@@ -23376,6 +23377,12 @@ func (ec *executionContext) unmarshalInputApplicationUpdateInput(ctx context.Con
 
 	for k, v := range asMap {
 		switch k {
+		case "baseUrl":
+			var err error
+			it.BaseURL, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
 		case "providerName":
 			var err error
 			it.ProviderName, err = ec.unmarshalOString2ᚖstring(ctx, v)
