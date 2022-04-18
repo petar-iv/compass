@@ -1,13 +1,13 @@
 apiVersion: ucl.orchestration.api.sap/v1
 type: SystemActivation
 metadata:
-  name: my-first-application-integration-1
-  path: /sap/core/ucl/team-falcon/operator/rg
+  name: my-first-application-integration-4
+  path: /icea-customer1/team-falcon/system-activation-rg
 spec:
   tenantRef:
     uuid: "42343242343434"
     name: "tenant"
   secret:
-    name: "secret-test-2"
+    name: "secret-test-4"
     origin: "secret"
-  url: http://icea-app:3000/v1/integrate
+  url: http://icea-app:8080/integrate

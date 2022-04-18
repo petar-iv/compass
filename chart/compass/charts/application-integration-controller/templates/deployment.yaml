@@ -1,0 +1,51 @@
+# This yaml file defines the operator Kubernetes Deployment.
+# It is recommended to use deployment tools, such as Helm.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: application-integration-controller-manager
+  name: application-integration-controller
+  namespace: compass-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: application-integration-controller-manager
+  template:
+    metadata:
+      labels:
+        control-plane: application-integration-controller-manager
+    spec:
+      containers:
+      - args:
+        - --leader-elect
+        command:
+        - /manager
+        image: system-activation-controller1
+        imagePullPolicy: IfNotPresent
+        name: manager
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 100Mi
+          requests:
+            cpu: 1000m
+            memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+        env:
+          - name: APICONFIG
+            value: /tmp/resource-manager/config/config.yaml
+        volumeMounts:
+        - mountPath: /tmp/resource-manager/config
+          name: api-config
+          readOnly: true
+      securityContext:
+        runAsNonRoot: true
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: api-config
+        secret:
+          secretName: api-config

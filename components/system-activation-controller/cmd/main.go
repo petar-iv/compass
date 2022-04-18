@@ -49,8 +49,6 @@ func main() {
 		panic(err)
 	}
 
-	setupLog.Info("4")
-
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Info(fmt.Sprintf("mgr.Start %+v", err))
 		panic(err)

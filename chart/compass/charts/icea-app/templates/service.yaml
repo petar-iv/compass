@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: icea-app
+  namespace: compass-system
+  labels:
+    app: icea-app
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: icea-app
