@@ -14,6 +14,8 @@ const (
 	Runtime ConsumerType = "Runtime"
 	// Application missing godoc
 	Application ConsumerType = "Application"
+	// ResourceProvider missing godoc
+	ResourceProvider ConsumerType = "Resource Provider"
 	// IntegrationSystem missing godoc
 	IntegrationSystem ConsumerType = "Integration System"
 	// User missing godoc
