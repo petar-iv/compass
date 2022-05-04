@@ -57,6 +57,8 @@ const (
 	RuntimeReference SystemAuthReferenceObjectType = "Runtime"
 	// ApplicationReference missing godoc
 	ApplicationReference SystemAuthReferenceObjectType = "Application"
+	// ResourceProviderReference missing godoc
+	ResourceProviderReference SystemAuthReferenceObjectType = "Resource Provider"
 	// IntegrationSystemReference missing godoc
 	IntegrationSystemReference SystemAuthReferenceObjectType = "Integration System"
 )

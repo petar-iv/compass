@@ -826,6 +826,14 @@ global:
         - "event_spec.fetch_request:read"
         - "api_spec.fetch_request:read"
         - "fetch-request.auth:read"
+      resource_provider:
+        - "runtime:read"
+        - "runtime:write"
+        - "application:read"
+        - "runtime.auths:read"
+        - "bundle.instance_auths:read"
+        - "application_template:read"
+        - "application_template:write"
       integration_system:
         - "application:read"
         - "application:write"
