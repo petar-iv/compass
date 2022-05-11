@@ -67,7 +67,7 @@ func (u *update) Handler() func(next http.Handler) http.Handler {
 			switch consumerInfo.ConsumerType {
 			case consumer.Application:
 				object = Applications
-			case consumer.Runtime:
+			case consumer.Runtime: //TODO ?
 				object = Runtimes
 			default:
 				next.ServeHTTP(w, r)

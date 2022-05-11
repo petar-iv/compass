@@ -74,7 +74,7 @@ func NewResolver(transactioner persistence.Transactioner, svc Service, appSvc Ap
 }
 
 // RequestClientCredentialsForRuntime missing godoc
-func (r *Resolver) RequestClientCredentialsForRuntime(ctx context.Context, id string) (graphql.SystemAuth, error) {
+func (r *Resolver) RequestClientCredentialsForRuntime(ctx context.Context, id string) (graphql.SystemAuth, error) { //TODO?
 	return r.generateClientCredentials(ctx, pkgmodel.RuntimeReference, id)
 }
 

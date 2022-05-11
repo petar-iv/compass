@@ -9,7 +9,7 @@ import (
 // ToViewer missing godoc
 func ToViewer(cons consumer.Consumer) (*graphql.Viewer, error) {
 	switch cons.ConsumerType {
-	case consumer.Runtime:
+	case consumer.Runtime: //TODO?
 		return &graphql.Viewer{ID: cons.ConsumerID, Type: graphql.ViewerTypeRuntime}, nil
 	case consumer.Application:
 		return &graphql.Viewer{ID: cons.ConsumerID, Type: graphql.ViewerTypeApplication}, nil

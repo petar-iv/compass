@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
-	"github.com/kyma-incubator/compass/components/director/pkg/str"
+	//"github.com/kyma-incubator/compass/components/director/pkg/graphql"
+	//"github.com/kyma-incubator/compass/components/director/pkg/str"
 	"github.com/kyma-incubator/compass/components/hydrator/internal/tenantmapping"
 	"github.com/kyma-incubator/compass/components/hydrator/internal/tenantmapping/automock"
 
@@ -17,7 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
-	"github.com/kyma-incubator/compass/components/director/pkg/cert"
+	//"github.com/kyma-incubator/compass/components/director/pkg/cert"
 	"github.com/kyma-incubator/compass/components/director/pkg/consumer"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 	"github.com/stretchr/testify/mock"
@@ -37,21 +37,21 @@ func TestCertServiceContextProvider(t *testing.T) {
 
 	reqData := oathkeeper.ReqData{}
 
-	internalConsumerID := "123"
-	reqDataWithInternalConsumerID := oathkeeper.ReqData{
-		Body: oathkeeper.ReqBody{Extra: map[string]interface{}{
-			cert.InternalConsumerIDField: internalConsumerID,
-		}},
-	}
+	//internalConsumerID := "123"
+	//reqDataWithInternalConsumerID := oathkeeper.ReqData{
+	//	Body: oathkeeper.ReqBody{Extra: map[string]interface{}{
+	//		cert.InternalConsumerIDField: internalConsumerID,
+	//	}},
+	//}
 
-	internalSubaccount := "internalSubaccountID"
+	//internalSubaccount := "internalSubaccountID"
 
-	testSubaccount := &graphql.Tenant{
-		ID:         "externalTestSubaccount",
-		InternalID: internalSubaccount,
-		Name:       str.Ptr("testSubaccount"),
-		Type:       "subaccount",
-	}
+	//testSubaccount := &graphql.Tenant{
+	//	ID:         "externalTestSubaccount",
+	//	InternalID: internalSubaccount,
+	//	Name:       str.Ptr("testSubaccount"),
+	//	Type:       "subaccount",
+	//}
 
 	testCases := []struct {
 		Name               string
@@ -73,7 +73,7 @@ func TestCertServiceContextProvider(t *testing.T) {
 			},
 			ScopesGetterFn: func() *automock.ScopesGetter {
 				scopesGetter := &automock.ScopesGetter{}
-				scopesGetter.On("GetRequiredScopes", "scopesPerConsumerType.runtime").Return(scopes, nil)
+				scopesGetter.On("GetRequiredScopes", "scopesPerConsumerType.resource_provider").Return(scopes, nil)
 				return scopesGetter
 			},
 			ReqDataInput:       reqData,
@@ -91,7 +91,7 @@ func TestCertServiceContextProvider(t *testing.T) {
 			},
 			ScopesGetterFn: func() *automock.ScopesGetter {
 				scopesGetter := &automock.ScopesGetter{}
-				scopesGetter.On("GetRequiredScopes", "scopesPerConsumerType.runtime").Return(scopes, nil)
+				scopesGetter.On("GetRequiredScopes", "scopesPerConsumerType.resource_provider").Return(scopes, nil)
 				return scopesGetter
 			},
 			ReqDataInput:       reqData,
@@ -100,55 +100,55 @@ func TestCertServiceContextProvider(t *testing.T) {
 			ExpectedInternalID: "",
 			ExpectedErr:        testError,
 		},
-		{
-			Name: "Success when internal tenant exists",
-			DirectorClient: func() *automock.DirectorClient {
-				client := &automock.DirectorClient{}
-				client.On("GetTenantByExternalID", mock.Anything, tenantID).Return(testSubaccount, nil).Once()
-				return client
-			},
-			ScopesGetterFn: func() *automock.ScopesGetter {
-				scopesGetter := &automock.ScopesGetter{}
-				scopesGetter.On("GetRequiredScopes", "scopesPerConsumerType.runtime").Return(scopes, nil)
-				return scopesGetter
-			},
-			ReqDataInput:       reqData,
-			AuthDetailsInput:   authDetails,
-			ExpectedScopes:     scopesString,
-			ExpectedInternalID: internalSubaccount,
-			ExpectedErr:        nil,
-		},
-		{
-			Name: "Success when internal consumer ID is provided",
-			DirectorClient: func() *automock.DirectorClient {
-				client := &automock.DirectorClient{}
-				client.On("GetTenantByExternalID", mock.Anything, tenantID).Return(testSubaccount, nil).Once()
-				return client
-			},
-			ScopesGetterFn: func() *automock.ScopesGetter {
-				scopesGetter := &automock.ScopesGetter{}
-				scopesGetter.On("GetRequiredScopes", "scopesPerConsumerType.runtime").Return(scopes, nil)
-				return scopesGetter
-			},
-			ReqDataInput:       reqDataWithInternalConsumerID,
-			AuthDetailsInput:   authDetails,
-			ExpectedScopes:     scopesString,
-			ExpectedInternalID: internalSubaccount,
-			ExpectedConsumerID: internalConsumerID,
-			ExpectedErr:        nil,
-		},
-		{
-			Name:           "Error when can't get required scopes",
-			DirectorClient: unusedDirectorClient,
-			ScopesGetterFn: func() *automock.ScopesGetter {
-				scopesGetter := &automock.ScopesGetter{}
-				scopesGetter.On("GetRequiredScopes", "scopesPerConsumerType.runtime").Return(nil, testError)
-				return scopesGetter
-			},
-			ReqDataInput:     reqData,
-			AuthDetailsInput: authDetails,
-			ExpectedErr:      errors.New("failed to extract scopes"),
-		},
+		//{
+		//	Name: "Success when internal tenant exists",
+		//	DirectorClient: func() *automock.DirectorClient {
+		//		client := &automock.DirectorClient{}
+		//		client.On("GetTenantByExternalID", mock.Anything, tenantID).Return(testSubaccount, nil).Once()
+		//		return client
+		//	},
+		//	ScopesGetterFn: func() *automock.ScopesGetter {
+		//		scopesGetter := &automock.ScopesGetter{}
+		//		scopesGetter.On("GetRequiredScopes", "scopesPerConsumerType.resource_provider").Return(scopes, nil)
+		//		return scopesGetter
+		//	},
+		//	ReqDataInput:       reqData,
+		//	AuthDetailsInput:   authDetails,
+		//	ExpectedScopes:     scopesString,
+		//	ExpectedInternalID: internalSubaccount,
+		//	ExpectedErr:        nil,
+		//},
+		//{
+		//	Name: "Success when internal consumer ID is provided",
+		//	DirectorClient: func() *automock.DirectorClient {
+		//		client := &automock.DirectorClient{}
+		//		client.On("GetTenantByExternalID", mock.Anything, tenantID).Return(testSubaccount, nil).Once()
+		//		return client
+		//	},
+		//	ScopesGetterFn: func() *automock.ScopesGetter {
+		//		scopesGetter := &automock.ScopesGetter{}
+		//		scopesGetter.On("GetRequiredScopes", "scopesPerConsumerType.resource_provider").Return(scopes, nil)
+		//		return scopesGetter
+		//	},
+		//	ReqDataInput:       reqDataWithInternalConsumerID,
+		//	AuthDetailsInput:   authDetails,
+		//	ExpectedScopes:     scopesString,
+		//	ExpectedInternalID: internalSubaccount,
+		//	ExpectedConsumerID: internalConsumerID,
+		//	ExpectedErr:        nil,
+		//},
+		//{
+		//	Name:           "Error when can't get required scopes",
+		//	DirectorClient: unusedDirectorClient,
+		//	ScopesGetterFn: func() *automock.ScopesGetter {
+		//		scopesGetter := &automock.ScopesGetter{}
+		//		scopesGetter.On("GetRequiredScopes", "scopesPerConsumerType.resource_provider").Return(nil, testError)
+		//		return scopesGetter
+		//	},
+		//	ReqDataInput:     reqData,
+		//	AuthDetailsInput: authDetails,
+		//	ExpectedErr:      errors.New("failed to extract scopes"),
+		//},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
@@ -165,7 +165,7 @@ func TestCertServiceContextProvider(t *testing.T) {
 			// THEN
 			if testCase.ExpectedErr == nil {
 				require.NoError(t, err)
-				require.Equal(t, consumer.Runtime, objectCtx.ConsumerType)
+				require.Equal(t, consumer.ResourceProvider, objectCtx.ConsumerType)
 				require.Equal(t, testCase.ExpectedConsumerID, objectCtx.ConsumerID)
 				require.Equal(t, testCase.ExpectedInternalID, objectCtx.TenantContext.TenantID)
 				require.Equal(t, tenantID, objectCtx.TenantContext.ExternalTenantID)

@@ -318,7 +318,7 @@ func (r *Resolver) getRuntimeID(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	if consumerInfo.ConsumerType != consumer.Runtime {
+	if consumerInfo.ConsumerType != consumer.Runtime { //TODO ?
 		log.C(ctx).Errorf("Consumer type is of type %v. Runtime Contexts can be consumed only by runtimes...", consumerInfo.ConsumerType)
 		return "", apperrors.NewUnauthorizedError("runtime context access is restricted to runtimes only")
 	}
