@@ -140,6 +140,7 @@ type ComplexityRoot struct {
 		ApplicationInput func(childComplexity int) int
 		Description      func(childComplexity int) int
 		ID               func(childComplexity int) int
+		Labels           func(childComplexity int, key *string) int
 		Name             func(childComplexity int) int
 		Placeholders     func(childComplexity int) int
 		Webhooks         func(childComplexity int) int
@@ -604,6 +605,8 @@ type ApplicationResolver interface {
 }
 type ApplicationTemplateResolver interface {
 	Webhooks(ctx context.Context, obj *ApplicationTemplate) ([]*Webhook, error)
+
+	Labels(ctx context.Context, obj *ApplicationTemplate, key *string) (Labels, error)
 }
 type BundleResolver interface {
 	InstanceAuth(ctx context.Context, obj *Bundle, id string) (*BundleInstanceAuth, error)
@@ -1159,6 +1162,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.ApplicationTemplate.ID(childComplexity), true
+
+	case "ApplicationTemplate.labels":
+		if e.complexity.ApplicationTemplate.Labels == nil {
+			break
+		}
+
+		args, err := ec.field_ApplicationTemplate_labels_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.ApplicationTemplate.Labels(childComplexity, args["key"].(*string)), true
 
 	case "ApplicationTemplate.name":
 		if e.complexity.ApplicationTemplate.Name == nil {
@@ -4198,6 +4213,10 @@ input ApplicationTemplateInput {
 	"""
 	webhooks: [WebhookInput!]
 	description: String
+	"""
+	**Validation:** label key is alphanumeric with underscore
+	"""
+	labels: Labels
 	applicationInput: ApplicationRegisterInput!
 	placeholders: [PlaceholderDefinitionInput!]
 	accessLevel: ApplicationTemplateAccessLevel!
@@ -4230,6 +4249,7 @@ input ApplicationUpdateInput {
 	**Validation:** valid URL, max=256
 	"""
 	healthCheckURL: String
+	baseUrl: String
 	integrationSystemID: ID
 	statusCondition: ApplicationStatusCondition
 }
@@ -4689,6 +4709,7 @@ type ApplicationTemplate {
 	webhooks: [Webhook!] @sanitize(path: "graphql.field.application_template.webhooks")
 	applicationInput: String!
 	placeholders: [PlaceholderDefinition!]!
+	labels(key: String): Labels
 	accessLevel: ApplicationTemplateAccessLevel!
 }
 
@@ -5335,9 +5356,29 @@ type Mutation {
 	- [delete document](examples/delete-document/delete-document.graphql)
 	"""
 	deleteDocument(id: ID!): Document! @hasScopes(path: "graphql.mutation.deleteDocument")
+	"""
+	**Examples**
+	- [create formation](examples/create-formation/create-formation.graphql)
+	"""
 	createFormation(formation: FormationInput!): Formation! @hasScopes(path: "graphql.mutation.createFormation")
+	"""
+	**Examples**
+	- [delete formation](examples/delete-formation/delete-formation.graphql)
+	"""
 	deleteFormation(formation: FormationInput!): Formation! @hasScopes(path: "graphql.mutation.deleteFormation")
+	"""
+	**Examples**
+	- [assign application to formation](examples/assign-formation/assign-application-to-formation.graphql)
+	- [assign runtime to formation](examples/assign-formation/assign-runtime-to-formation.graphql)
+	- [assign tenant to formation](examples/assign-formation/assign-tenant-to-formation.graphql)
+	"""
 	assignFormation(objectID: ID!, objectType: FormationObjectType!, formation: FormationInput!): Formation! @hasScopes(path: "graphql.mutation.assignFormation")
+	"""
+	**Examples**
+	- [unassign application from formation](examples/unassign-formation/unassign-application-from-formation.graphql)
+	- [unassign runtime from formation](examples/unassign-formation/unassign-runtime-from-formation.graphql)
+	- [unassign tenant from formation](examples/unassign-formation/unassign-tenant-from-formation.graphql)
+	"""
 	unassignFormation(objectID: ID!, objectType: FormationObjectType!, formation: FormationInput!): Formation! @hasScopes(path: "graphql.mutation.unassignFormation")
 	"""
 	**Examples**
@@ -5421,17 +5462,17 @@ type Mutation {
 	**Examples**
 	- [create automatic scenario assignment](examples/create-automatic-scenario-assignment/create-automatic-scenario-assignment.graphql)
 	"""
-	createAutomaticScenarioAssignment(in: AutomaticScenarioAssignmentSetInput! @validate): AutomaticScenarioAssignment @hasScopes(path: "graphql.mutation.createAutomaticScenarioAssignment")
+	createAutomaticScenarioAssignment(in: AutomaticScenarioAssignmentSetInput! @validate): AutomaticScenarioAssignment @hasScopes(path: "graphql.mutation.createAutomaticScenarioAssignment") @deprecated(reason: "Use assignFormation with objectType TENANT instead.")
 	"""
 	**Examples**
 	- [delete automatic scenario assignment for scenario](examples/delete-automatic-scenario-assignment-for-scenario/delete-automatic-scenario-assignment-for-scenario.graphql)
 	"""
-	deleteAutomaticScenarioAssignmentForScenario(scenarioName: String!): AutomaticScenarioAssignment @hasScopes(path: "graphql.mutation.deleteAutomaticScenarioAssignmentForScenario")
+	deleteAutomaticScenarioAssignmentForScenario(scenarioName: String!): AutomaticScenarioAssignment @hasScopes(path: "graphql.mutation.deleteAutomaticScenarioAssignmentForScenario") @deprecated(reason: "Use unassignFormation with objectType TENANT instead.")
 	"""
 	**Examples**
 	- [delete automatic scenario assignments for selector](examples/delete-automatic-scenario-assignments-for-selector/delete-automatic-scenario-assignments-for-selector.graphql)
 	"""
-	deleteAutomaticScenarioAssignmentsForSelector(selector: LabelSelectorInput! @validate): [AutomaticScenarioAssignment!]! @hasScopes(path: "graphql.mutation.deleteAutomaticScenarioAssignmentsForSelector")
+	deleteAutomaticScenarioAssignmentsForSelector(selector: LabelSelectorInput! @validate): [AutomaticScenarioAssignment!]! @hasScopes(path: "graphql.mutation.deleteAutomaticScenarioAssignmentsForSelector") @deprecated(reason: "Use unassignFormation with objectType TENANT instead.")
 	writeTenants(in: [BusinessTenantMappingInput!]): Int! @hasScopes(path: "graphql.mutation.writeTenants")
 	deleteTenants(in: [String!]): Int! @hasScopes(path: "graphql.mutation.deleteTenants")
 	updateTenant(id: ID!, in: BusinessTenantMappingInput!): Tenant! @hasScopes(path: "graphql.mutation.updateTenant")
@@ -5524,6 +5565,20 @@ func (ec *executionContext) dir_sanitize_args(ctx context.Context, rawArgs map[s
 		}
 	}
 	args["path"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_ApplicationTemplate_labels_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *string
+	if tmp, ok := rawArgs["key"]; ok {
+		arg0, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["key"] = arg0
 	return args, nil
 }
 
@@ -9921,6 +9976,44 @@ func (ec *executionContext) _ApplicationTemplate_placeholders(ctx context.Contex
 	res := resTmp.([]*PlaceholderDefinition)
 	fc.Result = res
 	return ec.marshalNPlaceholderDefinition2ᚕᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐPlaceholderDefinitionᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _ApplicationTemplate_labels(ctx context.Context, field graphql.CollectedField, obj *ApplicationTemplate) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "ApplicationTemplate",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_ApplicationTemplate_labels_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.ApplicationTemplate().Labels(rctx, obj, args["key"].(*string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(Labels)
+	fc.Result = res
+	return ec.marshalOLabels2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐLabels(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _ApplicationTemplate_accessLevel(ctx context.Context, field graphql.CollectedField, obj *ApplicationTemplate) (ret graphql.Marshaler) {
@@ -24531,6 +24624,12 @@ func (ec *executionContext) unmarshalInputApplicationTemplateInput(ctx context.C
 			if err != nil {
 				return it, err
 			}
+		case "labels":
+			var err error
+			it.Labels, err = ec.unmarshalOLabels2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐLabels(ctx, v)
+			if err != nil {
+				return it, err
+			}
 		case "applicationInput":
 			var err error
 			it.ApplicationInput, err = ec.unmarshalNApplicationRegisterInput2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐApplicationRegisterInput(ctx, v)
@@ -24618,6 +24717,12 @@ func (ec *executionContext) unmarshalInputApplicationUpdateInput(ctx context.Con
 		case "healthCheckURL":
 			var err error
 			it.HealthCheckURL, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "baseUrl":
+			var err error
+			it.BaseURL, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -26342,6 +26447,17 @@ func (ec *executionContext) _ApplicationTemplate(ctx context.Context, sel ast.Se
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&invalids, 1)
 			}
+		case "labels":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._ApplicationTemplate_labels(ctx, field, obj)
+				return res
+			})
 		case "accessLevel":
 			out.Values[i] = ec._ApplicationTemplate_accessLevel(ctx, field, obj)
 			if out.Values[i] == graphql.Null {

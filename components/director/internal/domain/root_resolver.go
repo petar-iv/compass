@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
+	pkgadapters "github.com/kyma-incubator/compass/components/director/pkg/adapters"
+
 	"github.com/kyma-incubator/compass/components/director/pkg/model"
 
 	"github.com/kyma-incubator/compass/components/director/internal/subscription"
@@ -89,10 +91,10 @@ func NewRootResolver(
 	cfgProvider *config.Provider,
 	oneTimeTokenCfg onetimetoken.Config,
 	oAuth20Cfg oauth20.Config,
-	pairingAdaptersMapping map[string]string,
+	pairingAdapters *pkgadapters.Adapters,
 	featuresConfig features.Config,
 	metricsCollector *metrics.Collector,
-	httpClient, internalHTTPClient *http.Client,
+	httpClient, internalFQDNHTTPClient, internalGatewayHTTPClient *http.Client,
 	selfRegConfig config.SelfRegConfig,
 	tokenLength int,
 	hydraURL *url.URL,
@@ -161,7 +163,7 @@ func NewRootResolver(
 
 	uidSvc := uid.NewService()
 	labelSvc := label.NewLabelService(labelRepo, labelDefRepo, uidSvc)
-	appTemplateSvc := apptemplate.NewService(appTemplateRepo, webhookRepo, uidSvc)
+	appTemplateSvc := apptemplate.NewService(appTemplateRepo, webhookRepo, uidSvc, labelSvc, labelRepo)
 
 	labelDefSvc := labeldef.NewService(labelDefRepo, labelRepo, scenarioAssignmentRepo, tenantRepo, uidSvc, featuresConfig.DefaultScenarioEnabled)
 	fetchRequestSvc := fetchrequest.NewService(fetchRequestRepo, httpClient, accessStrategyExecutorProvider)
@@ -184,11 +186,11 @@ func NewRootResolver(
 	bundleSvc := bundleutil.NewService(bundleRepo, apiSvc, eventAPISvc, docSvc, uidSvc)
 	appSvc := application.NewService(appNameNormalizer, cfgProvider, applicationRepo, webhookRepo, runtimeRepo, labelRepo, intSysRepo, labelSvc, labelDefSvc, bundleSvc, uidSvc)
 	timeService := time.NewService()
-	tokenSvc := onetimetoken.NewTokenService(systemAuthSvc, appSvc, appConverter, tenantSvc, internalHTTPClient, onetimetoken.NewTokenGenerator(tokenLength), oneTimeTokenCfg, pairingAdaptersMapping, timeService)
+	tokenSvc := onetimetoken.NewTokenService(systemAuthSvc, appSvc, appConverter, tenantSvc, internalFQDNHTTPClient, onetimetoken.NewTokenGenerator(tokenLength), oneTimeTokenCfg, pairingAdapters, timeService)
 	bundleInstanceAuthSvc := bundleinstanceauth.NewService(bundleInstanceAuthRepo, uidSvc)
 	formationSvc := formation.NewService(labelDefRepo, labelRepo, labelSvc, uidSvc, labelDefSvc, scenarioAssignmentSvc, tenantSvc, scenarioAssignmentEngine)
 	subscriptionSvc := subscription.NewService(runtimeSvc, tenantSvc, labelSvc, uidSvc, subscriptionConfig.ProviderLabelKey, subscriptionConfig.ConsumerSubaccountIDsLabelKey)
-	tenantOnDemandSvc := tenant.NewFetchOnDemandService(internalHTTPClient, tenantOnDemandURL)
+	tenantOnDemandSvc := tenant.NewFetchOnDemandService(internalGatewayHTTPClient, tenantOnDemandURL)
 
 	return &RootResolver{
 		appNameNormalizer:  appNameNormalizer,
@@ -860,6 +862,11 @@ type applicationTemplateResolver struct {
 // Webhooks missing godoc
 func (r applicationTemplateResolver) Webhooks(ctx context.Context, obj *graphql.ApplicationTemplate) ([]*graphql.Webhook, error) {
 	return r.appTemplate.Webhooks(ctx, obj)
+}
+
+// Labels missing godoc
+func (r applicationTemplateResolver) Labels(ctx context.Context, obj *graphql.ApplicationTemplate, key *string) (graphql.Labels, error) {
+	return r.appTemplate.Labels(ctx, obj, key)
 }
 
 type runtimeResolver struct {

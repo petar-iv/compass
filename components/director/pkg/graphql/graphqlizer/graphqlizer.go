@@ -67,6 +67,9 @@ func (g *Graphqlizer) ApplicationUpdateInputToGQL(in graphql.ApplicationUpdateIn
 		{{- if .HealthCheckURL }}
 		healthCheckURL: "{{ .HealthCheckURL }}",
 		{{- end }}
+		{{- if .BaseURL }}
+		baseUrl: "{{ .BaseURL }}",
+		{{- end }}
 		{{- if .IntegrationSystemID }}
 		integrationSystemID: "{{ .IntegrationSystemID }}",
 		{{- end }}
@@ -91,6 +94,9 @@ func (g *Graphqlizer) ApplicationTemplateInputToGQL(in graphql.ApplicationTempla
 			{{- end }} ],
 		{{- end }}
 		accessLevel: {{.AccessLevel}},
+		{{- if .Labels }}
+		labels: {{ LabelsToGQL .Labels}},
+		{{- end }}
 		{{- if .Webhooks }}
 		webhooks: [
 			{{- range $i, $e := .Webhooks }} 

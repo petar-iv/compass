@@ -117,8 +117,10 @@ type ApplicationTemplateInput struct {
 	// **Validation:** ASCII printable characters, max=100
 	Name string `json:"name"`
 	// **Validation:** max=2000
-	Webhooks         []*WebhookInput                `json:"webhooks"`
-	Description      *string                        `json:"description"`
+	Webhooks    []*WebhookInput `json:"webhooks"`
+	Description *string         `json:"description"`
+	// **Validation:** label key is alphanumeric with underscore
+	Labels           Labels                         `json:"labels"`
 	ApplicationInput *ApplicationRegisterInput      `json:"applicationInput"`
 	Placeholders     []*PlaceholderDefinitionInput  `json:"placeholders"`
 	AccessLevel      ApplicationTemplateAccessLevel `json:"accessLevel"`
@@ -149,6 +151,7 @@ type ApplicationUpdateInput struct {
 	Description *string `json:"description"`
 	// **Validation:** valid URL, max=256
 	HealthCheckURL      *string                     `json:"healthCheckURL"`
+	BaseURL             *string                     `json:"baseUrl"`
 	IntegrationSystemID *string                     `json:"integrationSystemID"`
 	StatusCondition     *ApplicationStatusCondition `json:"statusCondition"`
 }
