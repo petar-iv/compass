@@ -1,4 +1,4 @@
-package pkg
+package fetcher_client
 
 type Tenant struct {
 	Name string `json:"name"`

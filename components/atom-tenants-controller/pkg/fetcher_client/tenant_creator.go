@@ -1,12 +1,13 @@
-package pkg
+package fetcher_client
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"fmt"
 	"net/http"
 
+	"github.com/pkg/errors"
 	rmlogger "github.tools.sap/unified-resource-manager/api/pkg/apis/logger"
 )
 
@@ -37,7 +38,7 @@ func (s *service) StoreTenants(ctx context.Context, payload RequestPayload) erro
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "while making HTTP request")
 	}
 
 	defer func() {
@@ -46,12 +47,8 @@ func (s *service) StoreTenants(ctx context.Context, payload RequestPayload) erro
 		}
 	}()
 
-	responseBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
+	if resp.StatusCode != http.StatusOK {
+		return errors.New(fmt.Sprintf("received unexpecte status code %d while making request to tenant fetcher", resp.StatusCode))
 	}
-
-	log.Info(string(responseBody))
-
 	return nil
 }

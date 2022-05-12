@@ -1,8 +1,23 @@
+app:
+  rmconfig: /config/rmconfig.yaml
+  skipSSLValidation: true
+  tenantFetcherURL: https://compass-gateway.kyma.local/tenants/v1/atom
+  log:
+    enabled: true
+    level: info # debug|info|warn|error
+  max_concurrent_threads:
+    organization_controller: 1
+    folder_controller: 1
+    resource_group_controller: 1
+  gatewayHost: compass-gateway.kyma.local
+  gatewayIp: 192.168.64.8
 deployment:
   minReplicas: 1
   maxReplicas: 1
   targetCPUUtilizationPercentage: 80
   image:
+    name: ucl-tenants-aggregator
+    tag: latest
     pullPolicy: IfNotPresent
   resources: {}
   resourcesCloudsqlProxy: {}
@@ -21,14 +36,3 @@ readinessProbe:
   initialDelaySeconds: 5
   timeoutSeconds: 2
   periodSeconds: 5
-
-rmconfig: /config/rmconfig.yaml
-skipSSLValidation: true
-tenantFetcherURL: https://compass-gateway.kyma.local/tenants/v1/atom
-log:
-  enabled: true
-  level: info # debug|info|warn|error
-max_concurrent_threads:
-  organization_controller: 1
-  folder_controller: 1
-  resource_group_controller: 1

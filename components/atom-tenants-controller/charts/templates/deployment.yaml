@@ -1,26 +1,30 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: ucl-tenants-controller
+  namespace: {{ .Release.Namespace }}
   labels:
-    control-plane: ucl-tenants-aggregator
-  name: ucl-tenants-aggregator
+    app: {{ .Chart.Name }}
+    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.deployment.minReplicas }}
   selector:
     matchLabels:
-      control-plane: ucl-tenants-aggregator
+      app: {{ .Chart.Name }}
+      release: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        control-plane: ucl-tenants-aggregator
+        app: {{ .Chart.Name }}
+        release: {{ .Release.Name }}
     spec:
       hostAliases:
-      - ip: "192.168.64.6"
+      - ip: {{ .Values.app.gatewayIp | quote }}
         hostnames:
-        - "compass-gateway.kyma.local"
+        - {{ .Values.app.gatewayHost | quote }}
       containers:
         - name: {{ .Chart.Name }}
-          image: ucl-tenants-aggregator:latest
+          image: {{ .Values.deployment.image.name }}:{{ .Values.deployment.image.tag }}
           imagePullPolicy: {{ .Values.deployment.image.pullPolicy }}
           resources:
             {{- toYaml .Values.deployment.resources | nindent 12 }}
@@ -30,35 +34,35 @@ spec:
           {{- end }}
           env:
             - name: LOG_ENABLED
-              value: {{ .Values.log.enabled | quote }}
+              value: {{ .Values.app.log.enabled | quote }}
             - name: LOG_LEVEL
-              value: {{ .Values.log.level | quote }}
+              value: {{ .Values.app.log.level | quote }}
             - name: RMCONFIG
-              value: {{ .Values.rmconfig | quote }}
+              value: {{ .Values.app.rmconfig | quote }}
             - name: TENANT_FETCHER_URL
-              value: {{ .Values.tenantFetcherURL | quote }}
+              value: {{ .Values.app.tenantFetcherURL | quote }}
             - name: MAX_CONCURRENT_THREADS_ORGANIZATION_CONTROLLER
-              value: {{ .Values.max_concurrent_threads.organization_controller | quote }}
+              value: {{ .Values.app.max_concurrent_threads.organization_controller | quote }}
             - name: MAX_CONCURRENT_THREADS_FOLDER_CONTROLLER
-              value: {{ .Values.max_concurrent_threads.folder_controller | quote }}
+              value: {{ .Values.app.max_concurrent_threads.folder_controller | quote }}
             - name: MAX_CONCURRENT_THREADS_RESOURCE_GROUP_CONTROLLER
-              value: {{ .Values.max_concurrent_threads.resource_group_controller | quote }}
+              value: {{ .Values.app.max_concurrent_threads.resource_group_controller | quote }}
             - name: SKIP_SSL_VALIDATION
-              value: {{ .Values.skipSSLValidation| quote }}
+              value: {{ .Values.app.skipSSLValidation| quote }}
             - name: OAUTH20_CLIENT_KEY
               valueFrom:
                 secretKeyRef:
-                  name: xsuaa-credentials
+                  name: oauth20-credentials
                   key: client_key
             - name: OAUTH20_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: xsuaa-credentials
+                  name: oauth20-credentials
                   key: client_secret
             - name: OAUTH20_TOKEN_URL
               valueFrom:
                 secretKeyRef:
-                  name: xsuaa-credentials
+                  name: oauth20-credentials
                   key: token_url
           volumeMounts:
             - mountPath: /config

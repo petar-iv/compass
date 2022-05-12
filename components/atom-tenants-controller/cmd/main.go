@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kyma-incubator/compass/components/atom-tenants-controller/pkg"
+	"github.com/kyma-incubator/compass/components/atom-tenants-controller/pkg/fetcher_client"
 
 	"github.com/kyma-incubator/compass/components/atom-tenants-controller/internal/config"
 	"github.com/kyma-incubator/compass/components/atom-tenants-controller/reconcilers"
@@ -52,8 +52,8 @@ func main() {
 			InsecureSkipVerify: settings.SkipSSLValidation,
 		},
 	}
-	oauth20Client.Transport = pkg.NewOAuth20Transport(transport, oauth20Config)
-	creator := pkg.NewCreator(oauth20Client, settings.TenantFetcherURL)
+	oauth20Client.Transport = fetcher_client.NewOAuth20Transport(transport, oauth20Config)
+	creator := fetcher_client.NewCreator(oauth20Client, settings.TenantFetcherURL)
 
 	mgr, err := manager.NewManager(ctx, options)
 	exitOnError(log, err, "failed to create manager")
@@ -65,7 +65,7 @@ func main() {
 	exitOnError(log, err, "failed to start manager")
 }
 
-func registerControllers(ctx context.Context, mgr *manager.ControllerManager, creator pkg.TenantCreator, settings *config.ControllerManagerSettings) error {
+func registerControllers(ctx context.Context, mgr *manager.ControllerManager, creator fetcher_client.TenantCreator, settings *config.ControllerManagerSettings) error {
 	var err error
 	log := rmlogger.FromContext(ctx, "ControllerManager")
 	rmClient := mgr.GetClient()

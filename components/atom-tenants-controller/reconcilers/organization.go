@@ -3,8 +3,9 @@ package reconcilers
 import (
 	"context"
 
+	"github.com/kyma-incubator/compass/components/atom-tenants-controller/pkg/fetcher_client"
+
 	"github.com/kyma-incubator/compass/components/atom-tenants-controller/internal/model"
-	"github.com/kyma-incubator/compass/components/atom-tenants-controller/pkg"
 	"github.com/pkg/errors"
 	rmerrors "github.tools.sap/unified-resource-manager/api/pkg/apis/errors"
 	rmlogger "github.tools.sap/unified-resource-manager/api/pkg/apis/logger"
@@ -15,9 +16,11 @@ import (
 	rmmanager "github.tools.sap/unified-resource-manager/controller-utils/pkg/manager"
 )
 
+const CustomerIdLabel = "accounts.commercial.resource.api.sap/crm-id"
+
 type OrganizationController struct {
 	rmclient.Client
-	Creator pkg.TenantCreator
+	Creator fetcher_client.TenantCreator
 	Log     rmlogger.Logger
 }
 
@@ -42,9 +45,9 @@ func (r *OrganizationController) Reconcile(ctx context.Context, resourceKey runt
 		return rmcontroller.Result{}, err
 	}
 
-	payload := pkg.RequestPayload{
+	payload := fetcher_client.RequestPayload{
 		Customer: crmID,
-		Organization: pkg.Tenant{
+		Organization: fetcher_client.Tenant{
 			Name: org.Name,
 			Path: PathDelimiter + org.Name,
 		},
@@ -97,6 +100,6 @@ func getCustomerIDForOrganization(ctx context.Context, client rmclient.Client, o
 		}
 		return "", err
 	}
-	return orgBase.Labels["accounts.commercial.resource.api.sap/crm-id"], nil
+	return orgBase.Labels[CustomerIdLabel], nil
 
 }

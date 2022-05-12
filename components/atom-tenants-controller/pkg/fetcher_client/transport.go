@@ -1,4 +1,4 @@
-package pkg
+package fetcher_client
 
 import (
 	"net/http"

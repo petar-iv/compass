@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/kyma-incubator/compass/components/atom-tenants-controller/pkg"
+	"github.com/kyma-incubator/compass/components/atom-tenants-controller/pkg/fetcher_client"
 
 	rmerrors "github.tools.sap/unified-resource-manager/api/pkg/apis/errors"
 
@@ -21,7 +21,7 @@ const PathDelimiter = "/"
 
 type FolderController struct {
 	rmclient.Client
-	Creator pkg.TenantCreator
+	Creator fetcher_client.TenantCreator
 	Log     rmlogger.Logger
 }
 
@@ -40,17 +40,17 @@ func (r *FolderController) Reconcile(ctx context.Context, resourceKey runtime.Ke
 	tenantHierarchy := strings.Split(folder.Path, PathDelimiter)
 	organizationName := tenantHierarchy[1]
 
-	var folders []pkg.Tenant
+	var folders []fetcher_client.Tenant
 	for i := 2; i < len(tenantHierarchy); i++ {
 		currFolder := tenantHierarchy[i]
 		pathToCurrentFolder := strings.Join(tenantHierarchy[:i], PathDelimiter)
-		folders = append(folders, pkg.Tenant{
+		folders = append(folders, fetcher_client.Tenant{
 			Name: currFolder,
 			Path: pathToCurrentFolder + PathDelimiter + currFolder,
 		})
 
 	}
-	folders = append(folders, pkg.Tenant{
+	folders = append(folders, fetcher_client.Tenant{
 		Name: folder.Name,
 		Path: folder.Path + PathDelimiter + folder.Name,
 	})
@@ -60,9 +60,9 @@ func (r *FolderController) Reconcile(ctx context.Context, resourceKey runtime.Ke
 		return rmcontroller.Result{}, err
 	}
 
-	payload := pkg.RequestPayload{
+	payload := fetcher_client.RequestPayload{
 		Customer: crmID,
-		Organization: pkg.Tenant{
+		Organization: fetcher_client.Tenant{
 			Name: organizationName,
 			Path: PathDelimiter + organizationName,
 		},
