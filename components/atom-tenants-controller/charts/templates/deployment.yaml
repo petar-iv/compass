@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: ucl-tenants-aggregator
+  name: ucl-tenants-aggregator
+spec:
+  replicas: {{ .Values.deployment.minReplicas }}
+  selector:
+    matchLabels:
+      control-plane: ucl-tenants-aggregator
+  template:
+    metadata:
+      labels:
+        control-plane: ucl-tenants-aggregator
+    spec:
+      hostAliases:
+      - ip: "192.168.64.4"
+        hostnames:
+        - "compass-gateway.kyma.local"
+      containers:
+        - name: {{ .Chart.Name }}
+          image: ucl-tenants-aggregator:latest
+          imagePullPolicy: {{ .Values.deployment.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.deployment.resources | nindent 12 }}
+          {{- with .Values.deployment.securityContext }}
+          securityContext:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          env:
+            - name: LOG_ENABLED
+              value: {{ .Values.log.enabled | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.log.level | quote }}
+            - name: RMCONFIG
+              value: {{ .Values.rmconfig | quote }}
+            - name: TENANT_FETCHER_URL
+              value: {{ .Values.tenantFetcherURL | quote }}
+            - name: MAX_CONCURRENT_THREADS_ORGANIZATION_CONTROLLER
+              value: {{ .Values.max_concurrent_threads.organization_controller | quote }}
+            - name: MAX_CONCURRENT_THREADS_FOLDER_CONTROLLER
+              value: {{ .Values.max_concurrent_threads.folder_controller | quote }}
+            - name: MAX_CONCURRENT_THREADS_RESOURCE_GROUP_CONTROLLER
+              value: {{ .Values.max_concurrent_threads.resource_group_controller | quote }}
+            - name: OAUTH20_CLIENT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: xsuaa-credentials
+                  key: client_key
+            - name: OAUTH20_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: xsuaa-credentials
+                  key: client_secret
+            - name: OAUTH20_TOKEN_URL
+              valueFrom:
+                secretKeyRef:
+                  name: xsuaa-credentials
+                  key: token_url
+          volumeMounts:
+            - mountPath: /config
+              name: resource-manager-config
+              readOnly: true
+      volumes:
+        - name: resource-manager-config
+          secret:
+            secretName: resource-manager-config
+            items:
+              - key: rmconfig.yaml
+                path: rmconfig.yaml

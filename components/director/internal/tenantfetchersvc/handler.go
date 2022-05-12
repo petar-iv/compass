@@ -2,20 +2,24 @@ package tenantfetchersvc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"time"
 
-	"github.com/kyma-incubator/compass/components/director/pkg/oauth"
-	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
-
-	"github.com/kyma-incubator/compass/components/director/internal/tenantfetcher"
-
 	"github.com/gorilla/mux"
 	"github.com/kyma-incubator/compass/components/director/internal/features"
+	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/internal/tenantfetcher"
+	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
+	"github.com/kyma-incubator/compass/components/director/pkg/oauth"
+	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
+	"github.com/kyma-incubator/compass/components/director/pkg/tenant"
 	"github.com/tidwall/gjson"
 )
 
@@ -43,6 +47,7 @@ type TenantSubscriber interface {
 type HandlerConfig struct {
 	TenantOnDemandHandlerEndpoint string `envconfig:"APP_TENANT_ON_DEMAND_HANDLER_ENDPOINT,default=/v1/fetch/{tenantId}"`
 	RegionalHandlerEndpoint       string `envconfig:"APP_REGIONAL_HANDLER_ENDPOINT,default=/v1/regional/{region}/callback/{tenantId}"`
+	AtomTenantsEndpoint           string `envconfig:"APP_ATOM_TENANTS_ENDPOINT,default=/v1/atom"`
 	DependenciesEndpoint          string `envconfig:"APP_DEPENDENCIES_ENDPOINT,default=/v1/dependencies"`
 	TenantPathParam               string `envconfig:"APP_TENANT_PATH_PARAM,default=tenantId"`
 	RegionPathParam               string `envconfig:"APP_REGION_PATH_PARAM,default=region"`
@@ -77,9 +82,11 @@ type EventsConfig struct {
 }
 
 type handler struct {
-	fetcher    TenantFetcher
-	subscriber TenantSubscriber
-	config     HandlerConfig
+	fetcher         TenantFetcher
+	gqlClient       DirectorGraphQLClient
+	tenantConverter TenantConverter
+	subscriber      TenantSubscriber
+	config          HandlerConfig
 }
 
 // NewTenantsHTTPHandler returns a new HTTP handler, responsible for creation and deletion of regional and non-regional tenants.
@@ -95,6 +102,14 @@ func NewTenantFetcherHTTPHandler(fetcher TenantFetcher, config HandlerConfig) *h
 	return &handler{
 		fetcher: fetcher,
 		config:  config,
+	}
+}
+
+// NewTenantWriterHandler missing godoc.
+func NewTenantWriterHandler(gqlClient DirectorGraphQLClient, tenantConverter TenantConverter) *handler {
+	return &handler{
+		gqlClient:       gqlClient,
+		tenantConverter: tenantConverter,
 	}
 }
 
@@ -119,6 +134,41 @@ func (h *handler) FetchTenantOnDemand(writer http.ResponseWriter, request *http.
 		return
 	}
 	writeCreatedResponse(writer, ctx, tenantID)
+}
+
+func (h *handler) StoreAtomTenants(writer http.ResponseWriter, request *http.Request) {
+	ctx := request.Context()
+
+	defer func() {
+		if err := request.Body.Close(); err != nil {
+			log.C(ctx).Error("Got error on closing request body", err)
+		}
+	}()
+
+	b, err := io.ReadAll(request.Body)
+	if err != nil {
+		log.C(ctx).Error(err)
+	}
+
+	var payload RequestPayload
+	if err = json.Unmarshal(b, &payload); err != nil {
+		log.C(ctx).Error(err)
+	}
+
+	tenantsToCreate := getTenantsToBeCreated(payload)
+
+	maxChunkSize := 100
+	tenantsToCreateGQL := h.tenantConverter.MultipleInputToGraphQLInput(tenantsToCreate)
+	err = executeInChunks(ctx, tenantsToCreateGQL, func(ctx context.Context, chunk []graphql.BusinessTenantMappingInput) error {
+		return h.gqlClient.WriteTenants(ctx, chunk)
+	}, maxChunkSize)
+
+	if err != nil {
+		log.C(ctx).Error(err)
+	}
+
+	writer.Header().Set("Content-Type", "text/plain")
+	writer.WriteHeader(http.StatusOK)
 }
 
 func writeCreatedResponse(writer http.ResponseWriter, ctx context.Context, tenantID string) {
@@ -234,4 +284,73 @@ func respondSuccess(ctx context.Context, writer http.ResponseWriter, mainTenantI
 	if _, err := writer.Write([]byte(compassURL)); err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to write response body for tenant request creation for tenant %s: %v", mainTenantID, err)
 	}
+}
+
+func getTenantsToBeCreated(payload RequestPayload) []model.BusinessTenantMappingInput {
+	var toBeCreated []model.BusinessTenantMappingInput
+	providerName := "Atom"
+	if len(payload.Customer) > 0 {
+		toBeCreated = append(toBeCreated, model.BusinessTenantMappingInput{
+			Name:           payload.Customer,
+			ExternalTenant: payload.Customer,
+			Type:           tenant.TypeToStr(tenant.Customer),
+			Provider:       providerName,
+		})
+	}
+	if payload.Organization != nil {
+		toBeCreated = append(toBeCreated, model.BusinessTenantMappingInput{
+			Name:           payload.Organization.Name,
+			ExternalTenant: payload.Organization.Path,
+			Parent:         payload.Customer,
+			Type:           tenant.TypeToStr(tenant.Organization),
+			Provider:       providerName,
+		})
+	}
+	for _, folder := range payload.Folders {
+		lastFolder := toBeCreated[len(toBeCreated)-1]
+		toBeCreated = append(toBeCreated, model.BusinessTenantMappingInput{
+			Name:           folder.Name,
+			ExternalTenant: folder.Path,
+			Parent:         lastFolder.ExternalTenant,
+			Type:           tenant.TypeToStr(tenant.Folder),
+			Provider:       providerName,
+		})
+	}
+	if payload.ResourceGroup != nil {
+		parent := toBeCreated[len(toBeCreated)-1]
+		toBeCreated = append(toBeCreated, model.BusinessTenantMappingInput{
+			Name:           payload.ResourceGroup.Name,
+			ExternalTenant: payload.ResourceGroup.Path,
+			Parent:         parent.ExternalTenant,
+			Type:           tenant.TypeToStr(tenant.ResourceGroup),
+			Provider:       providerName,
+		})
+	}
+	return toBeCreated
+}
+
+func executeInChunks(ctx context.Context, tenants []graphql.BusinessTenantMappingInput, f func(ctx context.Context, chunk []graphql.BusinessTenantMappingInput) error, maxChunkSize int) error {
+	for {
+		if len(tenants) == 0 {
+			return nil
+		}
+		chunkSize := int(math.Min(float64(len(tenants)), float64(maxChunkSize)))
+		tenantsChunk := tenants[:chunkSize]
+		if err := f(ctx, tenantsChunk); err != nil {
+			return err
+		}
+		tenants = tenants[chunkSize:]
+	}
+}
+
+type Tenant struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+type RequestPayload struct {
+	Customer      string    `json:"customer"`
+	Organization  *Tenant   `json:"organization"`
+	Folders       []*Tenant `json:"folders,omitempty"`
+	ResourceGroup *Tenant   `json:"resource_group,omitempty"`
 }

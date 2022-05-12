@@ -28,6 +28,12 @@ const (
 	Account Type = "account"
 	// Subaccount tenants must have a parent of type Account.
 	Subaccount Type = "subaccount"
+	// Organization tenants must have a parent of type Customer.
+	Organization Type = "atom_org"
+	// Folder tenants must have a parent of type Organization.
+	Folder Type = "atom_folder"
+	// ResourceGroup tenants can have either Organization or Folder for parent.
+	ResourceGroup Type = "atom_resource_group"
 )
 
 // Status is used to determine if a tenant is currently being used or not.
@@ -63,6 +69,12 @@ func StrToType(value string) Type {
 		return Customer
 	case string(Subaccount):
 		return Subaccount
+	case string(Organization):
+		return Organization
+	case string(Folder):
+		return Folder
+	case string(ResourceGroup):
+		return ResourceGroup
 	default:
 		return Unknown
 	}
@@ -77,6 +89,12 @@ func TypeToStr(value Type) string {
 		return string(Customer)
 	case Subaccount:
 		return string(Subaccount)
+	case Organization:
+		return string(Organization)
+	case Folder:
+		return string(Folder)
+	case ResourceGroup:
+		return string(ResourceGroup)
 	default:
 		return string(Unknown)
 	}

@@ -1,0 +1,33 @@
+deployment:
+  minReplicas: 1
+  maxReplicas: 1
+  targetCPUUtilizationPercentage: 80
+  image:
+    pullPolicy: IfNotPresent
+  resources: {}
+  resourcesCloudsqlProxy: {}
+  resourcesIstioProxy:
+    requests: {}
+    limits: {}
+  securityContext:
+    runAsUser: 2000
+    allowPrivilegeEscalation: false
+  dbPool:
+    maxOpenConnections: 30
+    maxIdleConnections: 2
+  strategy: {}
+  nodeSelector: {}
+readinessProbe:
+  initialDelaySeconds: 5
+  timeoutSeconds: 2
+  periodSeconds: 5
+
+rmconfig: /config/rmconfig.yaml
+tenantFetcherURL: https://compass-gateway.kyma.local/tenants/v1/atom
+log:
+  enabled: true
+  level: info # debug|info|warn|error
+max_concurrent_threads:
+  organization_controller: 1
+  folder_controller: 1
+  resource_group_controller: 1

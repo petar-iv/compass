@@ -75,6 +75,7 @@ type securityConfig struct {
 	JwksEndpoint              string        `envconfig:"default=file://hack/default-jwks.json,APP_JWKS_ENDPOINT"`
 	SubscriptionCallbackScope string        `envconfig:"APP_SUBSCRIPTION_CALLBACK_SCOPE"`
 	FetchTenantOnDemandScope  string        `envconfig:"APP_FETCH_TENANT_ON_DEMAND_SCOPE"`
+	AtomScope                 string        `envconfig:"default=atom-test"`
 }
 
 func main() {
@@ -135,6 +136,10 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	tenantsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.TenantsRootAPI).Subrouter()
 	configureAuthMiddleware(ctx, httpClient, tenantsOnDemandAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.FetchTenantOnDemandScope)
 	registerTenantsOnDemandHandler(ctx, tenantsOnDemandAPIRouter, cfg.EventsCfg, cfg.Handler, transact)
+
+	atomTenantsAPIRouter := mainRouter.PathPrefix(cfg.TenantsRootAPI).Subrouter()
+	configureAuthMiddleware(ctx, httpClient, atomTenantsAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.AtomScope)
+	registerAtomTenantsHandler(ctx, atomTenantsAPIRouter, cfg.Handler)
 
 	healthCheckRouter := mainRouter.PathPrefix(cfg.TenantsRootAPI).Subrouter()
 	logger.Infof("Registering readiness endpoint...")
@@ -227,6 +232,16 @@ func registerTenantsOnDemandHandler(ctx context.Context, router *mux.Router, eve
 
 	log.C(ctx).Infof("Registering fetch tenant on-demand endpoint on %s...", tenantHandlerCfg.TenantOnDemandHandlerEndpoint)
 	router.HandleFunc(tenantHandlerCfg.TenantOnDemandHandlerEndpoint, tenantHandler.FetchTenantOnDemand).Methods(http.MethodPost)
+}
+
+func registerAtomTenantsHandler(ctx context.Context, router *mux.Router, handlerCfg tenantfetcher.HandlerConfig) {
+	tenantStorageConv := tenant.NewConverter()
+	gqlClient := newInternalGraphQLClient(handlerCfg.DirectorGraphQLEndpoint, handlerCfg.ClientTimeout, handlerCfg.HTTPClientSkipSslValidation)
+	directorClient := graphqlclient.NewDirector(gqlClient)
+
+	tenantHandler := tenantfetcher.NewTenantWriterHandler(directorClient, tenantStorageConv)
+	log.C(ctx).Infof("Registering endpoint for storing atom tenants on %s...", handlerCfg.AtomTenantsEndpoint)
+	router.HandleFunc(handlerCfg.AtomTenantsEndpoint, tenantHandler.StoreAtomTenants).Methods(http.MethodPost)
 }
 
 func createTenantFetcherOnDemandSvc(eventsCfg tenantfetcher.EventsConfig, handlerCfg tenantfetcher.HandlerConfig, transact persistence.Transactioner) (*tf.SubaccountOnDemandService, error) {
