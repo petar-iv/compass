@@ -10,7 +10,6 @@ import (
 	rmlogger "github.tools.sap/unified-resource-manager/api/pkg/apis/logger"
 	metav1 "github.tools.sap/unified-resource-manager/api/pkg/apis/meta/v1"
 	"github.tools.sap/unified-resource-manager/api/pkg/apis/runtime"
-	"github.tools.sap/unified-resource-manager/api/pkg/apis/runtime/schema"
 	rmclient "github.tools.sap/unified-resource-manager/api/pkg/client"
 	rmcontroller "github.tools.sap/unified-resource-manager/controller-utils/pkg/controller"
 	rmmanager "github.tools.sap/unified-resource-manager/controller-utils/pkg/manager"
@@ -86,15 +85,10 @@ func (r *OrganizationController) initOrganizationController(maxConcurrentThreads
 }
 
 func getCustomerIDForOrganization(ctx context.Context, client rmclient.Client, orgName string, orgPath string) (string, error) {
-	orgBaseGVT := schema.GroupVersionType{
-		Group:   model.Group,
-		Version: model.Version,
-		Type:    "OrganizationBase",
-	}
 	orgBaseKey := runtime.FullResourceKey{
 		Path:             orgPath,
 		Name:             orgName,
-		GroupVersionType: orgBaseGVT,
+		GroupVersionType: model.NewOrganizationGVT(),
 	}
 	orgBase := model.NewOrganizationBase()
 	if err := client.Get(ctx, orgBaseKey, orgBase); err != nil {

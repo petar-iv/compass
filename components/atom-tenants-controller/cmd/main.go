@@ -49,7 +49,7 @@ func main() {
 	oauth20Client := oauth20Config.Client(ctx)
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: settings.SkipSSLValidation,
 		},
 	}
 	oauth20Client.Transport = pkg.NewOAuth20Transport(transport, oauth20Config)

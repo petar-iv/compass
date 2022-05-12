@@ -15,7 +15,7 @@ spec:
         control-plane: ucl-tenants-aggregator
     spec:
       hostAliases:
-      - ip: "192.168.64.4"
+      - ip: "192.168.64.6"
         hostnames:
         - "compass-gateway.kyma.local"
       containers:
@@ -43,6 +43,8 @@ spec:
               value: {{ .Values.max_concurrent_threads.folder_controller | quote }}
             - name: MAX_CONCURRENT_THREADS_RESOURCE_GROUP_CONTROLLER
               value: {{ .Values.max_concurrent_threads.resource_group_controller | quote }}
+            - name: SKIP_SSL_VALIDATION
+              value: {{ .Values.skipSSLValidation| quote }}
             - name: OAUTH20_CLIENT_KEY
               valueFrom:
                 secretKeyRef:

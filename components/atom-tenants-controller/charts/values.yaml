@@ -23,6 +23,7 @@ readinessProbe:
   periodSeconds: 5
 
 rmconfig: /config/rmconfig.yaml
+skipSSLValidation: true
 tenantFetcherURL: https://compass-gateway.kyma.local/tenants/v1/atom
 log:
   enabled: true

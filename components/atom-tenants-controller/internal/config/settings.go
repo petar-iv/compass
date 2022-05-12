@@ -12,6 +12,7 @@ import (
 type ControllerManagerSettings struct {
 	RMConfig             string                      `yaml:"rmconfig" mapstructure:"rmconfig"`
 	OAuth20              OAuth20Config               `yaml:"oauth20" mapstructure:"oauth20"`
+	SkipSSLValidation    bool                        `yaml:"skip_ssl_validation" mapstructure:"skip_ssl_validation"`
 	TenantFetcherURL     string                      `yaml:"tenant_fetcher_url" mapstructure:"tenant_fetcher_url"`
 	Log                  LogSettings                 `yaml:"log" mapstructure:"log"`
 	MaxConcurrentThreads ControllerConcurrentThreads `yaml:"max_concurrent_threads" mapstructure:"max_concurrent_threads"`
