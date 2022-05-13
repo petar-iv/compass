@@ -1,4 +1,0 @@
-apiVersion: v1
-description: A Helm chart for Atom Tenants Controller
-name: tenants-controller
-version: 0.1.0

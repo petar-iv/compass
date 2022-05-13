@@ -27,6 +27,7 @@ const (
 	// InternalServerError message
 	InternalServerError = "Internal Server Error"
 	compassURL          = "https://github.com/kyma-incubator/compass"
+	TenantProviderName  = "Atom"
 )
 
 // TenantFetcher is used to fectch tenants for creation;
@@ -288,13 +289,12 @@ func respondSuccess(ctx context.Context, writer http.ResponseWriter, mainTenantI
 
 func getTenantsToBeCreated(payload RequestPayload) []model.BusinessTenantMappingInput {
 	var toBeCreated []model.BusinessTenantMappingInput
-	providerName := "Atom"
 	if len(payload.Customer) > 0 {
 		toBeCreated = append(toBeCreated, model.BusinessTenantMappingInput{
 			Name:           payload.Customer,
 			ExternalTenant: payload.Customer,
 			Type:           tenant.TypeToStr(tenant.Customer),
-			Provider:       providerName,
+			Provider:       TenantProviderName,
 		})
 	}
 	if payload.Organization != nil {
@@ -303,7 +303,7 @@ func getTenantsToBeCreated(payload RequestPayload) []model.BusinessTenantMapping
 			ExternalTenant: payload.Organization.Path,
 			Parent:         payload.Customer,
 			Type:           tenant.TypeToStr(tenant.Organization),
-			Provider:       providerName,
+			Provider:       TenantProviderName,
 		})
 	}
 	for _, folder := range payload.Folders {
@@ -313,7 +313,7 @@ func getTenantsToBeCreated(payload RequestPayload) []model.BusinessTenantMapping
 			ExternalTenant: folder.Path,
 			Parent:         lastFolder.ExternalTenant,
 			Type:           tenant.TypeToStr(tenant.Folder),
-			Provider:       providerName,
+			Provider:       TenantProviderName,
 		})
 	}
 	if payload.ResourceGroup != nil {
@@ -323,7 +323,7 @@ func getTenantsToBeCreated(payload RequestPayload) []model.BusinessTenantMapping
 			ExternalTenant: payload.ResourceGroup.Path,
 			Parent:         parent.ExternalTenant,
 			Type:           tenant.TypeToStr(tenant.ResourceGroup),
-			Provider:       providerName,
+			Provider:       TenantProviderName,
 		})
 	}
 	return toBeCreated
