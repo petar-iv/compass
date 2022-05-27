@@ -153,6 +153,29 @@ func (r *pgRepository) List(ctx context.Context) ([]*model.BusinessTenantMapping
 	return r.multipleFromEntities(entityCollection), nil
 }
 
+// ListByType retrieves all tenants from the Compass storage by a given tenant type.
+func (r *pgRepository) ListByType(ctx context.Context, tenantType tenant.Type) ([]*model.BusinessTenantMapping, error) {
+	var entityCollection tenant.EntityCollection
+
+	persist, err := persistence.FromCtx(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "while fetching persistence from context")
+	}
+
+	prefixedFields := strings.Join(str.PrefixStrings(insertColumns, "t."), ", ")
+	query := fmt.Sprintf(`SELECT DISTINCT %s, ld.%s IS NOT NULL AS %s
+			FROM %s t LEFT JOIN %s ld ON t.%s=ld.%s
+			WHERE t.%s = $1 AND t.%s = $2
+			ORDER BY %s DESC, t.%s ASC`, prefixedFields, labelDefinitionsTenantIDColumn, initializedComputedColumn, tableName, labelDefinitionsTableName, idColumn, labelDefinitionsTenantIDColumn, statusColumn, typeColumn, initializedComputedColumn, externalNameColumn)
+
+	err = persist.SelectContext(ctx, &entityCollection, query, tenant.Active, tenant.TypeToStr(tenantType))
+	if err != nil {
+		return nil, errors.Wrap(err, "while listing tenants from DB")
+	}
+
+	return r.multipleFromEntities(entityCollection), nil
+}
+
 // ListPageBySearchTerm retrieves a page of tenants from the Compass storage filtered by a search term.
 func (r *pgRepository) ListPageBySearchTerm(ctx context.Context, searchTerm string, pageSize int, cursor string) (*model.BusinessTenantMappingPage, error) {
 	searchTermRegex := fmt.Sprintf("%%%s%%", searchTerm)

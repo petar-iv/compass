@@ -28,13 +28,14 @@ const (
 	DefaultScenario = "DEFAULT"
 	// TenantOnDemandProvider is the name of the business tenant mapping provider used when the tenant is not found in the events service
 	TenantOnDemandProvider = "lazily-tenant-fetcher"
+	Layout                 = "2006-01-02T15:04:05.000Z"
 )
 
 // TenantFieldMapping missing godoc
 type TenantFieldMapping struct {
-	TotalPagesField   string `envconfig:"APP_TENANT_TOTAL_PAGES_FIELD"`
-	TotalResultsField string `envconfig:"APP_TENANT_TOTAL_RESULTS_FIELD"`
-	EventsField       string `envconfig:"APP_TENANT_EVENTS_FIELD"`
+	TotalPagesField   string `envconfig:"optional,APP_TENANT_TOTAL_PAGES_FIELD"`
+	TotalResultsField string `envconfig:"optional,APP_TENANT_TOTAL_RESULTS_FIELD"`
+	EventsField       string `envconfig:"optional,APP_TENANT_EVENTS_FIELD"`
 
 	NameField              string `envconfig:"default=name,APP_MAPPING_FIELD_NAME"`
 	IDField                string `envconfig:"default=id,APP_MAPPING_FIELD_ID"`
@@ -47,7 +48,7 @@ type TenantFieldMapping struct {
 	DiscriminatorField     string `envconfig:"optional,APP_MAPPING_FIELD_DISCRIMINATOR"`
 	DiscriminatorValue     string `envconfig:"optional,APP_MAPPING_VALUE_DISCRIMINATOR"`
 
-	RegionField     string `envconfig:"APP_MAPPING_FIELD_REGION"`
+	RegionField     string `envconfig:"optional,APP_MAPPING_FIELD_REGION"`
 	EntityIDField   string `envconfig:"default=entityId,APP_MAPPING_FIELD_ENTITY_ID"`
 	EntityTypeField string `envconfig:"default=entityType,APP_MAPPING_FIELD_ENTITY_TYPE"`
 
@@ -57,9 +58,9 @@ type TenantFieldMapping struct {
 
 // MovedSubaccountsFieldMapping missing godoc
 type MovedSubaccountsFieldMapping struct {
-	LabelValue   string `envconfig:"APP_MAPPING_FIELD_ID"`
-	SourceTenant string `envconfig:"APP_MOVED_SUBACCOUNT_SOURCE_TENANT_FIELD"`
-	TargetTenant string `envconfig:"APP_MOVED_SUBACCOUNT_TARGET_TENANT_FIELD"`
+	LabelValue   string `envconfig:"optional,APP_MAPPING_FIELD_ID"`
+	SourceTenant string `envconfig:"optional,APP_MOVED_SUBACCOUNT_SOURCE_TENANT_FIELD"`
+	TargetTenant string `envconfig:"optional,APP_MOVED_SUBACCOUNT_TARGET_TENANT_FIELD"`
 }
 
 // QueryConfig contains the name of query parameters fields and default/start values
@@ -85,6 +86,7 @@ type PageConfig struct {
 type TenantStorageService interface {
 	List(ctx context.Context) ([]*model.BusinessTenantMapping, error)
 	GetTenantByExternalID(ctx context.Context, id string) (*model.BusinessTenantMapping, error)
+	ListByType(ctx context.Context, tenantType tenant.Type) ([]*model.BusinessTenantMapping, error)
 }
 
 // LabelRepo missing godoc
@@ -130,6 +132,12 @@ type LabelDefConverter interface {
 type TenantConverter interface {
 	MultipleInputToGraphQLInput([]model.BusinessTenantMappingInput) []graphql.BusinessTenantMappingInput
 	ToGraphQLInput(model.BusinessTenantMappingInput) graphql.BusinessTenantMappingInput
+}
+
+// ICPClient missing godoc
+//go:generate mockery --name=ICPClient --output=automock --outpkg=automock --case=underscore --disable-version-string
+type ICPClient interface {
+	GetCustomers(ctx context.Context, sinceDate string) ([]model.BusinessTenantMappingInput, error)
 }
 
 const (
@@ -193,6 +201,20 @@ type SubaccountService struct {
 	tenantConverter              TenantConverter
 }
 
+// CustomerService missing godoc
+type CustomerService struct {
+	transact              persistence.Transactioner
+	kubeClient            KubeClient
+	tenantStorageService  TenantStorageService
+	providerName          string
+	retryAttempts         uint
+	fullResyncInterval    time.Duration
+	icpClient             ICPClient
+	gqlClient             DirectorGraphQLClient
+	tenantInsertChunkSize int
+	tenantConverter       TenantConverter
+}
+
 // NewSubaccountOnDemandService missing godoc
 func NewSubaccountOnDemandService(
 	queryConfig QueryConfig,
@@ -252,6 +274,31 @@ func NewGlobalAccountService(queryConfig QueryConfig,
 				providerName: providerName,
 			}
 		},
+		gqlClient:             gqlClient,
+		tenantInsertChunkSize: tenantInsertChunkSize,
+		tenantConverter:       tenantConverter,
+	}
+}
+
+// NewCustomerService missing godoc
+func NewCustomerService(
+	transact persistence.Transactioner,
+	kubeClient KubeClient,
+	tenantStorageService TenantStorageService,
+	providerName string,
+	fullResyncInterval time.Duration,
+	client ICPClient,
+	gqlClient DirectorGraphQLClient,
+	tenantInsertChunkSize int,
+	tenantConverter TenantConverter) *CustomerService {
+	return &CustomerService{
+		transact:              transact,
+		kubeClient:            kubeClient,
+		tenantStorageService:  tenantStorageService,
+		providerName:          providerName,
+		retryAttempts:         RetryAttempts,
+		fullResyncInterval:    fullResyncInterval,
+		icpClient:             client,
 		gqlClient:             gqlClient,
 		tenantInsertChunkSize: tenantInsertChunkSize,
 		tenantConverter:       tenantConverter,
@@ -511,6 +558,82 @@ func (s GlobalAccountService) SyncTenants() error {
 	if len(tenantsToDelete) > 0 {
 		if err := deleteTenants(ctx, s.gqlClient, currentTenants, tenantsToDelete, s.tenantInsertChunkSize, s.tenantConverter); err != nil {
 			return errors.Wrap(err, "moving deleting accounts")
+		}
+	}
+
+	if err = s.kubeClient.UpdateTenantFetcherConfigMapData(ctx, convertTimeToUnixMilliSecondString(startTime), newLastResyncTimestamp); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *CustomerService) SyncTenants() error {
+	ctx := context.Background()
+	startTime := time.Now()
+
+	lastConsumedTenantTimestamp, lastResyncTimestamp, err := s.kubeClient.GetTenantFetcherConfigMapData(ctx)
+	if err != nil {
+		return err
+	}
+
+	shouldFullResync, err := shouldFullResync(lastResyncTimestamp, s.fullResyncInterval)
+	if err != nil {
+		return err
+	}
+
+	newLastResyncTimestamp := lastResyncTimestamp
+	if shouldFullResync {
+		log.C(ctx).Infof("Last full resync was %s ago. Will perform a full resync.", s.fullResyncInterval)
+		lastConsumedTenantTimestamp = "1"
+		newLastResyncTimestamp = convertTimeToUnixMilliSecondString(startTime)
+	}
+
+	lastConsumedParsedTimestamp, err := strconv.ParseInt(lastConsumedTenantTimestamp, 10, 64)
+	if err != nil {
+		return errors.Wrap(err, "while converting last consumed tenant timestamp to int")
+	}
+	first := time.Unix(0, lastConsumedParsedTimestamp*int64(time.Millisecond))
+	formattedDate := first.Format(Layout)
+
+	tenantsToStore, err := s.icpClient.GetCustomers(ctx, formattedDate)
+	if err != nil {
+		return err
+	}
+	log.C(ctx).Infof("Number of tenants to be stored %d", len(tenantsToStore))
+	if len(tenantsToStore) > 0 {
+		if err := createTenants(ctx, s.gqlClient, map[string]string{}, tenantsToStore, "", s.providerName, s.tenantInsertChunkSize, s.tenantConverter); err != nil {
+			return errors.Wrap(err, "while storing customers")
+		}
+	}
+
+	if shouldFullResync {
+		tx, err := s.transact.Begin()
+		if err != nil {
+			return err
+		}
+		defer s.transact.RollbackUnlessCommitted(ctx, tx)
+		ctx = persistence.SaveToContext(ctx, tx)
+
+		allCustomers := map[string]struct{}{}
+		for _, customer := range tenantsToStore {
+			allCustomers[customer.ExternalTenant] = struct{}{}
+		}
+
+		log.C(ctx).Info("Finding diff between DB tenants and fetched tenants")
+		customersFromDB, err := s.tenantStorageService.ListByType(ctx, tenant.Customer)
+		if err != nil {
+			log.C(ctx).Error("while listing all customers")
+			return err
+		}
+		for _, customer := range customersFromDB {
+			if _, ok := allCustomers[customer.ExternalTenant]; !ok {
+				log.C(ctx).Warnf("Tenant with ID %s is going to be deleted", customer.ExternalTenant)
+			}
+		}
+
+		if err = tx.Commit(); err != nil {
+			return err
 		}
 	}
 

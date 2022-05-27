@@ -1,0 +1,219 @@
+{{ $configmapName := printf "%s-customer-fetcher-config" $.Chart.Name }}
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: "{{ $.Chart.Name }}-customer-fetcher-job"
+  labels:
+    app: {{ $.Chart.Name }}
+    release: {{ $.Release.Name }}
+    helm.sh/chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/name: {{ template "name" . }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+spec:
+  schedule: "*/5 * * * *"
+  failedJobsHistoryLimit: 5
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 60 # Fix for https://github.com/kyma-incubator/compass/issues/1155
+  jobTemplate:
+    metadata:
+      labels:
+        cronjob: customer-fetcher
+    spec:
+      template:
+        metadata:
+          labels:
+            cronjob: customer-fetcher
+        spec:
+          {{ if $.Values.global.isLocalEnv }}
+          hostAliases:
+            - ip: {{ $.Values.global.minikubeIP }}
+              hostnames:
+                - "{{ $.Values.global.gateway.tls.secure.internal.host }}.{{ $.Values.global.ingress.domainName }}"
+                - "{{ $.Values.global.externalServicesMock.certSecuredHost }}.{{ $.Values.global.ingress.domainName }}"
+          {{ end }}
+          serviceAccountName: {{ $.Chart.Name }}-customer-fetcher-job
+          containers:
+            - name: "customer-fetcher"
+              image: {{ $.Values.global.images.containerRegistry.path }}/{{ $.Values.global.images.director.dir }}compass-director:{{ $.Values.global.images.director.version }}
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: APP_USE_KUBERNETES
+                  value: "true"
+                - name: APP_KUBERNETES_POLL_INTERVAL
+                  value: "2s"
+                - name: APP_KUBERNETES_POLL_TIMEOUT
+                  value: "1m"
+                - name: APP_KUBERNETES_TIMEOUT
+                  value: "2m"
+                - name: APP_LOG_FORMAT
+                  value: {{ $.Values.global.log.format | quote }}
+                - name: APP_DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: compass-postgresql
+                      key: postgresql-director-username
+                - name: APP_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: compass-postgresql
+                      key: postgresql-director-password
+                - name: APP_DB_HOST
+                  valueFrom:
+                    secretKeyRef:
+                      name: compass-postgresql
+                      key: postgresql-serviceName
+                - name: APP_DB_PORT
+                  valueFrom:
+                    secretKeyRef:
+                      name: compass-postgresql
+                      key: postgresql-servicePort
+                - name: APP_DB_NAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: compass-postgresql
+                      key: postgresql-director-db-name
+                - name: APP_DB_SSL
+                  valueFrom:
+                    secretKeyRef:
+                      name: compass-postgresql
+                      key: postgresql-sslMode
+                - name: APP_DB_MAX_OPEN_CONNECTIONS
+                  value: "1"
+                - name: APP_DB_MAX_IDLE_CONNECTIONS
+                  value: "1"
+                - name: APP_TENANT_PROVIDER
+                  value: "ICP"
+                - name: APP_LAST_EXECUTION_TIME_CONFIG_MAP_NAME
+                  value: "{{ $.Chart.Name }}-customer-fetcher-config"
+                - name: APP_CONFIGMAP_NAMESPACE
+                  value: "compass-system"
+                - name: APP_CONFIGMAP_TIMESTAMP_FIELD
+                  value: "lastConsumedTenantTimestamp"
+                - name: APP_CONFIGMAP_RESYNC_TIMESTAMP_FIELD
+                  value: "lastFullResyncTimestamp"
+                - name: APP_QUERY_PAGE_SIZE
+                  value: "20"
+                - name: APP_DEFAULT_SCENARIO_ENABLED
+                  value: {{ $.Values.global.enableCompassDefaultScenarioAssignment | quote }}
+                - name: APP_TENANT_INSERT_CHUNK_SIZE
+                  value: "200"
+                - name: APP_DIRECTOR_GRAPHQL_ENDPOINT
+                  value: "https://{{ $.Values.global.gateway.tls.secure.internal.host }}.{{ $.Values.global.ingress.domainName }}{{ $.Values.global.director.prefix }}/graphql"
+                - name: APP_HTTP_CLIENT_SKIP_SSL_VALIDATION
+                  value: "{{ $.Values.global.http.client.skipSSLValidation }}"
+                - name: APP_SYNC_CUSTOMERS
+                  value: "true"
+                - name: APP_ICP_TOKEN_URL
+                  value: {{ $.Values.global.customerFetcher.tokenURL | quote }}
+                - name: APP_ICP_ENTITLEMENTS_URL
+                  value: {{ $.Values.global.customerFetcher.entitlementsURL | quote }}
+                - name: APP_ICP_GET_TOKEN_AUTH
+                  valueFrom:
+                    secretKeyRef:
+                      name: icp-credentials
+                      key: token
+              command:
+                - "/bin/sh"
+              args:
+                - "-c"
+                - "./tenantfetcher-job; exit_code=$?; echo '# KILLING PILOT-AGENT #'; pkill -INT cloud_sql_proxy; curl -XPOST http://127.0.0.1:15020/quitquitquit; sleep 5; exit $exit_code;"
+            {{if eq $.Values.global.database.embedded.enabled false}}
+            - name: cloudsql-proxy
+              image: gcr.io/cloudsql-docker/gce-proxy:1.23.0-alpine
+              command:
+                - /bin/sh
+              args:
+                - -c
+                - "trap 'exit 0' SIGINT; echo 'Waiting for istio-proxy to start...' && sleep 15; /cloud_sql_proxy -instances={{ $.Values.global.database.managedGCP.instanceConnectionName }}=tcp:5432 -term_timeout=2s"
+          {{end}}
+          restartPolicy: Never
+          shareProcessNamespace: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: icp-credentials
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+data:
+  token: {{ $.Values.global.customerFetcher.getTokenAuth | b64enc | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $configmapName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $.Chart.Name }}
+    release: {{ $.Release.Name }}
+    helm.sh/chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/name: {{ template "name" . }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+  {{ $configmap := (lookup "v1" "ConfigMap" "compass-system" $configmapName) }}
+  {{ if empty $configmap }}
+data:
+  lastConsumedTenantTimestamp: "1641046804713"
+  lastFullResyncTimestamp: "1641046804713"
+  {{ else }}
+data:
+  {{ toYaml $configmap.data | indent 2}}
+  {{ end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $.Chart.Name }}-customer-fetcher-job
+  namespace: {{ $.Release.Namespace }}
+  {{- if eq $.Values.global.database.embedded.enabled false }}
+  annotations:
+    iam.gke.io/gcp-service-account: {{ $.Values.global.database.sqlProxyServiceAccount | quote }}
+  {{- end }}
+  labels:
+    app: {{ $.Chart.Name }}
+    release: {{ $.Release.Name }}
+    helm.sh/chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/name: {{ template "name" . }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $configmapName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $.Chart.Name }}
+    release: {{ $.Release.Name }}
+    helm.sh/chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/name: {{ template "name" . }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+rules:
+  - apiGroups: ["*"]
+    resources: ["configmaps"]
+    resourceNames: [{{ $configmapName }}]
+    verbs: ["get", "update"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ $.Chart.Name }}-customer-fetcher-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $.Chart.Name }}
+    release: {{ $.Release.Name }}
+    helm.sh/chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/name: {{ template "name" . }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $.Chart.Name }}-customer-fetcher-job
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ $configmapName }}
+  apiGroup: rbac.authorization.k8s.io
