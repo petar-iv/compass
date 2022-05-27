@@ -3,6 +3,8 @@ package tenant
 import (
 	"context"
 
+	"github.com/kyma-incubator/compass/components/director/pkg/tenant"
+
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
@@ -27,6 +29,7 @@ type TenantMappingRepository interface {
 	GetByExternalTenant(ctx context.Context, externalTenant string) (*model.BusinessTenantMapping, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	List(ctx context.Context) ([]*model.BusinessTenantMapping, error)
+	ListByType(ctx context.Context, tenantType tenant.Type) ([]*model.BusinessTenantMapping, error)
 	ListPageBySearchTerm(ctx context.Context, searchTerm string, pageSize int, cursor string) (*model.BusinessTenantMappingPage, error)
 	ExistsByExternalTenant(ctx context.Context, externalTenant string) (bool, error)
 	DeleteByExternalTenant(ctx context.Context, externalTenant string) error
@@ -108,12 +111,17 @@ func (s *service) List(ctx context.Context) ([]*model.BusinessTenantMapping, err
 	return s.tenantMappingRepo.List(ctx)
 }
 
+// ListByType returns all tenants present in the Compass storage which have the given type.
+func (s *service) ListByType(ctx context.Context, tenantType tenant.Type) ([]*model.BusinessTenantMapping, error) {
+	return s.tenantMappingRepo.ListByType(ctx, tenantType)
+}
+
 // ListsByExternalIDs returns all tenants for provided external IDs.
 func (s *service) ListsByExternalIDs(ctx context.Context, ids []string) ([]*model.BusinessTenantMapping, error) {
 	return s.tenantMappingRepo.ListByExternalTenants(ctx, ids)
 }
 
-// List returns all tenants present in the Compass storage.
+// ListPageBySearchTerm retrieves a page of tenants from the Compass storage filtered by a search term.
 func (s *service) ListPageBySearchTerm(ctx context.Context, searchTerm string, pageSize int, cursor string) (*model.BusinessTenantMappingPage, error) {
 	return s.tenantMappingRepo.ListPageBySearchTerm(ctx, searchTerm, pageSize, cursor)
 }

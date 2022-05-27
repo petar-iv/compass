@@ -52,6 +52,7 @@ type config struct {
 	QueryConfig                 tenantfetcher.QueryConfig
 	TenantFieldMapping          tenantfetcher.TenantFieldMapping
 	MovedSubaccountFieldMapping tenantfetcher.MovedSubaccountsFieldMapping
+	IcpConfig                   tenantfetcher.ICPConfig
 
 	Log      log.Config
 	Features features.Config
@@ -68,6 +69,7 @@ type config struct {
 	HTTPClientSkipSslValidation bool           `envconfig:"default=false"`
 
 	ShouldSyncSubaccounts bool `envconfig:"default=false,APP_SYNC_SUBACCOUNTS"`
+	ShouldSyncCustomers   bool `envconfig:"default=false,APP_SYNC_CUSTOMERS"`
 }
 
 func main() {
@@ -166,8 +168,12 @@ func createTenantFetcherSvc(cfg config, transact persistence.Transactioner, kube
 	}
 	directorClient := graphqlclient.NewDirector(gqlClient)
 
+	icpClient := tenantfetcher.NewICPClient(newICPHttpClient(cfg), cfg.IcpConfig)
+
 	if cfg.ShouldSyncSubaccounts {
 		return tenantfetcher.NewSubaccountService(cfg.QueryConfig, transact, kubeClient, cfg.TenantFieldMapping, cfg.MovedSubaccountFieldMapping, cfg.TenantProvider, cfg.SubaccountRegions, eventAPIClient, tenantStorageSvc, runtimeSvc, labelRepo, cfg.FullResyncInterval, directorClient, cfg.TenantInsertChunkSize, tenantStorageConverter), nil
+	} else if cfg.ShouldSyncCustomers {
+		return tenantfetcher.NewCustomerService(transact, kubeClient, tenantStorageSvc, cfg.TenantProvider, cfg.FullResyncInterval, icpClient, directorClient, cfg.TenantInsertChunkSize, tenantStorageConverter), nil
 	}
 	return tenantfetcher.NewGlobalAccountService(cfg.QueryConfig, transact, kubeClient, cfg.TenantFieldMapping, cfg.TenantProvider, cfg.AccountsRegion, eventAPIClient, tenantStorageSvc, cfg.FullResyncInterval, directorClient, cfg.TenantInsertChunkSize, tenantStorageConverter), nil
 }
@@ -185,4 +191,17 @@ func newInternalGraphQLClient(url string, timeout time.Duration, skipSSLValidati
 	}
 
 	return gcli.NewClient(url, gcli.WithHTTPClient(client))
+}
+
+func newICPHttpClient(cfg config) *http.Client {
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: cfg.HTTPClientSkipSslValidation,
+		},
+	}
+
+	return &http.Client{
+		Transport: tr,
+		Timeout:   cfg.ClientTimeout,
+	}
 }

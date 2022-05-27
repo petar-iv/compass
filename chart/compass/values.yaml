@@ -715,6 +715,10 @@ global:
       dbPool:
         maxOpenConnections: 1
         maxIdleConnections: 1
+  customerFetcher:
+    tokenURL: "http://entitlements-api:443/getToken"
+    entitlementsURL: "http://entitlements-api:443/entitlements"
+    getTokenAuth: "user:password"
   metrics:
     enabled: true
     pushEndpoint: http://monitoring-prometheus-pushgateway.kyma-system.svc.cluster.local:9091

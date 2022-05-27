@@ -27,9 +27,9 @@ const (
 
 // OAuth2Config missing godoc
 type OAuth2Config struct {
-	ClientID           string `envconfig:"APP_CLIENT_ID"`
+	ClientID           string `envconfig:"optional,APP_CLIENT_ID"`
 	ClientSecret       string `envconfig:"optional,APP_CLIENT_SECRET"`
-	OAuthTokenEndpoint string `envconfig:"APP_OAUTH_TOKEN_ENDPOINT"`
+	OAuthTokenEndpoint string `envconfig:"optional,APP_OAUTH_TOKEN_ENDPOINT"`
 	TokenPath          string `envconfig:"optional,APP_OAUTH_TOKEN_PATH"`
 	SkipSSLValidation  bool   `envconfig:"APP_OAUTH_SKIP_SSL_VALIDATION,default=false"`
 	X509Config         oauth.X509Config
