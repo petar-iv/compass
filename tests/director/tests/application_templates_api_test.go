@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/kyma-incubator/compass/tests/pkg/tenantfetcher"
@@ -22,7 +23,181 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//func TestCreateApplicationTemplate2(t *testing.T) {
+//	testCases := []struct {
+//		Name            string
+//		AppTemplateName string
+//		ExpectedErr     error
+//	}{
+//		{
+//			Name: "Success",
+//			AppTemplateName: fmt.Sprintf("SAP %s (%s)", "app-template-name", conf.SelfRegRegion),
+//			ExpectedErr:    nil,
+//		},
+//		{
+//			Name: "Success with subaccount label for application templates",
+//			AppTemplateName: fmt.Sprintf("SAP %s (%s)", "app-template-name", conf.SelfRegRegion),
+//			ExpectedErr:    nil,
+//		},
+//	}
+//
+//	for _, testCase := range testCases {
+//		t.Run(testCase.Name, func(t *testing.T) {
+//			ctx := context.Background()
+//			appTemplateInput := fixAppTemplateInput(testCase.AppTemplateName) //Placeholders will not match
+//			appTemplate, err := testctx.Tc.Graphqlizer.ApplicationTemplateInputToGQL(appTemplateInput)
+//			require.NoError(t, err)
+//
+//			createApplicationTemplateRequest := fixtures.FixCreateApplicationTemplateRequest(appTemplate)
+//			output := graphql.ApplicationTemplate{}
+//
+//			// WHEN
+//			t.Log("Create application template")
+//			err = testctx.Tc.RunOperation(ctx, certSecuredGraphQLClient, createApplicationTemplateRequest, &output)
+//			defer fixtures.CleanupApplicationTemplate(t, ctx, certSecuredGraphQLClient, tenant.TestTenants.GetDefaultTenantID(), &output)
+//
+//			//THEN
+//			require.NoError(t, err)
+//			require.NotEmpty(t, output.ID)
+//
+//			require.NotEmpty(t, output.Name)
+//			saveExample(t, createApplicationTemplateRequest.Query(), "create application template")
+//
+//			t.Log("Check if application template was created")
+//
+//			getApplicationTemplateRequest := fixtures.FixApplicationTemplateRequest(output.ID)
+//			appTemplateOutput := graphql.ApplicationTemplate{}
+//
+//			err = testctx.Tc.RunOperation(ctx, certSecuredGraphQLClient, getApplicationTemplateRequest, &appTemplateOutput)
+//
+//			appTemplateInput.Labels[conf.SelfRegLabelKey] = appTemplateOutput.Labels[conf.SelfRegLabelKey]
+//			appTemplateInput.Labels["global_subaccount_id"] = tenant.TestTenants.GetIDByName(t, tenant.TestProviderSubaccount)
+//
+//			require.NoError(t, err)
+//			require.NotEmpty(t, appTemplateOutput)
+//			assertions.AssertApplicationTemplate(t, appTemplateInput, appTemplateOutput)
+//			saveExample(t, getApplicationTemplateRequest.Query(), "query application template")
+//		})
+//	}
+//}
 func TestCreateApplicationTemplate(t *testing.T) {
+	// GIVEN
+	ctx := context.Background()
+	name := fmt.Sprintf("SAP %s (%s)", "app-template-name", conf.SelfRegRegion)
+	appTemplateInput := fixAppTemplateInput(name) //Placeholders will not match
+	appTemplate, err := testctx.Tc.Graphqlizer.ApplicationTemplateInputToGQL(appTemplateInput)
+	require.NoError(t, err)
+
+	createApplicationTemplateRequest := fixtures.FixCreateApplicationTemplateRequest(appTemplate)
+	output := graphql.ApplicationTemplate{}
+
+	// WHEN
+	t.Log("Create application template")
+	err = testctx.Tc.RunOperation(ctx, certSecuredGraphQLClient, createApplicationTemplateRequest, &output)
+	defer fixtures.CleanupApplicationTemplate(t, ctx, certSecuredGraphQLClient, tenant.TestTenants.GetDefaultTenantID(), &output)
+
+	//THEN
+	require.NoError(t, err)
+	require.NotEmpty(t, output.ID)
+
+	require.NotEmpty(t, output.Name)
+	saveExample(t, createApplicationTemplateRequest.Query(), "create application template")
+
+	t.Log("Check if application template was created")
+
+	getApplicationTemplateRequest := fixtures.FixApplicationTemplateRequest(output.ID)
+	appTemplateOutput := graphql.ApplicationTemplate{}
+
+	err = testctx.Tc.RunOperation(ctx, certSecuredGraphQLClient, getApplicationTemplateRequest, &appTemplateOutput)
+
+	appTemplateInput.Labels[conf.SelfRegLabelKey] = appTemplateOutput.Labels[conf.SelfRegLabelKey]
+	appTemplateInput.Labels["global_subaccount_id"] = tenant.TestTenants.GetIDByName(t, tenant.TestProviderSubaccount)
+
+	require.NoError(t, err)
+	require.NotEmpty(t, appTemplateOutput)
+	assertions.AssertApplicationTemplate(t, appTemplateInput, appTemplateOutput)
+	saveExample(t, getApplicationTemplateRequest.Query(), "query application template")
+}
+
+func TestCreateApplicationTemplate_NotCompliantName(t *testing.T) {
+	// GIVEN
+	ctx := context.Background()
+	name := "app-template-name"
+	appTemplateInput := fixAppTemplateInput(name)
+	appTemplate, err := testctx.Tc.Graphqlizer.ApplicationTemplateInputToGQL(appTemplateInput)
+	require.NoError(t, err)
+
+	createApplicationTemplateRequest := fixtures.FixCreateApplicationTemplateRequest(appTemplate)
+	output := graphql.ApplicationTemplate{}
+
+	// WHEN
+	t.Log("Create application template")
+	err = testctx.Tc.RunOperation(ctx, certSecuredGraphQLClient, createApplicationTemplateRequest, &output)
+	defer fixtures.CleanupApplicationTemplate(t, ctx, certSecuredGraphQLClient, tenant.TestTenants.GetDefaultTenantID(), &output)
+
+	//THEN
+	require.NoError(t, err)
+	require.NotEmpty(t, output.ID)
+
+	require.NotEmpty(t, output.Name)
+	saveExample(t, createApplicationTemplateRequest.Query(), "create application template")
+
+	t.Log("Check if application template was created")
+
+	getApplicationTemplateRequest := fixtures.FixApplicationTemplateRequest(output.ID)
+	appTemplateOutput := graphql.ApplicationTemplate{}
+
+	err = testctx.Tc.RunOperation(ctx, certSecuredGraphQLClient, getApplicationTemplateRequest, &appTemplateOutput)
+
+	appTemplateInput.Labels[conf.SelfRegLabelKey] = appTemplateOutput.Labels[conf.SelfRegLabelKey]
+	appTemplateInput.Labels["global_subaccount_id"] = tenant.TestTenants.GetIDByName(t, tenant.TestProviderSubaccount)
+
+	require.NoError(t, err)
+	require.NotEmpty(t, appTemplateOutput)
+	assertions.AssertApplicationTemplate(t, appTemplateInput, appTemplateOutput)
+	saveExample(t, getApplicationTemplateRequest.Query(), "query application template")
+}
+
+func TestCreateApplicationTemplate_NotCompliantPlaceholders(t *testing.T) {
+	// GIVEN
+	ctx := context.Background()
+	name := "app-template-name"
+	appTemplateInput := fixAppTemplateInput(name)
+	appTemplate, err := testctx.Tc.Graphqlizer.ApplicationTemplateInputToGQL(appTemplateInput)
+	require.NoError(t, err)
+
+	createApplicationTemplateRequest := fixtures.FixCreateApplicationTemplateRequest(appTemplate)
+	output := graphql.ApplicationTemplate{}
+
+	// WHEN
+	t.Log("Create application template")
+	err = testctx.Tc.RunOperation(ctx, certSecuredGraphQLClient, createApplicationTemplateRequest, &output)
+	defer fixtures.CleanupApplicationTemplate(t, ctx, certSecuredGraphQLClient, tenant.TestTenants.GetDefaultTenantID(), &output)
+
+	//THEN
+	require.NoError(t, err)
+	require.NotEmpty(t, output.ID)
+
+	require.NotEmpty(t, output.Name)
+	saveExample(t, createApplicationTemplateRequest.Query(), "create application template")
+
+	t.Log("Check if application template was created")
+
+	getApplicationTemplateRequest := fixtures.FixApplicationTemplateRequest(output.ID)
+	appTemplateOutput := graphql.ApplicationTemplate{}
+
+	err = testctx.Tc.RunOperation(ctx, certSecuredGraphQLClient, getApplicationTemplateRequest, &appTemplateOutput)
+
+	appTemplateInput.Labels[conf.SelfRegLabelKey] = appTemplateOutput.Labels[conf.SelfRegLabelKey]
+	appTemplateInput.Labels["global_subaccount_id"] = tenant.TestTenants.GetIDByName(t, tenant.TestProviderSubaccount)
+
+	require.NoError(t, err)
+	require.NotEmpty(t, appTemplateOutput)
+	assertions.AssertApplicationTemplate(t, appTemplateInput, appTemplateOutput)
+	saveExample(t, getApplicationTemplateRequest.Query(), "query application template")
+}
+
+func TestCreateApplicationTemplate_NotMatchingRegion(t *testing.T) {
 	// GIVEN
 	ctx := context.Background()
 	name := "app-template-name"
@@ -335,5 +510,11 @@ func fixAppTemplateInput(name string) graphql.ApplicationTemplateInput {
 	input.Labels[conf.SelfRegDistinguishLabelKey] = []interface{}{conf.SelfRegDistinguishLabelValue}
 	input.Labels[tenantfetcher.RegionKey] = conf.SelfRegRegion
 
+	//input.Placeholders = []*graphql.PlaceholderDefinitionInput{
+	//	{
+	//		Name:        "new-placeholder",
+	//		Description: &placeholderDesc,
+	//	},
+	//}
 	return input
 }
