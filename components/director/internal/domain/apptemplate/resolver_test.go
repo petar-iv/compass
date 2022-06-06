@@ -1403,8 +1403,14 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 			Name: "Success",
 			TxFn: txGen.ThatSucceeds,
 			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
+				labels := map[string]*model.Label{
+					"test": {
+						Key:   "test key",
+						Value: "test value",
+					},
+				}
 				appTemplateSvc := &automock.ApplicationTemplateService{}
-				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(nil, nil).Once()
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(labels, nil).Once()
 				appTemplateSvc.On("Update", txtest.CtxWithDBMatcher(), testID, *modelAppTemplateInput).Return(nil).Once()
 				appTemplateSvc.On("Get", txtest.CtxWithDBMatcher(), testID).Return(modelAppTemplate, nil).Once()
 				return appTemplateSvc
@@ -1508,7 +1514,214 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 			},
 			ExpectedError: testError,
 		},
-		// TODO add test for self reg validation
+		{
+			Name: "Returns error when list application template labels failed",
+			TxFn: txGen.ThatDoesntExpectCommit,
+			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
+				appTemplateSvc := &automock.ApplicationTemplateService{}
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(nil, testError).Once()
+				return appTemplateSvc
+			},
+			AppTemplateConvFn: func() *automock.ApplicationTemplateConverter {
+				appTemplateConv := &automock.ApplicationTemplateConverter{}
+				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(*modelAppTemplateInput, nil).Once()
+				return appTemplateConv
+			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				return &automock.SelfRegisterManager{}
+			},
+			WebhookConvFn: func() *automock.WebhookConverter {
+				return &automock.WebhookConverter{}
+			},
+			WebhookSvcFn: func() *automock.WebhookService {
+				return &automock.WebhookService{}
+			},
+			ExpectedError: testError,
+		},
+		{
+			Name: "Returns error when self registration flow check failed",
+			TxFn: txGen.ThatDoesntExpectCommit,
+			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
+				appTemplateSvc := &automock.ApplicationTemplateService{}
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(nil, nil).Once()
+				return appTemplateSvc
+			},
+			AppTemplateConvFn: func() *automock.ApplicationTemplateConverter {
+				appTemplateConv := &automock.ApplicationTemplateConverter{}
+				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(*modelAppTemplateInput, nil).Once()
+				return appTemplateConv
+			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(false, testError).Once()
+				return srm
+			},
+			WebhookConvFn: func() *automock.WebhookConverter {
+				return &automock.WebhookConverter{}
+			},
+			WebhookSvcFn: func() *automock.WebhookService {
+				return &automock.WebhookService{}
+			},
+			ExpectedError: testError,
+		},
+		{
+			Name: "Returns error when validating app template placeholders length",
+			TxFn: txGen.ThatDoesntExpectCommit,
+			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
+				appTemplateSvc := &automock.ApplicationTemplateService{}
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(nil, nil).Once()
+				return appTemplateSvc
+			},
+			AppTemplateConvFn: func() *automock.ApplicationTemplateConverter {
+				appTemplateConv := &automock.ApplicationTemplateConverter{}
+				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(*modelAppTemplateInput, nil).Once()
+				return appTemplateConv
+			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(true, nil).Once()
+				return srm
+			},
+			WebhookConvFn: func() *automock.WebhookConverter {
+				return &automock.WebhookConverter{}
+			},
+			WebhookSvcFn: func() *automock.WebhookService {
+				return &automock.WebhookService{}
+			},
+			ExpectedError: errors.New("expecting \"name\" and \"display-name\" placeholders"),
+		},
+		{
+			Name: "Returns error when validating app template placeholders",
+			TxFn: txGen.ThatDoesntExpectCommit,
+			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
+				appTemplateSvc := &automock.ApplicationTemplateService{}
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(nil, nil).Once()
+				return appTemplateSvc
+			},
+			AppTemplateConvFn: func() *automock.ApplicationTemplateConverter {
+				modelAppTemplateInput := &model.ApplicationTemplateUpdateInput{
+					Name:                 "SAP app-template (region)",
+					Description:          &testDescription,
+					ApplicationInputJSON: appInputJSONString,
+					Placeholders: []model.ApplicationTemplatePlaceholder{
+						{
+							Name:        "test",
+							Description: &testDescription,
+						},
+						{
+							Name:        "test2",
+							Description: &testDescription,
+						},
+					},
+					AccessLevel: model.GlobalApplicationTemplateAccessLevel,
+				}
+				appTemplateConv := &automock.ApplicationTemplateConverter{}
+				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(*modelAppTemplateInput, nil).Once()
+				return appTemplateConv
+			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(true, nil).Once()
+				return srm
+			},
+			WebhookConvFn: func() *automock.WebhookConverter {
+				return &automock.WebhookConverter{}
+			},
+			WebhookSvcFn: func() *automock.WebhookService {
+				return &automock.WebhookService{}
+			},
+			ExpectedError: errors.New("unexpected placeholder with name \"test\""),
+		},
+		{
+			Name: "Returns error when validating app template name",
+			TxFn: txGen.ThatDoesntExpectCommit,
+			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
+				appTemplateSvc := &automock.ApplicationTemplateService{}
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(nil, nil).Once()
+				return appTemplateSvc
+			},
+			AppTemplateConvFn: func() *automock.ApplicationTemplateConverter {
+				modelAppTemplateInput := &model.ApplicationTemplateUpdateInput{
+					Name:                 "not-valid-name",
+					Description:          &testDescription,
+					ApplicationInputJSON: appInputJSONString,
+					Placeholders: []model.ApplicationTemplatePlaceholder{
+						{
+							Name:        "name",
+							Description: &testDescription,
+						},
+						{
+							Name:        "display-name",
+							Description: &testDescription,
+						},
+					},
+					AccessLevel: model.GlobalApplicationTemplateAccessLevel,
+				}
+				appTemplateConv := &automock.ApplicationTemplateConverter{}
+				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(*modelAppTemplateInput, nil).Once()
+				return appTemplateConv
+			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(true, nil).Once()
+				return srm
+			},
+			WebhookConvFn: func() *automock.WebhookConverter {
+				return &automock.WebhookConverter{}
+			},
+			WebhookSvcFn: func() *automock.WebhookService {
+				return &automock.WebhookService{}
+			},
+			ExpectedError: errors.New("application template name \"not-valid-name\" does not comply with the following naming convention: \"SAP <product name> (<region>)\""),
+		},
+		{
+			Name: "Returns error when validating app template name - region mismatch",
+			TxFn: txGen.ThatDoesntExpectCommit,
+			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
+				labels := map[string]*model.Label{
+					"region": {
+						Key:   "region",
+						Value: "valid-region",
+					},
+				}
+				appTemplateSvc := &automock.ApplicationTemplateService{}
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(labels, nil).Once()
+				return appTemplateSvc
+			},
+			AppTemplateConvFn: func() *automock.ApplicationTemplateConverter {
+				modelAppTemplateInput := &model.ApplicationTemplateUpdateInput{
+					Name:                 "SAP app-template (wrong-region)",
+					Description:          &testDescription,
+					ApplicationInputJSON: appInputJSONString,
+					Placeholders: []model.ApplicationTemplatePlaceholder{
+						{
+							Name:        "name",
+							Description: &testDescription,
+						},
+						{
+							Name:        "display-name",
+							Description: &testDescription,
+						},
+					},
+					AccessLevel: model.GlobalApplicationTemplateAccessLevel,
+				}
+				appTemplateConv := &automock.ApplicationTemplateConverter{}
+				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(*modelAppTemplateInput, nil).Once()
+				return appTemplateConv
+			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(true, nil).Once()
+				return srm
+			},
+			WebhookConvFn: func() *automock.WebhookConverter {
+				return &automock.WebhookConverter{}
+			},
+			WebhookSvcFn: func() *automock.WebhookService {
+				return &automock.WebhookService{}
+			},
+			ExpectedError: errors.New("the region specified in the application template name does not match \"valid-region\""),
+		},
 		{
 			Name: "Returns error when beginning transaction",
 			TxFn: txGen.ThatFailsOnBegin,
@@ -1521,9 +1734,7 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 				return appTemplateConv
 			},
 			SelfRegManagerFn: func() *automock.SelfRegisterManager {
-				srm := &automock.SelfRegisterManager{}
-				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(false, nil).Once()
-				return srm
+				return &automock.SelfRegisterManager{}
 			},
 			WebhookConvFn: func() *automock.WebhookConverter {
 				return &automock.WebhookConverter{}
