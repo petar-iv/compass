@@ -1393,6 +1393,7 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 		TxFn              func() (*persistenceautomock.PersistenceTx, *persistenceautomock.Transactioner)
 		AppTemplateSvcFn  func() *automock.ApplicationTemplateService
 		AppTemplateConvFn func() *automock.ApplicationTemplateConverter
+		SelfRegManagerFn  func() *automock.SelfRegisterManager
 		WebhookSvcFn      func() *automock.WebhookService
 		WebhookConvFn     func() *automock.WebhookConverter
 		ExpectedOutput    *graphql.ApplicationTemplate
@@ -1403,6 +1404,7 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 			TxFn: txGen.ThatSucceeds,
 			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
 				appTemplateSvc := &automock.ApplicationTemplateService{}
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(nil, nil).Once()
 				appTemplateSvc.On("Update", txtest.CtxWithDBMatcher(), testID, *modelAppTemplateInput).Return(nil).Once()
 				appTemplateSvc.On("Get", txtest.CtxWithDBMatcher(), testID).Return(modelAppTemplate, nil).Once()
 				return appTemplateSvc
@@ -1412,6 +1414,11 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(*modelAppTemplateInput, nil).Once()
 				appTemplateConv.On("ToGraphQL", modelAppTemplate).Return(gqlAppTemplate, nil).Once()
 				return appTemplateConv
+			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(false, nil).Once()
+				return srm
 			},
 			WebhookConvFn: func() *automock.WebhookConverter {
 				return &automock.WebhookConverter{}
@@ -1433,6 +1440,11 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(model.ApplicationTemplateUpdateInput{}, testError).Once()
 				return appTemplateConv
 			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(false, nil).Once()
+				return srm
+			},
 			WebhookConvFn: func() *automock.WebhookConverter {
 				return &automock.WebhookConverter{}
 			},
@@ -1447,12 +1459,18 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
 				appTemplateSvc := &automock.ApplicationTemplateService{}
 				appTemplateSvc.On("Update", txtest.CtxWithDBMatcher(), testID, *modelAppTemplateInput).Return(testError).Once()
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(nil, nil).Once()
 				return appTemplateSvc
 			},
 			AppTemplateConvFn: func() *automock.ApplicationTemplateConverter {
 				appTemplateConv := &automock.ApplicationTemplateConverter{}
 				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(*modelAppTemplateInput, nil).Once()
 				return appTemplateConv
+			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(false, nil).Once()
+				return srm
 			},
 			WebhookConvFn: func() *automock.WebhookConverter {
 				return &automock.WebhookConverter{}
@@ -1467,6 +1485,7 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 			TxFn: txGen.ThatDoesntExpectCommit,
 			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
 				appTemplateSvc := &automock.ApplicationTemplateService{}
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(nil, nil).Once()
 				appTemplateSvc.On("Update", txtest.CtxWithDBMatcher(), testID, *modelAppTemplateInput).Return(nil).Once()
 				appTemplateSvc.On("Get", txtest.CtxWithDBMatcher(), testID).Return(nil, testError).Once()
 				return appTemplateSvc
@@ -1476,6 +1495,11 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(*modelAppTemplateInput, nil).Once()
 				return appTemplateConv
 			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(false, nil).Once()
+				return srm
+			},
 			WebhookConvFn: func() *automock.WebhookConverter {
 				return &automock.WebhookConverter{}
 			},
@@ -1484,6 +1508,7 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 			},
 			ExpectedError: testError,
 		},
+		// TODO add test for self reg validation
 		{
 			Name: "Returns error when beginning transaction",
 			TxFn: txGen.ThatFailsOnBegin,
@@ -1494,6 +1519,11 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 			AppTemplateConvFn: func() *automock.ApplicationTemplateConverter {
 				appTemplateConv := &automock.ApplicationTemplateConverter{}
 				return appTemplateConv
+			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(false, nil).Once()
+				return srm
 			},
 			WebhookConvFn: func() *automock.WebhookConverter {
 				return &automock.WebhookConverter{}
@@ -1508,6 +1538,7 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 			TxFn: txGen.ThatFailsOnCommit,
 			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
 				appTemplateSvc := &automock.ApplicationTemplateService{}
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(nil, nil).Once()
 				appTemplateSvc.On("Update", txtest.CtxWithDBMatcher(), testID, *modelAppTemplateInput).Return(nil).Once()
 				appTemplateSvc.On("Get", txtest.CtxWithDBMatcher(), testID).Return(modelAppTemplate, nil).Once()
 				return appTemplateSvc
@@ -1516,6 +1547,11 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 				appTemplateConv := &automock.ApplicationTemplateConverter{}
 				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(*modelAppTemplateInput, nil).Once()
 				return appTemplateConv
+			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(false, nil).Once()
+				return srm
 			},
 			WebhookConvFn: func() *automock.WebhookConverter {
 				return &automock.WebhookConverter{}
@@ -1530,6 +1566,7 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 			TxFn: txGen.ThatSucceeds,
 			AppTemplateSvcFn: func() *automock.ApplicationTemplateService {
 				appTemplateSvc := &automock.ApplicationTemplateService{}
+				appTemplateSvc.On("ListLabels", txtest.CtxWithDBMatcher(), testID).Return(nil, nil).Once()
 				appTemplateSvc.On("Update", txtest.CtxWithDBMatcher(), testID, *modelAppTemplateInput).Return(nil).Once()
 				appTemplateSvc.On("Get", txtest.CtxWithDBMatcher(), testID).Return(modelAppTemplate, nil).Once()
 				return appTemplateSvc
@@ -1539,6 +1576,11 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 				appTemplateConv.On("UpdateInputFromGraphQL", *gqlAppTemplateUpdateInput).Return(*modelAppTemplateInput, nil).Once()
 				appTemplateConv.On("ToGraphQL", modelAppTemplate).Return(nil, testError).Once()
 				return appTemplateConv
+			},
+			SelfRegManagerFn: func() *automock.SelfRegisterManager {
+				srm := &automock.SelfRegisterManager{}
+				srm.On("IsSelfRegistrationFlow", mock.Anything, mock.Anything).Return(false, nil).Once()
+				return srm
 			},
 			WebhookConvFn: func() *automock.WebhookConverter {
 				return &automock.WebhookConverter{}
@@ -1555,10 +1597,11 @@ func TestResolver_UpdateApplicationTemplate(t *testing.T) {
 			persist, transact := testCase.TxFn()
 			appTemplateSvc := testCase.AppTemplateSvcFn()
 			appTemplateConv := testCase.AppTemplateConvFn()
+			selfRegManager := testCase.SelfRegManagerFn()
 			webhookSvc := testCase.WebhookSvcFn()
 			webhookConverter := testCase.WebhookConvFn()
 
-			resolver := apptemplate.NewResolver(transact, nil, nil, appTemplateSvc, appTemplateConv, webhookSvc, webhookConverter, nil, nil)
+			resolver := apptemplate.NewResolver(transact, nil, nil, appTemplateSvc, appTemplateConv, webhookSvc, webhookConverter, selfRegManager, nil)
 
 			// WHEN
 			result, err := resolver.UpdateApplicationTemplate(ctx, testID, *gqlAppTemplateUpdateInput)
