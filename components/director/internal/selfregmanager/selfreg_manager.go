@@ -68,20 +68,10 @@ func (s *selfRegisterManager) IsSelfRegistrationFlow(ctx context.Context, labels
 			return false, errors.Errorf("missing %q label", s.cfg.SelfRegisterDistinguishLabelKey)
 		}
 
-		regionValue, exists := labels[RegionLabel]
-		if !exists {
-			return false, errors.Errorf("missing %q label", RegionLabel)
+		if _, _, err := s.retrieveRegionInstanceConfig(labels); err != nil {
+			return false, err
 		}
 
-		region, ok := regionValue.(string)
-		if !ok {
-			return false, errors.Errorf("region value should be of type %q", "string")
-		}
-
-		_, exists = s.cfg.RegionToInstanceConfig[region]
-		if !exists {
-			return false, errors.Errorf("missing configuration for region: %s", region)
-		}
 		return true, nil
 	}
 	return false, nil
@@ -105,19 +95,9 @@ func (s *selfRegisterManager) PrepareForSelfRegistration(ctx context.Context, re
 			return labels, err
 		}
 
-		regionValue, exists := labels[RegionLabel]
-		if !exists {
-			return labels, errors.Errorf("missing %q label", RegionLabel)
-		}
-
-		region, ok := regionValue.(string)
-		if !ok {
-			return labels, errors.Errorf("region value should be of type %q", "string")
-		}
-
-		instanceConfig, exists := s.cfg.RegionToInstanceConfig[region]
-		if !exists {
-			return labels, errors.Errorf("missing configuration for region: %s", region)
+		region, instanceConfig, err := s.retrieveRegionInstanceConfig(labels)
+		if err != nil {
+			return labels, err
 		}
 
 		request, err := s.createSelfRegPrepRequest(id, consumerInfo.ConsumerID, instanceConfig.URL)
@@ -234,4 +214,23 @@ func (s *selfRegisterManager) createSelfRegDelRequest(resourceID, targetURL stri
 	request.Header.Set("Content-Type", "application/json")
 
 	return request, nil
+}
+
+func (s *selfRegisterManager) retrieveRegionInstanceConfig(labels map[string]interface{}) (string, config.InstanceConfig, error) {
+	regionValue, exists := labels[RegionLabel]
+	if !exists {
+		return "", config.InstanceConfig{}, errors.Errorf("missing %q label", RegionLabel)
+	}
+
+	region, ok := regionValue.(string)
+	if !ok {
+		return "", config.InstanceConfig{}, errors.Errorf("region value should be of type %q", "string")
+	}
+
+	instanceConfig, exists := s.cfg.RegionToInstanceConfig[region]
+	if !exists {
+		return "", config.InstanceConfig{}, errors.Errorf("missing configuration for region: %s", region)
+	}
+
+	return region, instanceConfig, nil
 }
