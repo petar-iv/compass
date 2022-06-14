@@ -52,6 +52,7 @@ type HandlerConfig struct {
 	TenantFetcherJobIntervalMins time.Duration `envconfig:"default=5m"`
 	FullResyncInterval           time.Duration `envconfig:"default=12h"`
 	ShouldSyncSubaccounts        bool          `envconfig:"default=false"`
+	ShouldSyncCustomers          bool          `envconfig:"default=false"`
 
 	Kubernetes tenantfetcher.KubeConfig
 	Database   persistence.DatabaseConfig

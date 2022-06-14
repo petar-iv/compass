@@ -174,7 +174,6 @@ func runTenantFetcherJob(ctx context.Context, jobConfig tenantfetcher.JobConfig,
 	ticker := time.NewTicker(jobInterval)
 	jobName := jobConfig.JobName
 
-	log.C(ctx).Infof("Job %s database config: %+v", jobConfig.JobName, jobConfig.GetHandlerCgf().Database)
 	transact, closeFunc, err := persistence.Configure(ctx, jobConfig.GetHandlerCgf().Database)
 	exitOnError(err, "Error while establishing the connection to the database")
 
@@ -267,9 +266,12 @@ func createTenantsFetcherSvc(ctx context.Context, jobConfig tenantfetcher.JobCon
 		log.D().Debug(s)
 	}
 	directorClient := graphqlclient.NewDirector(gqlClient)
+	icpClient := tf.NewICPClient(newICPHttpClient(), jobConfig.GetICPCgf())
 
 	if handlerCfg.ShouldSyncSubaccounts {
 		return tf.NewSubaccountService(eventsCfg.QueryConfig, transact, kubeClient, eventsCfg.TenantFieldMapping, eventsCfg.MovedSubaccountFieldMapping, handlerCfg.TenantProvider, eventsCfg.SubaccountRegions, eventAPIClient, tenantStorageSvc, runtimeSvc, labelRepo, handlerCfg.FullResyncInterval, directorClient, handlerCfg.TenantInsertChunkSize, tenantStorageConverter), nil
+	} else if handlerCfg.ShouldSyncCustomers {
+		return tf.NewCustomerService(transact, kubeClient, tenantStorageSvc, handlerCfg.TenantProvider, handlerCfg.FullResyncInterval, icpClient, directorClient, handlerCfg.TenantInsertChunkSize, tenantStorageConverter), nil
 	}
 	return tf.NewGlobalAccountService(eventsCfg.QueryConfig, transact, kubeClient, eventsCfg.TenantFieldMapping, handlerCfg.TenantProvider, eventsCfg.AccountsRegion, eventAPIClient, tenantStorageSvc, handlerCfg.FullResyncInterval, directorClient, handlerCfg.TenantInsertChunkSize, tenantStorageConverter), nil
 }
@@ -434,4 +436,17 @@ func newInternalGraphQLClient(url string, timeout time.Duration, skipSSLValidati
 	}
 
 	return gqlClient
+}
+
+func newICPHttpClient() *http.Client { // todo config
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+
+	return &http.Client{
+		Transport: tr,
+		Timeout:   60 * time.Second,
+	}
 }

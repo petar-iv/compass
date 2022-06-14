@@ -34,6 +34,7 @@ type JobConfig struct {
 	JobName       string
 	eventsConfig  EventsConfig
 	handlerConfig HandlerConfig
+	icpConfig     tenantfetcher.ICPConfig
 }
 
 // GetEventsCgf get configuration for reading events for tenants
@@ -44,6 +45,11 @@ func (cfg *JobConfig) GetEventsCgf() EventsConfig {
 // GetHandlerCgf get configuration for handling tenants synchronization
 func (cfg *JobConfig) GetHandlerCgf() HandlerConfig {
 	return cfg.handlerConfig
+}
+
+// GetICPCgf get configuration for handling entitlements
+func (cfg *JobConfig) GetICPCgf() tenantfetcher.ICPConfig {
+	return cfg.icpConfig
 }
 
 // NewTenantFetcherJobEnvironment used for job configuration read from environment
@@ -65,6 +71,7 @@ func (j *job) ReadJobConfig() JobConfig {
 		JobName:       j.name,
 		eventsConfig:  j.readEventsConfig(),
 		handlerConfig: j.readHandlerConfig(),
+		icpConfig:     j.readICPConfig(),
 	}
 	return *j.jobConfig
 }
@@ -90,19 +97,28 @@ func (j *job) readHandlerConfig() HandlerConfig {
 	return HandlerConfig{
 		Features: j.getFeaturesConfig(),
 
-		TenantFetcherJobIntervalMins: getDuration(j.getEnvValueForKey("1m", "APP_"+j.name+"_TENANT_FETCHER_JOB_INTERVAL"), 1*time.Minute),
-		FullResyncInterval:           getDuration(j.getEnvValueForKey("12h", emptyValue), 12*time.Hour),
-		ShouldSyncSubaccounts:        getBoolVal(j.getEnvValueForKey("false", "APP_"+j.name+"_SYNC_SUBACCOUNTS"), false),
+		TenantFetcherJobIntervalMins: parseDuration(j.getEnvValueForKey("1m", "APP_"+j.name+"_TENANT_FETCHER_JOB_INTERVAL")),
+		FullResyncInterval:           parseDuration(j.getEnvValueForKey("12h", emptyValue)),
+		ShouldSyncSubaccounts:        parseBool(j.getEnvValueForKey("false", "APP_"+j.name+"_SYNC_SUBACCOUNTS")),
+		ShouldSyncCustomers:          parseBool(j.getEnvValueForKey("false", "APP_"+j.name+"_SYNC_CUSTOMERS")),
 
 		Kubernetes: j.getKubeConfig(),
 		Database:   j.getDatabaseConfig(),
 
 		DirectorGraphQLEndpoint:     j.getEnvValueForKey(emptyValue, "APP_DIRECTOR_GRAPHQL_ENDPOINT"),
-		ClientTimeout:               getDuration(j.getEnvValueForKey("60s", emptyValue), time.Duration(60)*time.Second),
-		HTTPClientSkipSslValidation: getBoolVal(j.getEnvValueForKey("false", "APP_HTTP_CLIENT_SKIP_SSL_VALIDATION"), false),
+		ClientTimeout:               parseDuration(j.getEnvValueForKey("60s", emptyValue)),
+		HTTPClientSkipSslValidation: parseBool(j.getEnvValueForKey("false", "APP_HTTP_CLIENT_SKIP_SSL_VALIDATION")),
 
-		TenantInsertChunkSize: getIntVal(j.getEnvValueForKey("500", "APP_"+j.name+"_TENANT_INSERT_CHUNK_SIZE"), 500),
+		TenantInsertChunkSize: parseInt(j.getEnvValueForKey("500", "APP_"+j.name+"_TENANT_INSERT_CHUNK_SIZE")),
 		TenantProviderConfig:  j.getTenantProviderConfig(),
+	}
+}
+
+func (j *job) readICPConfig() tenantfetcher.ICPConfig {
+	return tenantfetcher.ICPConfig{
+		TokenURL:              j.getEnvValueForKey(emptyValue, "APP_"+j.name+"_ICP_TOKEN_URL"),
+		EntitlementsURL:       j.getEnvValueForKey(emptyValue, "APP_"+j.name+"_ENTITLEMENTS_URL"),
+		GetTokenAuthorization: j.getEnvValueForKey(emptyValue, "APP_"+j.name+"_ICP_GET_TOKEN_AUTH"),
 	}
 }
 
@@ -112,7 +128,7 @@ func (j *job) getOAuth2Config() tenantfetcher.OAuth2Config {
 		ClientSecret:       j.getEnvValueForKey(emptyValue, "APP_"+j.name+"_CLIENT_SECRET"),
 		OAuthTokenEndpoint: j.getEnvValueForKey(emptyValue, "APP_"+j.name+"_OAUTH_TOKEN_ENDPOINT"),
 		TokenPath:          j.getEnvValueForKey(emptyValue, "APP_"+j.name+"_OAUTH_TOKEN_PATH"),
-		SkipSSLValidation:  getBoolVal(j.getEnvValueForKey("false", "APP_"+j.name+"_OAUTH_SKIP_SSL_VALIDATION"), false),
+		SkipSSLValidation:  parseBool(j.getEnvValueForKey("false", "APP_"+j.name+"_OAUTH_SKIP_SSL_VALIDATION")),
 		X509Config: oauth.X509Config{
 			Cert: j.getEnvValueForKey(emptyValue, "APP_"+j.name+"_OAUTH_X509_CERT"),
 			Key:  j.getEnvValueForKey(emptyValue, "APP_"+j.name+"_OAUTH_X509_KEY"),
@@ -179,7 +195,7 @@ func (j *job) getMovedSubaccountsFieldMapping() tenantfetcher.MovedSubaccountsFi
 
 func (j *job) getFeaturesConfig() features.Config {
 	return features.Config{
-		DefaultScenarioEnabled:        getBoolVal(j.getEnvValueForKey("true", "APP_DEFAULT_SCENARIO_ENABLED"), true),
+		DefaultScenarioEnabled:        parseBool(j.getEnvValueForKey("true", "APP_DEFAULT_SCENARIO_ENABLED")),
 		ProtectedLabelPattern:         j.getEnvValueForKey(".*_defaultEventing|^consumer_subaccount_ids$", emptyValue),
 		ImmutableLabelPattern:         j.getEnvValueForKey("^xsappnameCMPClone$", "APP_SELF_REGISTER_LABEL_KEY_PATTERN"),
 		SubscriptionProviderLabelKey:  j.getEnvValueForKey("subscriptionProviderId", "APP_SUBSCRIPTION_PROVIDER_LABEL_KEY"),
@@ -195,9 +211,9 @@ func (j *job) getKubeConfig() tenantfetcher.KubeConfig {
 		ConfigMapTimestampField:       j.getEnvValueForKey("lastConsumedTenantTimestamp", "APP_"+j.name+"_CONFIGMAP_TIMESTAMP_FIELD"),
 		ConfigMapResyncTimestampField: j.getEnvValueForKey("lastFullResyncTimestamp", "APP_"+j.name+"_CONFIGMAP_RESYNC_TIMESTAMP_FIELD"),
 		ClientConfig: kube.Config{
-			PollInterval: getDuration(j.getEnvValueForKey("2s", "APP_"+j.name+"_KUBERNETES_POLL_INTERVAL"), 2*time.Second),
-			PollTimeout:  getDuration(j.getEnvValueForKey("1m", "APP_"+j.name+"_KUBERNETES_POLL_TIMEOUT"), 1*time.Minute),
-			Timeout:      getDuration(j.getEnvValueForKey("2m", "APP_"+j.name+"_KUBERNETES_TIMEOUT"), 2*time.Minute),
+			PollInterval: parseDuration(j.getEnvValueForKey("2s", "APP_"+j.name+"_KUBERNETES_POLL_INTERVAL")),
+			PollTimeout:  parseDuration(j.getEnvValueForKey("1m", "APP_"+j.name+"_KUBERNETES_POLL_TIMEOUT")),
+			Timeout:      parseDuration(j.getEnvValueForKey("2m", "APP_"+j.name+"_KUBERNETES_TIMEOUT")),
 		},
 	}
 }
@@ -210,9 +226,9 @@ func (j *job) getDatabaseConfig() persistence.DatabaseConfig {
 		Port:               j.getEnvValueForKey("5432", "APP_DB_PORT"),
 		Name:               j.getEnvValueForKey("compass", "APP_DB_NAME"),
 		SSLMode:            j.getEnvValueForKey("disable", "APP_DB_SSL"),
-		MaxOpenConnections: getIntVal(j.getEnvValueForKey("2", "APP_"+j.name+"_DB_MAX_OPEN_CONNECTIONS"), 2),
-		MaxIdleConnections: getIntVal(j.getEnvValueForKey("2", "APP_"+j.name+"_DB_MAX_IDLE_CONNECTIONS"), 2),
-		ConnMaxLifetime:    getDuration(j.getEnvValueForKey("30m", "APP_DB_CONNECTION_MAX_LIFETIME"), 30*time.Minute),
+		MaxOpenConnections: parseInt(j.getEnvValueForKey("2", "APP_"+j.name+"_DB_MAX_OPEN_CONNECTIONS")),
+		MaxIdleConnections: parseInt(j.getEnvValueForKey("2", "APP_"+j.name+"_DB_MAX_IDLE_CONNECTIONS")),
+		ConnMaxLifetime:    parseDuration(j.getEnvValueForKey("30m", "APP_DB_CONNECTION_MAX_LIFETIME")),
 	}
 }
 
@@ -229,33 +245,35 @@ func (j *job) getTenantProviderConfig() TenantProviderConfig {
 
 func (j *job) getEnvValueForKey(defaultVal string, key string) string {
 	if val, ok := j.environmentVars[key]; ok {
-		log.C(j.ctx).Infof("Env var %s value is: %s", key, val)
+		//log.C(j.ctx).Infof("Env var %s value is: %s", key, val)
 		return val
 	}
-	log.C(j.ctx).Infof("Value for var %s is default: %s", key, defaultVal)
 	return defaultVal
 }
 
-func getBoolVal(value string, defaultVal bool) bool {
+func parseBool(value string) bool {
 	v, err := strconv.ParseBool(value)
 	if err != nil {
-		return defaultVal
+		log.D().Errorf("Error while parsing %s to bool", value)
+		return false
 	}
 	return v
 }
 
-func getIntVal(value string, defaultVal int) int {
+func parseInt(value string) int {
 	v, err := strconv.Atoi(value)
 	if err != nil {
-		return defaultVal
+		log.D().Errorf("Error while parsing %s to time duration", value)
+		return 0
 	}
 	return v
 }
 
-func getDuration(val string, defaultVal time.Duration) time.Duration {
-	v, err := time.ParseDuration(val)
+func parseDuration(value string) time.Duration {
+	v, err := time.ParseDuration(value)
 	if err != nil {
-		return defaultVal
+		log.D().Errorf("Error while parsing %s to time duration", value)
+		return 1 * time.Minute
 	}
 	return v
 }

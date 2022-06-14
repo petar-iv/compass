@@ -209,6 +209,7 @@ spec:
             - name: APP_{{ $tenantFetcherJobName }}_DB_MAX_IDLE_CONNECTIONS
               value: {{ $config.dbPool.maxIdleConnections | quote }}
             # OAuth config
+            {{ if eq $config.isOAuthEnabled true }}
             - name: APP_{{ $tenantFetcherJobName }}_CLIENT_ID
               valueFrom:
                 secretKeyRef:
@@ -243,6 +244,7 @@ spec:
                   key: {{ $config.secret.oauthUrlKey }}
             - name: APP_{{ $tenantFetcherJobName }}_OAUTH_TOKEN_PATH
               value: {{ $config.oauth.tokenPath }}
+            {{ end }}
             # Provider config
             - name: APP_{{ $tenantFetcherJobName }}_TENANT_PROVIDER
               value: {{ $config.providerName }}
@@ -265,6 +267,18 @@ spec:
               value: {{ $config.kubernetes.pollTimeout }}
             - name: APP_{{ $tenantFetcherJobName }}_KUBERNETES_TIMEOUT
               value: {{ $config.kubernetes.timeout }}
+            # ICP config
+            {{ if eq $config.shouldSyncCustomers true }}
+            - name: APP_{{ $tenantFetcherJobName }}_ICP_TOKEN_URL
+              value: {{ default $config.entitlementsProvider.tokenURL }}
+            - name: APP_{{ $tenantFetcherJobName }}_ENTITLEMENTS_URL
+              value: {{ default $config.entitlementsProvider.entitlementsURL }}
+            - name: APP_{{ $tenantFetcherJobName }}_ICP_GET_TOKEN_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $config.entitlementsProvider.secretName }}
+                  key: {{ $config.entitlementsProvider.secretPath }}
+            {{ end }}
             # Tenant field mapping
             - name: APP_{{ $tenantFetcherJobName }}_MAPPING_FIELD_ID
               value: {{ $config.fieldMapping.idField }}
@@ -299,13 +313,13 @@ spec:
               value: {{ default "targetGlobalAccountGUID" $config.fieldMapping.movedSubaccountTargetField }}
             # Query config
             - name: APP_{{ $tenantFetcherJobName }}_QUERY_PAGE_NUM_FIELD
-              value: {{ $config.queryMapping.pageNumField }}
+              value: {{ default "pageNum" $config.queryMapping.pageNumField }}
             - name: APP_{{ $tenantFetcherJobName }}_QUERY_PAGE_SIZE_FIELD
-              value: {{ $config.queryMapping.pageSizeField }}
+              value: {{ default "pageSize" $config.queryMapping.pageSizeField }}
             - name: APP_{{ $tenantFetcherJobName }}_QUERY_REGION_FIELD
               value: {{ default "region" $config.queryMapping.regionField }}
             - name: APP_{{ $tenantFetcherJobName }}_QUERY_TIMESTAMP_FIELD
-              value: {{ $config.queryMapping.timestampField }}
+              value: {{ default "timestamp" $config.queryMapping.timestampField }}
             - name: APP_{{ $tenantFetcherJobName }}_QUERY_PAGE_START
               value: "{{ $config.query.startPage}}"
             - name: APP_{{ $tenantFetcherJobName }}_QUERY_PAGE_SIZE
@@ -315,6 +329,8 @@ spec:
               value: {{ default "1m" $config.job.interval}}
             - name: APP_{{ $tenantFetcherJobName }}_SYNC_SUBACCOUNTS
               value: {{ $config.shouldSyncSubaccounts | quote }}
+            - name: APP_{{ $tenantFetcherJobName }}_SYNC_CUSTOMERS
+              value: {{ $config.shouldSyncCustomers | quote }}
             - name: APP_{{ $tenantFetcherJobName }}_TENANT_INSERT_CHUNK_SIZE
               value: {{ default "500" $config.tenantInsertChunkSize | quote }}
             # Regions config

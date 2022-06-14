@@ -21,9 +21,9 @@ import (
 const PageSize = 80
 
 type ICPConfig struct {
-	TokenURL              string `envconfig:"optional,APP_ICP_TOKEN_URL"`
-	EntitlementsURL       string `envconfig:"optional,APP_ICP_ENTITLEMENTS_URL"`
-	GetTokenAuthorization string `envconfig:"optional,APP_ICP_GET_TOKEN_AUTH"`
+	TokenURL              string
+	EntitlementsURL       string
+	GetTokenAuthorization string
 }
 
 type Entitlement struct {
@@ -114,8 +114,6 @@ func (c *client) getCustomersPage(ctx context.Context, token string, pageSize in
 	if err != nil {
 		return nil, err
 	}
-	log.C(ctx).Infof("request url: %s", requestURl)
-	log.C(ctx).Infof("token: %s", token)
 	req, err := http.NewRequest(http.MethodGet, requestURl, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "while get entitlements request")

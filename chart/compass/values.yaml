@@ -666,6 +666,7 @@ global:
         pollInterval: 2s
         pollTimeout: 1m
         timeout: 2m
+      isOAuthEnabled: true
       oauth:
         client: ""
         secret: ""
@@ -712,6 +713,12 @@ global:
         startPage: "0"
         pageSize: "100"
       shouldSyncSubaccounts: "false"
+      shouldSyncCustomers: "false"
+      entitlementsProvider:
+        tokenURL: ""
+        entitlementsURL: ""
+        secretName: ""
+        secretPath: ""
       dbPool:
         maxOpenConnections: 1
         maxIdleConnections: 1
