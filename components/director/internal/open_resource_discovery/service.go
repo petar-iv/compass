@@ -197,8 +197,6 @@ func (s *Service) processApp(ctx context.Context, app *model.Application, global
 		return err
 	}
 
-	defer s.transact.RollbackUnlessCommitted(ctx, tx)
-
 	ctx = persistence.SaveToContext(ctx, tx)
 
 	tnt, err := s.tenantSvc.GetLowestOwnerForResource(ctx, resource.Application, app.ID)
@@ -229,6 +227,8 @@ func (s *Service) processApp(ctx context.Context, app *model.Application, global
 		}
 	}
 	if len(documents) > 0 {
+		defer s.transact.RollbackUnlessCommitted(ctx, tx)
+
 		log.C(ctx).Info("Processing ORD documents")
 		if err := s.processDocuments(ctx, app.ID, baseURL, documents, globalResourcesOrdIDs); err != nil {
 			log.C(ctx).WithError(err).Errorf("error processing ORD documents: %v", err)
