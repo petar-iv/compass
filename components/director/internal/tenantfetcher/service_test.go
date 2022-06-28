@@ -1121,13 +1121,7 @@ func TestService_SyncAccountTenants(t *testing.T) {
 			kubeClient := testCase.KubeClientFn()
 			gqlClient := testCase.GqlClientFn()
 			tenantConverter := domainTenant.NewConverter()
-			svc := tenantfetcher.NewGlobalAccountService(tenantfetcher.QueryConfig{
-				PageNumField:   "pageNum",
-				PageSizeField:  "pageSize",
-				TimestampField: "timestamp",
-				PageSizeValue:  "1",
-				PageStartValue: "1",
-			}, transact, kubeClient, tenantfetcher.TenantFieldMapping{
+			svc := tenantfetcher.NewGlobalAccountService(transact, kubeClient, tenantfetcher.TenantFieldMapping{
 				DetailsField:       "eventData",
 				DiscriminatorField: "",
 				DiscriminatorValue: "",
@@ -1140,8 +1134,7 @@ func TestService_SyncAccountTenants(t *testing.T) {
 				TotalPagesField:    "pages",
 				TotalResultsField:  "total",
 				EntityTypeField:    "type",
-			}, provider, region, apiClient, tenantStorageSvc, time.Hour, gqlClient, tenantInsertChunkSize,
-				tenantConverter)
+			}, provider, apiClient, tenantStorageSvc, gqlClient, tenantConverter)
 			svc.SetRetryAttempts(1)
 
 			// WHEN
@@ -1180,13 +1173,7 @@ func TestService_SyncAccountTenants(t *testing.T) {
 		gqlClient.On("WriteTenants", mock.Anything, matchArrayWithoutOrderArgument(tenantConverter.MultipleInputToGraphQLInput(tenantsToCreate))).Return(nil)
 		defer mock.AssertExpectationsForObjects(t, persist, transact, apiClient, tenantStorageSvc, kubeClient)
 
-		svc := tenantfetcher.NewGlobalAccountService(tenantfetcher.QueryConfig{
-			PageNumField:   "pageNum",
-			PageSizeField:  "pageSize",
-			TimestampField: "timestamp",
-			PageSizeValue:  "1",
-			PageStartValue: "1",
-		}, transact, kubeClient, tenantfetcher.TenantFieldMapping{
+		svc := tenantfetcher.NewGlobalAccountService(transact, kubeClient, tenantfetcher.TenantFieldMapping{
 			DetailsField:       "eventData",
 			DiscriminatorField: "",
 			DiscriminatorValue: "",
@@ -1198,7 +1185,7 @@ func TestService_SyncAccountTenants(t *testing.T) {
 			TotalPagesField:    "pages",
 			TotalResultsField:  "total",
 			EntityTypeField:    "type",
-		}, provider, region, apiClient, tenantStorageSvc, time.Hour, gqlClient, tenantInsertChunkSize, tenantConverter)
+		}, provider, apiClient, tenantStorageSvc, gqlClient, tenantConverter)
 
 		// WHEN
 		err := svc.SyncTenants()

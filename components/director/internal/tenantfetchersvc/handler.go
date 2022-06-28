@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/kyma-incubator/compass/components/director/pkg/oauth"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 
 	"github.com/kyma-incubator/compass/components/director/internal/tenantfetcher"
@@ -49,10 +48,6 @@ type HandlerConfig struct {
 
 	Features features.Config
 
-	TenantFetcherJobIntervalMins time.Duration `envconfig:"default=5m"`
-	FullResyncInterval           time.Duration `envconfig:"default=12h"`
-	ShouldSyncSubaccounts        bool          `envconfig:"default=false"`
-
 	Kubernetes tenantfetcher.KubeConfig
 	Database   persistence.DatabaseConfig
 
@@ -60,8 +55,9 @@ type HandlerConfig struct {
 	ClientTimeout               time.Duration `envconfig:"default=60s"`
 	HTTPClientSkipSslValidation bool          `envconfig:"APP_HTTP_CLIENT_SKIP_SSL_VALIDATION,default=false"`
 
-	TenantInsertChunkSize int `envconfig:"default=500"`
 	TenantProviderConfig
+
+	MetricsPushEndpoint string `envconfig:"optional,APP_METRICS_PUSH_ENDPOINT"`
 }
 
 // TenantProviderConfig includes the configuration for tenant providers - the tenant ID json property names, the subdomain property name, and the tenant provider name.
@@ -74,22 +70,6 @@ type TenantProviderConfig struct {
 	SubscriptionProviderIDProperty string `envconfig:"APP_TENANT_PROVIDER_SUBSCRIPTION_PROVIDER_ID_PROPERTY,default=subscriptionProviderId"`
 	ProviderSubaccountIDProperty   string `envconfig:"APP_TENANT_PROVIDER_PROVIDER_SUBACCOUNT_ID_PROPERTY,default=providerSubaccountId"`
 	SubscriptionAppNameProperty    string `envconfig:"APP_TENANT_PROVIDER_SUBSCRIPTION_APP_NAME_PROPERTY,default=subscriptionAppName"`
-}
-
-// EventsConfig contains configuration for Events API requests
-type EventsConfig struct {
-	AccountsRegion    string   `envconfig:"default=central"`
-	SubaccountRegions []string `envconfig:"default=central"`
-
-	AuthMode    oauth.AuthMode `envconfig:"APP_OAUTH_AUTH_MODE,default=standard"`
-	OAuthConfig tenantfetcher.OAuth2Config
-	APIConfig   tenantfetcher.APIConfig
-	QueryConfig tenantfetcher.QueryConfig
-
-	TenantFieldMapping          tenantfetcher.TenantFieldMapping
-	MovedSubaccountFieldMapping tenantfetcher.MovedSubaccountsFieldMapping
-
-	MetricsPushEndpoint string `envconfig:"optional,APP_METRICS_PUSH_ENDPOINT"`
 }
 
 type handler struct {

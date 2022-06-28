@@ -1,4 +1,4 @@
-package tenantfetchersvc
+package tenantfetcher
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kyma-incubator/compass/components/director/pkg/tenant"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -84,20 +85,20 @@ func TestFetcherJobConfig_GetJobsNames(t *testing.T) {
 func TestFetcherJobConfig_ReadEventsConfig(t *testing.T) {
 	// GIVEN
 	jobName := "testJob"
-	accountRegion := "testRegion"
+	tenantType := tenant.Subaccount
 	tenantCreatedEndpoint := "create"
-	envVars := map[string]string{"APP_%s_ACCOUNT_REGION": accountRegion, "APP_%s_ENDPOINT_TENANT_CREATED": tenantCreatedEndpoint}
+	envVars := map[string]string{"APP_%s_TENANT_TYPE": string(tenantType), "APP_%s_ENDPOINT_TENANT_CREATED": tenantCreatedEndpoint}
 
 	t.Run("Read events configuration from environment", func(t *testing.T) {
 		environ := getEnvironment(envVars, jobName)
 
 		// WHEN
 		jobConfig := NewTenantFetcherJobEnvironment(context.TODO(), jobName, ReadFromEnvironment(environ)).ReadJobConfig()
-		eventsCfg := jobConfig.GetEventsCgf()
+		eventsCfg := jobConfig.EventsConfig
 
 		// THEN
-		assert.Equal(t, accountRegion, eventsCfg.AccountsRegion, fmt.Sprintf("Account region should be %s", accountRegion))
-		assert.Equal(t, tenantCreatedEndpoint, eventsCfg.APIConfig.EndpointTenantCreated, fmt.Sprintf("Tenant created endpint should be %s", tenantCreatedEndpoint))
+		assert.Equal(t, tenantType, eventsCfg.IDField, fmt.Sprintf("Account region should be %s", accountRegion))
+		assert.Equal(t, tenantCreatedEndpoint, eventsCfg.RegionalAPIConfigs.EndpointTenantCreated, fmt.Sprintf("Tenant created endpint should be %s", tenantCreatedEndpoint))
 	})
 }
 
@@ -133,7 +134,7 @@ func TestFetcherJobConfig_ReadDefaultEventsConfig(t *testing.T) {
 
 			// WHEN
 			jobConfig := NewTenantFetcherJobEnvironment(context.TODO(), testCase.JobName, ReadFromEnvironment(environ)).ReadJobConfig()
-			eventsCfg := jobConfig.GetEventsCgf()
+			eventsCfg := jobConfig.EventsConfig
 
 			// THEN
 			assert.Equal(t, defaultAccountRegion, eventsCfg.AccountsRegion, fmt.Sprintf("Default account region should be %s", defaultAccountRegion))
@@ -154,7 +155,7 @@ func TestFetcherJobConfig_ReadHandlerConfig(t *testing.T) {
 
 		// WHEN
 		jobConfig := NewTenantFetcherJobEnvironment(context.TODO(), jobName, ReadFromEnvironment(environ)).ReadJobConfig()
-		handlerCfg := jobConfig.GetHandlerCgf()
+		handlerCfg := jobConfig.ResyncCfg()
 
 		// THEN
 		assert.Equal(t, jobIntervalMins, handlerCfg.TenantFetcherJobIntervalMins, fmt.Sprintf("Job interval should be %s", jobIntervalMins))
@@ -194,7 +195,7 @@ func TestFetcherJobConfig_ReadDefaultHandlerConfig(t *testing.T) {
 
 			// WHEN
 			jobConfig := NewTenantFetcherJobEnvironment(context.TODO(), testCase.JobName, ReadFromEnvironment(environ)).ReadJobConfig()
-			handlerCfg := jobConfig.GetHandlerCgf()
+			handlerCfg := jobConfig.ResyncCfg()
 
 			// THEN
 			assert.Equal(t, defaultJobIntervalMins, handlerCfg.TenantFetcherJobIntervalMins, fmt.Sprintf("Default job interval should be %s", defaultJobIntervalMins))

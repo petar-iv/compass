@@ -180,7 +180,7 @@ func createTenantFetcherSvc(cfg config, transact persistence.Transactioner, kube
 	if cfg.ShouldSyncSubaccounts {
 		return tenantfetcher.NewSubaccountService(cfg.QueryConfig, transact, kubeClient, cfg.TenantFieldMapping, cfg.MovedSubaccountFieldMapping, cfg.TenantProvider, cfg.SubaccountRegions, eventAPIClient, tenantStorageSvc, runtimeSvc, labelRepo, cfg.FullResyncInterval, directorClient, cfg.TenantInsertChunkSize, tenantStorageConverter), nil
 	}
-	return tenantfetcher.NewGlobalAccountService(cfg.QueryConfig, transact, kubeClient, cfg.TenantFieldMapping, cfg.TenantProvider, cfg.AccountsRegion, eventAPIClient, tenantStorageSvc, cfg.FullResyncInterval, directorClient, cfg.TenantInsertChunkSize, tenantStorageConverter), nil
+	return tenantfetcher.NewGlobalAccountService(transact, kubeClient, cfg.TenantFieldMapping, cfg.TenantProvider, eventAPIClient, tenantStorageSvc, directorClient, tenantStorageConverter), nil
 }
 
 func newInternalGraphQLClient(url string, timeout time.Duration, skipSSLValidation bool) *gcli.Client {
