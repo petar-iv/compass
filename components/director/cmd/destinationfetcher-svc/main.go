@@ -44,7 +44,7 @@ type config struct {
 
 	Handler destinationfetcher.HandlerConfig
 
-	TenantsRootAPI string `envconfig:"APP_ROOT_API,default=/destinations"`
+	DestinationsRootAPI string `envconfig:"APP_ROOT_API,default=/destinations"`
 
 	Database persistence.DatabaseConfig
 	Log      log.Config
@@ -112,18 +112,15 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	mainRouter := mux.NewRouter()
 	mainRouter.Use(correlation.AttachCorrelationIDToContext(), log.RequestLogger())
 
-	// tenantsAPIRouter := mainRouter.PathPrefix(cfg.TenantsRootAPI).Subrouter()
-	// // configureAuthMiddleware(ctx, httpClient, tenantsAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.SubscriptionCallbackScope)
-	// registerTenantsHandler(ctx, tenantsAPIRouter, cfg.Handler)
-
-	tenantsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.TenantsRootAPI).Subrouter()
-	// configureAuthMiddleware(ctx, httpClient, tenantsOnDemandAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.FetchTenantOnDemandScope)
-	destinationHandler := destinationfetcher.NewDestinationFetcherHTTPHandler(cfg.Handler)
+	fetcher := destinationfetcher.NewFetcher()
+	destinationsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
+	// configureAuthMiddleware(ctx, httpClient, destinationsOnDemandAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.FetchTenantOnDemandScope)
+	destinationHandler := destinationfetcher.NewDestinationsHTTPHandler(fetcher, cfg.Handler)
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsEndpoint)
-	tenantsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.GetDestinations).Methods(http.MethodGet)
+	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.FetchDestinationsOnDemand).Methods(http.MethodGet)
 
-	healthCheckRouter := mainRouter.PathPrefix(cfg.TenantsRootAPI).Subrouter()
+	healthCheckRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
 	logger.Infof("Registering readiness endpoint...")
 	healthCheckRouter.HandleFunc("/readyz", newReadinessHandler())
 	logger.Infof("Registering liveness endpoint...")
