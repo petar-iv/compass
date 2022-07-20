@@ -114,8 +114,7 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	mainRouter.Use(correlation.AttachCorrelationIDToContext(), log.RequestLogger())
 
 	repo := destination.NewRepository()
-	storageSvc := destination.NewService(repo)
-	svc := destinationfetcher.NewDestinationService(transact, storageSvc)
+	svc := destinationfetcher.NewDestinationService(transact, repo)
 	fetcher := destinationfetcher.NewFetcher(*svc)
 
 	destinationsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()

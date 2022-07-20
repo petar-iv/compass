@@ -2,6 +2,7 @@ package destination
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kyma-incubator/compass/components/director/internal/repo"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
@@ -11,7 +12,7 @@ const destinationTable = "public.destinations"
 
 var (
 	destinationColumns = []string{"id", "name", "type", "url", "authentication", "tenant_id", "bundle_id", "revision"}
-	conflictingColumns = []string{"id"}
+	conflictingColumns = []string{"tenant_id", "bundle_id"}
 	updateColumns      = []string{"name", "type", "url", "authentication", "revision"}
 )
 
@@ -32,6 +33,7 @@ func (r *repository) Upsert(ctx context.Context) error {
 }
 
 func (r *repository) Delete(ctx context.Context) error {
+	fmt.Println("in delete")
 	conditions := repo.Conditions{repo.NewEqualCondition("name", "test")}
 	r.deleterGlobal.DeleteManyGlobal(ctx, conditions)
 	return nil
