@@ -4,6 +4,7 @@ package resource
 type Type string
 
 const (
+	Destination Type = "destination"
 	// Application type represents application resource.
 	Application Type = "application"
 	// ApplicationTemplate type represents application template resource.

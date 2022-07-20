@@ -14,6 +14,6 @@ func NewFetcher(svc DestinationService) *fetcher {
 }
 
 func (f *fetcher) FetchDestinationsOnDemand(ctx context.Context, tenantID, parentTenantID string) error {
-	//f.svc.SyncDestinations()
+	f.svc.SyncDestinations()
 	return nil
 }

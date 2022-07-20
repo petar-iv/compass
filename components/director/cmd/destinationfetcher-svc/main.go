@@ -24,6 +24,7 @@ import (
 
 	"github.com/gorilla/mux"
 	destinationfetcher "github.com/kyma-incubator/compass/components/director/internal/destinationfetchersvc"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/destination"
 	"github.com/kyma-incubator/compass/components/director/pkg/correlation"
 	timeouthandler "github.com/kyma-incubator/compass/components/director/pkg/handler"
 	httputil "github.com/kyma-incubator/compass/components/director/pkg/http"
@@ -112,9 +113,12 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	mainRouter := mux.NewRouter()
 	mainRouter.Use(correlation.AttachCorrelationIDToContext(), log.RequestLogger())
 
-	fetcher := destinationfetcher.NewFetcher()
+	repo := destination.NewRepository()
+	storageSvc := destination.NewService(repo)
+	svc := destinationfetcher.NewDestinationService(transact, storageSvc)
+	fetcher := destinationfetcher.NewFetcher(*svc)
+
 	destinationsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
-	// configureAuthMiddleware(ctx, httpClient, destinationsOnDemandAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.FetchTenantOnDemandScope)
 	destinationHandler := destinationfetcher.NewDestinationsHTTPHandler(fetcher, cfg.Handler)
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsEndpoint)

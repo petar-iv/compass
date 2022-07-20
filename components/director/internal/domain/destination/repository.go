@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/kyma-incubator/compass/components/director/internal/repo"
+	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 )
 
 const destinationTable = "public.destinations"
@@ -15,14 +16,14 @@ var (
 )
 
 type repository struct {
-	deleter  repo.Deleter
-	upserter repo.Upserter
+	deleterGlobal  repo.DeleterGlobal
+	upserterGlobal repo.UpserterGlobal
 }
 
 func NewRepository() *repository {
 	return &repository{
-		deleter:  repo.NewDeleter(destinationTable),
-		upserter: repo.NewUpserter(destinationTable, destinationColumns, conflictingColumns, updateColumns),
+		deleterGlobal:  repo.NewDeleterGlobal(resource.Destination, destinationTable),
+		upserterGlobal: repo.NewUpserterGlobal(resource.Destination, destinationTable, destinationColumns, conflictingColumns, updateColumns),
 	}
 }
 
@@ -31,5 +32,7 @@ func (r *repository) Upsert(ctx context.Context) error {
 }
 
 func (r *repository) Delete(ctx context.Context) error {
+	conditions := repo.Conditions{repo.NewEqualCondition("name", "test")}
+	r.deleterGlobal.DeleteManyGlobal(ctx, conditions)
 	return nil
 }
