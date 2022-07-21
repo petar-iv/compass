@@ -13,7 +13,7 @@ func NewFetcher(svc DestinationService) *fetcher {
 	return &fetcher{svc: svc}
 }
 
-func (f *fetcher) FetchDestinationsOnDemand(ctx context.Context, tenantID, parentTenantID string) error {
-	f.svc.SyncDestinations()
+func (f *fetcher) FetchDestinationsOnDemand(ctx context.Context, subaccountID string) error {
+	f.svc.SyncSubaccountDestinations(subaccountID)
 	return nil
 }

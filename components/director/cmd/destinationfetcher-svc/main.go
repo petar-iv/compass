@@ -45,10 +45,12 @@ type config struct {
 
 	Handler destinationfetcher.HandlerConfig
 
-	DestinationsRootAPI string `envconfig:"APP_ROOT_API,default=/destinations"`
+	APIConfig destinationfetcher.APIConfig
 
-	Database persistence.DatabaseConfig
-	Log      log.Config
+	DestinationsRootAPI string `envconfig:"APP_ROOT_API,default=/destinations"`
+	DestinationsConfig  destinationfetcher.DestinationsConfig
+	Database            persistence.DatabaseConfig
+	Log                 log.Config
 }
 
 // type securityConfig struct {
@@ -114,7 +116,7 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	mainRouter.Use(correlation.AttachCorrelationIDToContext(), log.RequestLogger())
 
 	repo := destination.NewRepository()
-	svc := destinationfetcher.NewDestinationService(transact, repo)
+	svc := destinationfetcher.NewDestinationService(transact, repo, cfg.DestinationsConfig.OAuthConfig, cfg.APIConfig)
 	fetcher := destinationfetcher.NewFetcher(*svc)
 
 	destinationsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()

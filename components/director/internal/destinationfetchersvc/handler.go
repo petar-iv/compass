@@ -5,6 +5,10 @@ import (
 	"net/http"
 )
 
+type DestinationsConfig struct {
+	OAuthConfig OAuth2Config
+}
+
 type HandlerConfig struct {
 	DestinationsEndpoint string `envconfig:"default=/fetch"`
 }
@@ -14,7 +18,7 @@ type handler struct {
 }
 
 type DestinationFetcher interface {
-	FetchDestinationsOnDemand(ctx context.Context, tenantID, parentTenantID string) error
+	FetchDestinationsOnDemand(ctx context.Context, subaccountID string) error
 }
 
 // NewDestinationsHTTPHandler returns a new HTTP handler, responsible for handleing HTTP requests
@@ -24,6 +28,11 @@ func NewDestinationsHTTPHandler(fetcher DestinationFetcher, config HandlerConfig
 
 func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
-	h.fetcher.FetchDestinationsOnDemand(ctx, "tenant id", "parent tenant id")
+	subaccountID := request.Header.Get("x-tenant")
+	if subaccountID == "" {
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	h.fetcher.FetchDestinationsOnDemand(ctx, subaccountID)
 	writer.WriteHeader(http.StatusOK)
 }

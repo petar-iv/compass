@@ -2,7 +2,6 @@ package destination
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kyma-incubator/compass/components/director/internal/repo"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
@@ -33,7 +32,6 @@ func (r *repository) Upsert(ctx context.Context) error {
 }
 
 func (r *repository) Delete(ctx context.Context) error {
-	fmt.Println("in delete")
 	conditions := repo.Conditions{repo.NewEqualCondition("name", "test")}
 	r.deleterGlobal.DeleteManyGlobal(ctx, conditions)
 	return nil
