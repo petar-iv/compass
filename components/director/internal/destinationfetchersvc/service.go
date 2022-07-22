@@ -36,7 +36,7 @@ func NewDestinationService(transact persistence.Transactioner, destinationRepo D
 	}
 }
 
-func (d DestinationService) SyncSubaccountDestinations(subaccountID string) error {
+func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, subaccountID string) error {
 	//TODO get subdomain from subaccountID
 	subdomain := "i331217-provider"
 
