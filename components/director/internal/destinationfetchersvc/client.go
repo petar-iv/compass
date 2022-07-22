@@ -11,6 +11,7 @@ import (
 
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/oauth"
+	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
@@ -81,7 +82,6 @@ func NewClient(oAuth2Config OAuth2Config, apiConfig APIConfig, subdomain string)
 	}, nil
 }
 
-// TODO fix errors
 func (c *Client) FetchSubbacountDestinationsPage(page string) (*DestinationResponse, error) {
 	req, err := c.buildRequest(c.apiConfig.EndpointGetSubbacountDestinations, page)
 	if err != nil {
@@ -90,21 +90,21 @@ func (c *Client) FetchSubbacountDestinationsPage(page string) (*DestinationRespo
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to execute HTTP request")
 	}
 
 	var destinations []model.Destination
 	if err := json.NewDecoder(res.Body).Decode(&destinations); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to decode response body")
 	}
-	fmt.Println(destinations)
+
 	if res.StatusCode != http.StatusOK {
-		return nil, err
+		return nil, errors.Errorf("received status code %d when trying to fetch destinations", res.StatusCode)
 	}
 
 	pageCount := res.Header.Get(c.apiConfig.PagingCountHeader)
 	if pageCount == "" {
-		return nil, fmt.Errorf("failed to extract subaccount destinations response header '%s': %w", c.apiConfig.PagingCountParam, err)
+		return nil, errors.Wrapf(err, "failed to extract header '%s' from destinations response", c.apiConfig.PagingCountParam)
 	}
 
 	return &DestinationResponse{
@@ -116,7 +116,7 @@ func (c *Client) FetchSubbacountDestinationsPage(page string) (*DestinationRespo
 func (c *Client) buildRequest(url string, page string) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create subaccount destinations request: %w", err)
+		return nil, errors.Wrapf(err, "failed to build request")
 	}
 
 	query := req.URL.Query()

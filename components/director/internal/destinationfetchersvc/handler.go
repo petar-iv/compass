@@ -33,6 +33,11 @@ func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request 
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	h.fetcher.FetchDestinationsOnDemand(ctx, subaccountID)
+
+	if err := h.fetcher.FetchDestinationsOnDemand(ctx, subaccountID); err != nil {
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	writer.WriteHeader(http.StatusOK)
 }

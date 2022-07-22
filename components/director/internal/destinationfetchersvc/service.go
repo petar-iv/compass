@@ -8,6 +8,7 @@ import (
 
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
+	"github.com/pkg/errors"
 )
 
 type DestinationRepo interface {
@@ -41,7 +42,7 @@ func (d DestinationService) SyncSubaccountDestinations(subaccountID string) erro
 
 	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to create destinations API client")
 	}
 
 	if err := d.walkthroughPages(client, func(destinations []model.Destination) error {
@@ -79,13 +80,12 @@ func (d DestinationService) walkthroughPages(client *Client, process processFunc
 	for page := 1; hasMorePages; page++ {
 		pageString := strconv.Itoa(page)
 		resp, err := client.FetchSubbacountDestinationsPage(pageString)
-		fmt.Println(err)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to fetch destinations page")
 		}
 
 		if err := process(resp.destinations); err != nil {
-			return fmt.Errorf("failed to process destinations page: %w", err)
+			return errors.Wrap(err, "failed to process destinations page")
 		}
 
 		hasMorePages = pageString != resp.pageCount
