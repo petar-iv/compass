@@ -2,6 +2,7 @@ package destinationfetchersvc
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 )
 
@@ -28,14 +29,16 @@ func NewDestinationsHTTPHandler(fetcher DestinationFetcher, config HandlerConfig
 
 func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
-	subaccountID := request.Header.Get("x-tenant")
+
+	subaccountIdHeader := "x-tenant"
+	subaccountID := request.Header.Get(subaccountIdHeader)
 	if subaccountID == "" {
-		writer.WriteHeader(http.StatusBadRequest)
+		http.Error(writer, fmt.Sprintf("%s header is missing", subaccountIdHeader), http.StatusBadRequest)
 		return
 	}
 
 	if err := h.fetcher.FetchDestinationsOnDemand(ctx, subaccountID); err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
+		http.Error(writer, fmt.Sprintf("Failed to fetch destinations for subaccount %s", subaccountID), http.StatusBadRequest)
 		return
 	}
 
