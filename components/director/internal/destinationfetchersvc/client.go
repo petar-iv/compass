@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/oauth"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -41,7 +40,7 @@ type Client struct {
 }
 
 type DestinationResponse struct {
-	destinations []model.Destination
+	destinations []Destination
 	pageCount    string
 }
 
@@ -93,7 +92,7 @@ func (c *Client) FetchSubbacountDestinationsPage(page string) (*DestinationRespo
 		return nil, errors.Wrap(err, "failed to execute HTTP request")
 	}
 
-	var destinations []model.Destination
+	var destinations []Destination
 	if err := json.NewDecoder(res.Body).Decode(&destinations); err != nil {
 		return nil, errors.Wrap(err, "failed to decode response body")
 	}

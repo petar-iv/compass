@@ -6,14 +6,13 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 	"github.com/pkg/errors"
 )
 
 type DestinationRepo interface {
 	Upsert(ctx context.Context) error
-	Delete(ctx context.Context) error
+	Delete(ctx context.Context, revision string) error
 }
 
 type DestinationService struct {
@@ -45,7 +44,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 		return errors.Wrap(err, "failed to create destinations API client")
 	}
 
-	if err := d.walkthroughPages(client, func(destinations []model.Destination) error {
+	if err := d.walkthroughPages(client, func(destinations []Destination) error {
 		log.Printf("found %d destinations in subaccount %s", len(destinations), subaccountID)
 		for _, destination := range destinations {
 			fmt.Println(destination)
@@ -72,7 +71,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 	return nil
 }
 
-type processFunc func([]model.Destination) error
+type processFunc func([]Destination) error
 
 func (d DestinationService) walkthroughPages(client *Client, process processFunc) error {
 	hasMorePages := true

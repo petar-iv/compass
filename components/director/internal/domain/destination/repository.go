@@ -7,7 +7,10 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 )
 
-const destinationTable = "public.destinations"
+const (
+	destinationTable = "public.destinations"
+	revisionColumn   = "revision"
+)
 
 var (
 	destinationColumns = []string{"id", "name", "type", "url", "authentication", "tenant_id", "bundle_id", "revision"}
@@ -31,8 +34,8 @@ func (r *repository) Upsert(ctx context.Context) error {
 	return nil
 }
 
-func (r *repository) Delete(ctx context.Context) error {
-	conditions := repo.Conditions{repo.NewEqualCondition("name", "test")}
+func (r *repository) Delete(ctx context.Context, revision string) error {
+	conditions := repo.Conditions{repo.NewNotEqualCondition(revisionColumn, revision)}
 	r.deleterGlobal.DeleteManyGlobal(ctx, conditions)
 	return nil
 }

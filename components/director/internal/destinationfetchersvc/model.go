@@ -1,4 +1,4 @@
-package model
+package destinationfetchersvc
 
 type Destination struct {
 	Name                    string `json:"Name"`
