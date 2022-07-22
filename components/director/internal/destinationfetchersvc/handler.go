@@ -11,11 +11,13 @@ type DestinationsConfig struct {
 }
 
 type HandlerConfig struct {
-	DestinationsEndpoint string `envconfig:"default=/fetch"`
+	DestinationsEndpoint string `envconfig:"APP_DESTINATIONS_ON_DEMAND_HANDLER_ENDPOINT,default=/v1/fetch"`
+	UserContextHeader    string `envconfig:"APP_USER_CONTEXT_HEADER,default=user_context"`
 }
 
 type handler struct {
 	fetcher DestinationFetcher
+	config  HandlerConfig
 }
 
 type DestinationFetcher interface {
@@ -24,16 +26,18 @@ type DestinationFetcher interface {
 
 // NewDestinationsHTTPHandler returns a new HTTP handler, responsible for handleing HTTP requests
 func NewDestinationsHTTPHandler(fetcher DestinationFetcher, config HandlerConfig) *handler {
-	return &handler{fetcher: fetcher}
+	return &handler{
+		fetcher: fetcher,
+		config:  config,
+	}
 }
 
 func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
 
-	subaccountIdHeader := "x-tenant"
-	subaccountID := request.Header.Get(subaccountIdHeader)
+	subaccountID := request.Header.Get(h.config.UserContextHeader)
 	if subaccountID == "" {
-		http.Error(writer, fmt.Sprintf("%s header is missing", subaccountIdHeader), http.StatusBadRequest)
+		http.Error(writer, fmt.Sprintf("%s header is missing", h.config.UserContextHeader), http.StatusBadRequest)
 		return
 	}
 
