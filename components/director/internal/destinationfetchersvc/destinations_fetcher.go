@@ -16,3 +16,7 @@ func NewFetcher(svc DestinationService) *fetcher {
 func (f *fetcher) FetchDestinationsOnDemand(ctx context.Context, subaccountID string) error {
 	return f.svc.SyncSubaccountDestinations(ctx, subaccountID)
 }
+
+func (f *fetcher) GetDestinationsInfo(ctx context.Context, subaccountID string, names []string) ([]byte, error) {
+	return f.svc.GetDestinationsInfo(ctx, subaccountID, names)
+}
