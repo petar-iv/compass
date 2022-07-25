@@ -2,9 +2,12 @@ package destination
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kyma-incubator/compass/components/director/internal/repo"
+	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -31,6 +34,7 @@ func NewRepository() *repository {
 }
 
 func (r *repository) Upsert(ctx context.Context) error {
+	fmt.Println("#### UPSERT")
 	return nil
 }
 
@@ -38,4 +42,52 @@ func (r *repository) Delete(ctx context.Context, revision string) error {
 	conditions := repo.Conditions{repo.NewNotEqualCondition(revisionColumn, revision)}
 	r.deleterGlobal.DeleteManyGlobal(ctx, conditions)
 	return nil
+}
+
+func (r *repository) GetSubdomains(ctx context.Context) ([]Subdomain, error) {
+	var subdomains []Subdomain
+
+	persist, err := persistence.FromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	query := `
+	SELECT l.tenant_id, btm.parent, l.value #>> '{}' as value
+	FROM labels l JOIN business_tenant_mappings btm ON l.tenant_id = btm.id
+	WHERE l.key='subdomain' and l.tenant_id in (
+		SELECT tenant_id FROM tenant_runtime_contexts
+	);`
+
+	err = persist.SelectContext(ctx, &subdomains, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch subscibed subdomains from DB")
+	}
+	return subdomains, nil
+}
+
+func (r *repository) GetBundleForDestination(ctx context.Context, name, url, correlationId string) ([]Bundle, error) {
+	var bundles []Bundle
+
+	persist, err := persistence.FromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id
+		FROM bundles
+		WHERE app_id IN (
+			SELECT id
+			FROM public.applications
+			WHERE name='%s'
+			AND base_url='%s'
+		)
+		AND correlation_ids::jsonb ? '%s'
+	`, name, url, correlationId)
+
+	err = persist.SelectContext(ctx, &bundles, query)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch bundles for system with name: '%s', url: '%s' and correlation id: '%s' from DB", name, url, correlationId)
+	}
+	return bundles, nil
 }

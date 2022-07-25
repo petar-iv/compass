@@ -31,6 +31,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 	"github.com/kyma-incubator/compass/components/director/pkg/signal"
+	"github.com/kyma-incubator/compass/components/system-broker/pkg/uuid"
 	"github.com/pkg/errors"
 	"github.com/vrischmann/envconfig"
 )
@@ -115,8 +116,9 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	mainRouter := mux.NewRouter()
 	mainRouter.Use(correlation.AttachCorrelationIDToContext(), log.RequestLogger())
 
+	uuidSvc := uuid.NewService()
 	repo := destination.NewRepository()
-	svc := destinationfetcher.NewDestinationService(transact, repo, cfg.DestinationsConfig.OAuthConfig, cfg.APIConfig)
+	svc := destinationfetcher.NewDestinationService(transact, uuidSvc, repo, cfg.DestinationsConfig.OAuthConfig, cfg.APIConfig)
 	fetcher := destinationfetcher.NewFetcher(*svc)
 
 	destinationsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
