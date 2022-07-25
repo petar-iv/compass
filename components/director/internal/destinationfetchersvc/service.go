@@ -2,6 +2,7 @@ package destinationfetchersvc
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	domain "github.com/kyma-incubator/compass/components/director/internal/domain/destination"
@@ -22,6 +23,7 @@ type UUIDService interface {
 type DestinationRepo interface {
 	Upsert(ctx context.Context) error
 	Delete(ctx context.Context, revision string) error
+	GetSubdomain(ctx context.Context, subaccountId string) (*domain.Subdomain, error)
 	GetSubdomains(ctx context.Context) ([]domain.Subdomain, error)
 	GetBundleForDestination(ctx context.Context, name, url, correlationId string) ([]domain.Bundle, error)
 }
@@ -49,11 +51,18 @@ func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDServi
 }
 
 func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, subaccountID string) error {
-	// TODO get subdomain and tenant id for subaccountID
-	subdomain := "i331217-provider"
-	tenantID := "tenant-id"
+	// TODO Should we check explicitly if UCL is subscribed in the given subaccount?
+	subdomain, err := d.repo.GetSubdomain(ctx, subaccountID)
+	if err != nil {
+		return err
+	}
 
-	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain)
+	// TODO Should return 400 Bad Request?
+	if subdomain == nil {
+		return errors.New(fmt.Sprintf("subdomain for subaccount with id '%s' doesn't exist", subaccountID))
+	}
+
+	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain.Value)
 	if err != nil {
 		return errors.Wrap(err, "failed to create destinations API client")
 	}
@@ -87,7 +96,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 					URL:            destination.URL,
 					Authentication: destination.Authentication,
 					BundleID:       bundle.ID,
-					TenantID:       tenantID,
+					TenantID:       subdomain.TenantID,
 					Revision:       d.uuidSvc.Generate(),
 				}
 				if err := d.repo.Upsert(ctx); err != nil {

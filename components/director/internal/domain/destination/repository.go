@@ -44,6 +44,26 @@ func (r *repository) Delete(ctx context.Context, revision string) error {
 	return nil
 }
 
+func (r *repository) GetSubdomain(ctx context.Context, subaccountId string) (*Subdomain, error) {
+	var subdomain Subdomain
+
+	persist, err := persistence.FromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	query := fmt.Sprintf(`
+	SELECT l.tenant_id, l.value #>> '{}' as value
+	FROM labels l
+	WHERE l.key='subdomain' AND l.tenant_id=(
+	SELECT id FROM business_tenant_mappings WHERE external_tenant='%s'
+	)`, subaccountId)
+
+	err = persist.GetContext(ctx, &subdomain, query)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch subdomain for subaccount with id '%s' from DB", subaccountId)
+	}
+	return &subdomain, nil
+}
 func (r *repository) GetSubdomains(ctx context.Context) ([]Subdomain, error) {
 	var subdomains []Subdomain
 
@@ -52,8 +72,7 @@ func (r *repository) GetSubdomains(ctx context.Context) ([]Subdomain, error) {
 		return nil, err
 	}
 	query := `
-	SELECT l.tenant_id, btm.parent, l.value #>> '{}' as value
-	FROM labels l JOIN business_tenant_mappings btm ON l.tenant_id = btm.id
+	SELECT l.tenant_id, l.value #>> '{}' as value
 	WHERE l.key='subdomain' and l.tenant_id in (
 		SELECT tenant_id FROM tenant_runtime_contexts
 	);`

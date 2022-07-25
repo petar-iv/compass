@@ -1,7 +1,5 @@
 package destination
 
-import "database/sql"
-
 type Entity struct {
 	ID             string `db:"id"`
 	Name           string `db:"name"`
@@ -14,9 +12,8 @@ type Entity struct {
 }
 
 type Subdomain struct {
-	TenantID       string         `db:"tenant_id"`
-	ParentTenantID sql.NullString `db:"parent"`
-	Value          string         `db:"value"`
+	TenantID string `db:"tenant_id"`
+	Value    string `db:"value"`
 }
 
 type Bundle struct {
