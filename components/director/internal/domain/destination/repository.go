@@ -83,30 +83,3 @@ func (r *repository) GetSubdomains(ctx context.Context) ([]Subdomain, error) {
 	}
 	return subdomains, nil
 }
-
-func (r *repository) GetBundleForDestination(ctx context.Context, name, url, correlationId string) ([]Bundle, error) {
-	var bundles []Bundle
-
-	persist, err := persistence.FromCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	query := fmt.Sprintf(`
-		SELECT id
-		FROM bundles
-		WHERE app_id IN (
-			SELECT id
-			FROM public.applications
-			WHERE name='%s'
-			AND base_url='%s'
-		)
-		AND correlation_ids::jsonb ? '%s'
-	`, name, url, correlationId)
-
-	err = persist.SelectContext(ctx, &bundles, query)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to fetch bundles for system with name: '%s', url: '%s' and correlation id: '%s' from DB", name, url, correlationId)
-	}
-	return bundles, nil
-}

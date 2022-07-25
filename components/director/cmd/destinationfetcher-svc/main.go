@@ -24,7 +24,17 @@ import (
 
 	"github.com/gorilla/mux"
 	destinationfetcher "github.com/kyma-incubator/compass/components/director/internal/destinationfetchersvc"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/api"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/application"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/auth"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/bundle"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/destination"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/document"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/eventdef"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/fetchrequest"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/spec"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/version"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/webhook"
 	"github.com/kyma-incubator/compass/components/director/pkg/correlation"
 	timeouthandler "github.com/kyma-incubator/compass/components/director/pkg/handler"
 	httputil "github.com/kyma-incubator/compass/components/director/pkg/http"
@@ -117,8 +127,10 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	mainRouter.Use(correlation.AttachCorrelationIDToContext(), log.RequestLogger())
 
 	uuidSvc := uuid.NewService()
-	repo := destination.NewRepository()
-	svc := destinationfetcher.NewDestinationService(transact, uuidSvc, repo, cfg.DestinationsConfig.OAuthConfig, cfg.APIConfig)
+	destRepo := destination.NewRepository()
+	bundleRepo := bundleRepo()
+	appRepo := applicationRepo()
+	svc := destinationfetcher.NewDestinationService(transact, uuidSvc, destRepo, bundleRepo, appRepo, cfg.DestinationsConfig.OAuthConfig, cfg.APIConfig)
 	fetcher := destinationfetcher.NewFetcher(*svc)
 
 	destinationsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
@@ -134,6 +146,37 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	healthCheckRouter.HandleFunc("/healthz", newReadinessHandler())
 
 	return mainRouter
+}
+
+func bundleRepo() bundle.BundleRepository {
+	authConverter := auth.NewConverter()
+	frConverter := fetchrequest.NewConverter(authConverter)
+	versionConverter := version.NewConverter()
+	specConverter := spec.NewConverter(frConverter)
+	eventAPIConverter := eventdef.NewConverter(versionConverter, specConverter)
+	docConverter := document.NewConverter(frConverter)
+	apiConverter := api.NewConverter(versionConverter, specConverter)
+
+	return bundle.NewRepository(bundle.NewConverter(authConverter, apiConverter, eventAPIConverter, docConverter))
+}
+
+func applicationRepo() application.ApplicationRepository {
+	authConverter := auth.NewConverter()
+
+	versionConverter := version.NewConverter()
+	frConverter := fetchrequest.NewConverter(authConverter)
+	specConverter := spec.NewConverter(frConverter)
+
+	apiConverter := api.NewConverter(versionConverter, specConverter)
+	eventAPIConverter := eventdef.NewConverter(versionConverter, specConverter)
+	docConverter := document.NewConverter(frConverter)
+
+	webhookConverter := webhook.NewConverter(authConverter)
+	bundleConverter := bundle.NewConverter(authConverter, apiConverter, eventAPIConverter, docConverter)
+
+	appConverter := application.NewConverter(webhookConverter, bundleConverter)
+
+	return application.NewRepository(appConverter)
 }
 
 func newReadinessHandler() func(writer http.ResponseWriter, request *http.Request) {

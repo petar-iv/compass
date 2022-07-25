@@ -16,7 +16,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-const bundleTable string = `public.bundles`
+const (
+	bundleTable      string = `public.bundles`
+	applicationTable string = `public.applications`
+)
 
 var (
 	bundleColumns    = []string{"id", "app_id", "name", "description", "instance_auth_request_json_schema", "default_instance_auth", "ord_id", "short_description", "links", "labels", "credential_exchange_strategies", "ready", "created_at", "updated_at", "deleted_at", "error", "correlation_ids", "documentation_labels"}
@@ -32,27 +35,31 @@ type EntityConverter interface {
 }
 
 type pgRepository struct {
-	existQuerier repo.ExistQuerier
-	singleGetter repo.SingleGetter
-	deleter      repo.Deleter
-	lister       repo.Lister
-	unionLister  repo.UnionLister
-	creator      repo.Creator
-	updater      repo.Updater
-	conv         EntityConverter
+	existQuerier          repo.ExistQuerier
+	bundleAppQueryBuilder repo.QueryBuilderGlobal
+	singleGetter          repo.SingleGetter
+	singleGlobalGetter    repo.SingleGetterGlobal
+	deleter               repo.Deleter
+	lister                repo.Lister
+	unionLister           repo.UnionLister
+	creator               repo.Creator
+	updater               repo.Updater
+	conv                  EntityConverter
 }
 
 // NewRepository missing godoc
 func NewRepository(conv EntityConverter) *pgRepository {
 	return &pgRepository{
-		existQuerier: repo.NewExistQuerier(bundleTable),
-		singleGetter: repo.NewSingleGetter(bundleTable, bundleColumns),
-		deleter:      repo.NewDeleter(bundleTable),
-		lister:       repo.NewLister(bundleTable, bundleColumns),
-		unionLister:  repo.NewUnionLister(bundleTable, bundleColumns),
-		creator:      repo.NewCreator(bundleTable, bundleColumns),
-		updater:      repo.NewUpdater(bundleTable, updatableColumns, []string{"id"}),
-		conv:         conv,
+		existQuerier:          repo.NewExistQuerier(bundleTable),
+		bundleAppQueryBuilder: repo.NewQueryBuilderGlobal(resource.Application, applicationTable, []string{"id"}),
+		singleGetter:          repo.NewSingleGetter(bundleTable, bundleColumns),
+		singleGlobalGetter:    repo.NewSingleGetterGlobal(resource.Bundle, bundleTable, bundleColumns),
+		deleter:               repo.NewDeleter(bundleTable),
+		lister:                repo.NewLister(bundleTable, bundleColumns),
+		unionLister:           repo.NewUnionLister(bundleTable, bundleColumns),
+		creator:               repo.NewCreator(bundleTable, bundleColumns),
+		updater:               repo.NewUpdater(bundleTable, updatableColumns, []string{"id"}),
+		conv:                  conv,
 	}
 }
 
@@ -62,6 +69,31 @@ type BundleCollection []Entity
 // Len missing godoc
 func (r BundleCollection) Len() int {
 	return len(r)
+}
+
+func (r *pgRepository) GetBySystemAndCorrelationId(ctx context.Context, systemName, systemURL, correlationId string) (*model.Bundle, error) {
+	// TODO Should return an array of bundles if there are duplicate entries for the same system - name + url?
+	// TODO Reuse the local getter?
+	var bndlEnt Entity
+
+	subqueryConditions := repo.Conditions{
+		repo.NewEqualCondition("name", systemName),
+		repo.NewEqualCondition("base_url", systemURL),
+	}
+	subquery, args, err := r.bundleAppQueryBuilder.BuildQueryGlobal(false, subqueryConditions...)
+	if err != nil {
+		return nil, err
+	}
+
+	conditions := repo.Conditions{
+		repo.NewInConditionForSubQuery("app_id", subquery, args),
+		repo.NewJSONCondition("correlation_ids", correlationId),
+	}
+	if err = r.singleGlobalGetter.GetGlobal(ctx, conditions, repo.NoOrderBy, &bndlEnt); err != nil {
+		return nil, err
+	}
+
+	return convertToBundle(r, &bndlEnt)
 }
 
 // Create missing godoc

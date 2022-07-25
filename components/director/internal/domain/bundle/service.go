@@ -23,6 +23,7 @@ type BundleRepository interface {
 	GetForApplication(ctx context.Context, tenant string, id string, applicationID string) (*model.Bundle, error)
 	ListByApplicationIDNoPaging(ctx context.Context, tenantID, appID string) ([]*model.Bundle, error)
 	ListByApplicationIDs(ctx context.Context, tenantID string, applicationIDs []string, pageSize int, cursor string) ([]*model.BundlePage, error)
+	GetBySystemAndCorrelationId(ctx context.Context, systemName, systemURL, correlationId string) (*model.Bundle, error)
 }
 
 // UIDService missing godoc
