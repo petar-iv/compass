@@ -139,7 +139,7 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsEndpoint)
 	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.FetchDestinationsOnDemand).Methods(http.MethodGet)
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsInfoEndpoint)
-	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsInfoEndpoint, destinationHandler.GetDestinationInfo).Methods(http.MethodGet)
+	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsInfoEndpoint, destinationHandler.FetchDestinationsSensitiveData).Methods(http.MethodGet)
 
 	healthCheckRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
 	logger.Infof("Registering readiness endpoint...")

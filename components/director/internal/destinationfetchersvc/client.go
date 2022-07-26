@@ -10,7 +10,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/oauth"
+	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
@@ -127,7 +129,7 @@ func (c *Client) buildRequest(url string, page string) (*http.Request, error) {
 	return req, nil
 }
 
-func (c *Client) getDestinationInfo(destinationName string) ([]byte, error) {
+func (c *Client) fetchDestinationSensitiveData(destinationName string) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodGet, c.apiConfig.EndpointFindDestination+destinationName, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build request")
@@ -138,8 +140,13 @@ func (c *Client) getDestinationInfo(destinationName string) ([]byte, error) {
 		return nil, errors.Wrap(err, "failed to execute HTTP request")
 	}
 
+	if res.StatusCode == http.StatusNotFound {
+		return nil, apperrors.NewNotFoundErrorWithMessage(resource.Destination, destinationName, "")
+	}
+
 	if res.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("received status code %d when trying to get destination info", res.StatusCode)
+		return nil, errors.Errorf("received status code %d when trying to get destination info for %s",
+			res.StatusCode, destinationName)
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
