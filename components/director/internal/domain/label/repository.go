@@ -371,7 +371,7 @@ func (r *repository) GetSubdomainLabelForRuntime(ctx context.Context, subaccount
 	SELECT l.tenant_id, l.value
 	FROM labels l
 	WHERE l.key='subdomain'
-	AND l.tenant_id IN (
+	AND l.tenant_id=(
 		SELECT id
 		FROM business_tenant_mappings
 		WHERE parent IS NOT NULL

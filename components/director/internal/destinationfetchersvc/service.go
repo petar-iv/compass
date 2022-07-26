@@ -8,6 +8,7 @@ import (
 
 	domain "github.com/kyma-incubator/compass/components/director/internal/domain/destination"
 	"github.com/kyma-incubator/compass/components/director/internal/model"
+	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 
@@ -71,55 +72,53 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 	}
 	defer d.transact.RollbackUnlessCommitted(ctx, tx)
 
-	bundles, err := d.bundleRepo.GetBySystemAndCorrelationId(ctx, "b37e1fdc-607c-4067-99aa-28841f5855af" , "sfsf-i335693", "https://qapatchpreview.hcm.ondemand.com/login?company=PLTSCPStage2", "correlation")
-	// TODO Should return 400 Bad Request?
-	// TODO Check if not found
+	label, err := d.labelRepo.GetSubdomainLabelForRuntime(ctx, subaccountID)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%+v", bundles)
-	// if subdomain == nil {
-	// 	return errors.New(fmt.Sprintf("subdomain for subaccount with id '%s' doesn't exist", subaccountID))
-	// }
+	client, err := NewClient(d.oauthConfig, d.apiConfig, label.Value.(string))
+	if err != nil {
+		return errors.Wrap(err, "failed to create destinations API client")
+	}
 
-	// client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain.Value.(string))
-	// if err != nil {
-	// 	return errors.Wrap(err, "failed to create destinations API client")
-	// }
+	if err := d.walkthroughPages(client, func(destinations []Destination) error {
+		log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
+		for _, destination := range destinations {
+			correlationID := correlationIDPrefix + destination.CommunicationScenarioId
+			bundles, err := d.bundleRepo.GetBySystemAndCorrelationId(ctx, *label.Tenant, destination.XFSystemName, destination.URL, correlationID)
 
-	// if err := d.walkthroughPages(client, func(destinations []Destination) error {
-	// 	log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
-	// 	for _, destination := range destinations {
-	// 		correlationID := correlationIDPrefix + destination.CommunicationScenarioId
-	// 		bundle, err := d.bundleRepo.GetBySystemAndCorrelationId(ctx, destination.XFSystemName, destination.URL, correlationID)
+			if apperrors.IsNotFoundError(err) {
+				log.C(ctx).Infof("No bundle found for system '%s', url '%s', correlation id '%s'. Will skip this destination ...", destination.XFSystemName, destination.URL, correlationID)
+				continue
+			}
 
-	// 		// TODO Check if error is not found
-	// 		if err != nil {
-	// 			return err
-	// 		}
+			if err != nil {
+				log.C(ctx).Errorf("Failed to fetch bundle for system '%s', url '%s', correlation id '%s': %v", destination.XFSystemName, destination.URL, correlationID, err)
+				continue
+			}
 
-	// 		destinationDB := domain.Entity{
-	// 			ID:             d.uuidSvc.Generate(),
-	// 			Name:           destination.Name,
-	// 			Type:           destination.Type,
-	// 			URL:            destination.URL,
-	// 			Authentication: destination.Authentication,
-	// 			BundleID:       bundle.ID,
-	// 			TenantID:       *subdomain.Tenant,
-	// 			Revision:       d.uuidSvc.Generate(),
-	// 		}
+			for _, bundle := range bundles {
+				destinationDB := domain.Entity{
+					ID:             d.uuidSvc.Generate(),
+					Name:           destination.Name,
+					Type:           destination.Type,
+					URL:            destination.URL,
+					Authentication: destination.Authentication,
+					BundleID:       bundle.ID,
+					TenantID:       *label.Tenant,
+					Revision:       d.uuidSvc.Generate(),
+				}
 
-	// 		fmt.Println(destinationDB)
-	// 		if err := d.repo.Upsert(ctx); err != nil {
-	// 			return errors.Wrapf(err, "failed to insert destination data '%+v' to DB: %w", destinationDB)
-	// 		}
-
-	// 	}
-	// 	return nil
-	// }); err != nil {
-	// 	return err
-	// }
+\				if err := d.repo.Upsert(ctx); err != nil {
+					return errors.Wrapf(err, "failed to insert destination data '%+v' to DB: %w", destinationDB)
+				}
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
 
 	if err = tx.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit database transaction")
