@@ -1,6 +1,7 @@
 package destinationfetchersvc
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strconv"
@@ -157,4 +158,28 @@ func (d DestinationService) walkthroughPages(client *Client, process processFunc
 	}
 
 	return nil
+}
+
+func (d DestinationService) GetDestinationsInfo(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error) {
+	subdomain := "i305674-4"
+	log.C(ctx).Infof("Fetching data for subdomain: %s \n", subdomain)
+
+	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create destinations API client")
+	}
+
+	results := make([][]byte, len(destinationNames))
+	for i, destination := range destinationNames {
+		log.C(ctx).Infof("Fetching data for destination: %s \n", destination)
+		results[i], err = client.getDestinationInfo(destination)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	combinedInfoJSON := bytes.Join(results, []byte(","))
+	combinedInfoJSON = append(combinedInfoJSON, ']', '}')
+
+	return append([]byte("{ \"destinations\": ["), combinedInfoJSON...), nil
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -124,4 +125,27 @@ func (c *Client) buildRequest(url string, page string) (*http.Request, error) {
 	query.Add(c.apiConfig.PagingSizeParam, strconv.Itoa(c.apiConfig.PageSize))
 	req.URL.RawQuery = query.Encode()
 	return req, nil
+}
+
+func (c *Client) getDestinationInfo(destinationName string) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, c.apiConfig.EndpointFindDestination+destinationName, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build request")
+	}
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to execute HTTP request")
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("received status code %d when trying to get destination info", res.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read body of response")
+	}
+
+	return body, nil
 }
