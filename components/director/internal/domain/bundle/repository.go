@@ -87,7 +87,7 @@ func (r *pgRepository) GetBySystemAndCorrelationId(ctx context.Context, systemNa
 
 	conditions := repo.Conditions{
 		repo.NewInConditionForSubQuery("app_id", subquery, args),
-		repo.NewJSONCondition("correlation_ids", correlationId),
+		repo.NewJSONArrMatchAnyStringCondition("correlation_ids", correlationId),
 	}
 	if err = r.singleGlobalGetter.GetGlobal(ctx, conditions, repo.NoOrderBy, &bndlEnt); err != nil {
 		return nil, err
