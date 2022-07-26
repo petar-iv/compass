@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	tableName           string = "public.labels"
-	tenantColumn        string = "tenant_id"
-	runtimeContextTable string = "public.tenant_runtime_contexts"
+	tableName                   string = "public.labels"
+	tenantColumn                string = "tenant_id"
+	runtimeContextTable         string = "public.tenant_runtime_contexts"
+	businessTenantMappingsTable string = `public.business_tenant_mappings`
 )
 
 var (
@@ -41,7 +42,8 @@ type repository struct {
 	getter        repo.SingleGetter
 	getterGlobal  repo.SingleGetterGlobal
 
-	runtimeContextQueryBuilder repo.QueryBuilderGlobal
+	runtimeContextQueryBuilder         repo.QueryBuilderGlobal
+	businessTenantMappingsQueryBuilder repo.QueryBuilderGlobal
 
 	embeddedTenantLister  repo.Lister
 	embeddedTenantDeleter repo.Deleter
@@ -67,7 +69,8 @@ func NewRepository(conv Converter) *repository {
 		getter:        repo.NewSingleGetter(tableName, tableColumns),
 		getterGlobal:  repo.NewSingleGetterGlobal(resource.Label, tableName, tableColumns),
 
-		runtimeContextQueryBuilder: repo.NewQueryBuilderGlobal(resource.RuntimeContext, runtimeContextTable, []string{"tenant_id"}),
+		runtimeContextQueryBuilder:         repo.NewQueryBuilderGlobal(resource.RuntimeContext, runtimeContextTable, []string{"tenant_id"}),
+		businessTenantMappingsQueryBuilder: repo.NewQueryBuilderGlobal(resource.Tenant, businessTenantMappingsTable, []string{"id"}),
 
 		embeddedTenantLister:  repo.NewListerWithEmbeddedTenant(tableName, tenantColumn, tableColumns),
 		embeddedTenantDeleter: repo.NewDeleterWithEmbeddedTenant(tableName, tenantColumn),
@@ -348,6 +351,40 @@ func (r *repository) ListSubdomainLabelsForRuntimes(ctx context.Context) ([]*mod
 	}
 
 	return r.multipleFromEntity(entities)
+}
+
+func (r *repository) GetSubdomainLabelForRuntime(ctx context.Context, subaccountId string) (*model.Label, error) {
+	var entity Entity
+
+	subqueryConditions := repo.Conditions{
+		repo.NewEqualCondition("external_tenant", subaccountId),
+	}
+
+	subqueryTenant, argsTenant, err := r.businessTenantMappingsQueryBuilder.BuildQueryGlobal(false, subqueryConditions...)
+	if err != nil {
+		return nil, err
+	}
+
+	subqueryRuntimeContexts, argsRuntimeContexts, err := r.runtimeContextQueryBuilder.BuildQueryGlobal(false, repo.Conditions{}...)
+	if err != nil {
+		return nil, err
+	}
+
+	conditions := repo.Conditions{
+		repo.NewInConditionForSubQuery("tenant_id", subqueryTenant, argsTenant),
+		repo.NewInConditionForSubQuery("tenant_id", subqueryRuntimeContexts, argsRuntimeContexts),
+		repo.NewEqualCondition("key", "subdomain"),
+	}
+	if err = r.getterGlobal.GetGlobal(ctx, conditions, repo.NoOrderBy, &entity); err != nil {
+		return nil, err
+	}
+
+	labelModel, err := r.conv.FromEntity(&entity)
+	if err != nil {
+		return nil, errors.Wrap(err, "while converting Label entity to model")
+	}
+
+	return labelModel, nil
 }
 
 func (r *repository) multipleFromEntity(entities []Entity) ([]*model.Label, error) {

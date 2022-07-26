@@ -30,6 +30,7 @@ type DestinationRepo interface {
 
 type LabelRepo interface {
 	ListSubdomainLabelsForRuntimes(ctx context.Context) ([]*model.Label, error)
+	GetSubdomainLabelForRuntime(ctx context.Context, subaccountId string) (*model.Label, error)
 }
 
 type BundleRepo interface {
@@ -70,19 +71,19 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 	}
 	defer d.transact.RollbackUnlessCommitted(ctx, tx)
 
-	// TODO Should we check explicitly if UCL is subscribed in the given subaccount?
-	subdomain, err := d.repo.GetSubdomain(ctx, subaccountID)
+	subdomain, err := d.labelRepo.GetSubdomainLabelForRuntime(ctx, subaccountID)
 	// TODO Should return 400 Bad Request?
 	// TODO Check if not found
 	if err != nil {
 		return err
 	}
 
+	fmt.Printf("%+v", *subdomain)
 	if subdomain == nil {
 		return errors.New(fmt.Sprintf("subdomain for subaccount with id '%s' doesn't exist", subaccountID))
 	}
 
-	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain.Value)
+	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain.Value.(string))
 	if err != nil {
 		return errors.Wrap(err, "failed to create destinations API client")
 	}
@@ -105,9 +106,10 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 				URL:            destination.URL,
 				Authentication: destination.Authentication,
 				BundleID:       bundle.ID,
-				TenantID:       subdomain.TenantID,
+				TenantID:       *subdomain.Tenant,
 				Revision:       d.uuidSvc.Generate(),
 			}
+			fmt.Println(destinationDB)
 			if err := d.repo.Upsert(ctx); err != nil {
 				return errors.Wrapf(err, "failed to insert destination data '%+v' to DB: %w", destinationDB)
 			}
