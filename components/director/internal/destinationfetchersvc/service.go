@@ -3,7 +3,6 @@ package destinationfetchersvc
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"strconv"
 
 	domain "github.com/kyma-incubator/compass/components/director/internal/domain/destination"
@@ -110,7 +109,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 					Revision:       d.uuidSvc.Generate(),
 				}
 
-\				if err := d.repo.Upsert(ctx); err != nil {
+				if err := d.repo.Upsert(ctx); err != nil {
 					return errors.Wrapf(err, "failed to insert destination data '%+v' to DB: %w", destinationDB)
 				}
 			}
