@@ -234,7 +234,8 @@ func (r *pgRepository) GetBySystemAndCorrelationId(ctx context.Context, tenantId
 		)
 		AND name='%s'
 		AND base_url='%s'
-	)`, tenantId, systemName, systemURL)
+	)
+	AND correlation_ids::jsonb ? '%s'`, tenantId, systemName, systemURL, correlationId)
 
 	err = persist.SelectContext(ctx, &bundleCollection, query)
 	if err != nil {

@@ -2,7 +2,9 @@ package label
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
@@ -337,17 +339,21 @@ func (r *repository) GetScenarioLabelsForRuntimes(ctx context.Context, tenantID 
 func (r *repository) ListSubdomainLabelsForRuntimes(ctx context.Context) ([]*model.Label, error) {
 	var entities Collection
 
-	subquery, args, err := r.runtimeContextQueryBuilder.BuildQueryGlobal(false, repo.Conditions{}...)
+	persist, err := persistence.FromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	conditions := repo.Conditions{
-		repo.NewInConditionForSubQuery("tenant_id", subquery, args),
-		repo.NewEqualCondition("key", "subdomain"),
-	}
-	if err = r.listerGlobal.ListGlobal(ctx, &entities, conditions...); err != nil {
-		return nil, err
+	query := `
+	SELECT l.tenant_id, l.value
+	FROM labels l
+	WHERE l.key='subdomain'
+	AND l.tenant_id IN (SELECT id FROM business_tenant_mappings WHERE parent IS NOT NULL AND id=l.tenant_id)
+		AND l.tenant_id IN (SELECT tenant_id FROM tenant_runtime_contexts)`
+
+	err = persist.SelectContext(ctx, &entities, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch labels from DB")
 	}
 
 	return r.multipleFromEntity(entities)
@@ -356,27 +362,28 @@ func (r *repository) ListSubdomainLabelsForRuntimes(ctx context.Context) ([]*mod
 func (r *repository) GetSubdomainLabelForRuntime(ctx context.Context, subaccountId string) (*model.Label, error) {
 	var entity Entity
 
-	subqueryConditions := repo.Conditions{
-		repo.NewEqualCondition("external_tenant", subaccountId),
-	}
-
-	subqueryTenant, argsTenant, err := r.businessTenantMappingsQueryBuilder.BuildQueryGlobal(false, subqueryConditions...)
+	persist, err := persistence.FromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	subqueryRuntimeContexts, argsRuntimeContexts, err := r.runtimeContextQueryBuilder.BuildQueryGlobal(false, repo.Conditions{}...)
-	if err != nil {
-		return nil, err
-	}
+	query := fmt.Sprintf(`
+	SELECT l.tenant_id, l.value
+	FROM labels l
+	WHERE l.key='subdomain'
+	AND l.tenant_id IN (
+		SELECT id
+		FROM business_tenant_mappings
+		WHERE parent IS NOT NULL
+		AND id=l.tenant_id
+		AND external_tenant='%s')
+	AND l.tenant_id IN (
+		SELECT tenant_id
+		FROM tenant_runtime_contexts)`, subaccountId)
 
-	conditions := repo.Conditions{
-		repo.NewInConditionForSubQuery("tenant_id", subqueryTenant, argsTenant),
-		repo.NewInConditionForSubQuery("tenant_id", subqueryRuntimeContexts, argsRuntimeContexts),
-		repo.NewEqualCondition("key", "subdomain"),
-	}
-	if err = r.getterGlobal.GetGlobal(ctx, conditions, repo.NoOrderBy, &entity); err != nil {
-		return nil, err
+	err = persist.GetContext(ctx, &entity, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch label from DB")
 	}
 
 	labelModel, err := r.conv.FromEntity(&entity)
