@@ -150,7 +150,7 @@ func (d DestinationService) walkthroughPages(client *Client, process processFunc
 	return nil
 }
 
-func (d DestinationService) GetDestinationsInfo(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error) {
+func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error) {
 	subdomain := "i305674-4"
 	log.C(ctx).Infof("Fetching data for subdomain: %s \n", subdomain)
 
@@ -162,7 +162,7 @@ func (d DestinationService) GetDestinationsInfo(ctx context.Context, subaccountI
 	results := make([][]byte, len(destinationNames))
 	for i, destination := range destinationNames {
 		log.C(ctx).Infof("Fetching data for destination: %s \n", destination)
-		results[i], err = client.getDestinationInfo(destination)
+		results[i], err = client.fetchDestinationSensitiveData(destination)
 		if err != nil {
 			return nil, err
 		}
