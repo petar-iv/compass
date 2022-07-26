@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	tableName    string = "public.labels"
-	tenantColumn string = "tenant_id"
+	tableName           string = "public.labels"
+	tenantColumn        string = "tenant_id"
+	runtimeContextTable string = "public.tenant_runtime_contexts"
 )
 
 var (
@@ -40,6 +41,8 @@ type repository struct {
 	getter        repo.SingleGetter
 	getterGlobal  repo.SingleGetterGlobal
 
+	runtimeContextQueryBuilder repo.QueryBuilderGlobal
+
 	embeddedTenantLister  repo.Lister
 	embeddedTenantDeleter repo.Deleter
 	embeddedTenantGetter  repo.SingleGetter
@@ -63,6 +66,8 @@ func NewRepository(conv Converter) *repository {
 		deleterGlobal: repo.NewDeleterGlobal(resource.Label, tableName),
 		getter:        repo.NewSingleGetter(tableName, tableColumns),
 		getterGlobal:  repo.NewSingleGetterGlobal(resource.Label, tableName, tableColumns),
+
+		runtimeContextQueryBuilder: repo.NewQueryBuilderGlobal(resource.RuntimeContext, runtimeContextTable, []string{"tenant_id"}),
 
 		embeddedTenantLister:  repo.NewListerWithEmbeddedTenant(tableName, tenantColumn, tableColumns),
 		embeddedTenantDeleter: repo.NewDeleterWithEmbeddedTenant(tableName, tenantColumn),
@@ -324,6 +329,25 @@ func (r *repository) GetScenarioLabelsForRuntimes(ctx context.Context, tenantID 
 		labelModels = append(labelModels, *labelModel)
 	}
 	return labelModels, nil
+}
+
+func (r *repository) ListSubdomainLabelsForRuntimes(ctx context.Context) ([]*model.Label, error) {
+	var entities Collection
+
+	subquery, args, err := r.runtimeContextQueryBuilder.BuildQueryGlobal(false, repo.Conditions{}...)
+	if err != nil {
+		return nil, err
+	}
+
+	conditions := repo.Conditions{
+		repo.NewInConditionForSubQuery("tenant_id", subquery, args),
+		repo.NewEqualCondition("key", "subdomain"),
+	}
+	if err = r.listerGlobal.ListGlobal(ctx, &entities, conditions...); err != nil {
+		return nil, err
+	}
+
+	return r.multipleFromEntity(entities)
 }
 
 func (r *repository) multipleFromEntity(entities []Entity) ([]*model.Label, error) {

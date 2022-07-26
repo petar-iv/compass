@@ -64,22 +64,4 @@ func (r *repository) GetSubdomain(ctx context.Context, subaccountId string) (*Su
 	}
 	return &subdomain, nil
 }
-func (r *repository) GetSubdomains(ctx context.Context) ([]Subdomain, error) {
-	var subdomains []Subdomain
 
-	persist, err := persistence.FromCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	query := `
-	SELECT l.tenant_id, l.value #>> '{}' as value
-	WHERE l.key='subdomain' and l.tenant_id in (
-		SELECT tenant_id FROM tenant_runtime_contexts
-	);`
-
-	err = persist.SelectContext(ctx, &subdomains, query)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch subscibed subdomains from DB")
-	}
-	return subdomains, nil
-}

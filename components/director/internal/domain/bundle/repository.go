@@ -71,31 +71,6 @@ func (r BundleCollection) Len() int {
 	return len(r)
 }
 
-func (r *pgRepository) GetBySystemAndCorrelationId(ctx context.Context, systemName, systemURL, correlationId string) (*model.Bundle, error) {
-	// TODO Should return an array of bundles if there are duplicate entries for the same system - name + url?
-	// TODO Reuse the local getter?
-	var bndlEnt Entity
-
-	subqueryConditions := repo.Conditions{
-		repo.NewEqualCondition("name", systemName),
-		repo.NewEqualCondition("base_url", systemURL),
-	}
-	subquery, args, err := r.bundleAppQueryBuilder.BuildQueryGlobal(false, subqueryConditions...)
-	if err != nil {
-		return nil, err
-	}
-
-	conditions := repo.Conditions{
-		repo.NewInConditionForSubQuery("app_id", subquery, args),
-		repo.NewJSONArrMatchAnyStringCondition("correlation_ids", correlationId),
-	}
-	if err = r.singleGlobalGetter.GetGlobal(ctx, conditions, repo.NoOrderBy, &bndlEnt); err != nil {
-		return nil, err
-	}
-
-	return convertToBundle(r, &bndlEnt)
-}
-
 // Create missing godoc
 func (r *pgRepository) Create(ctx context.Context, tenant string, model *model.Bundle) error {
 	if model == nil {
@@ -234,4 +209,29 @@ func (r *pgRepository) ListByApplicationIDNoPaging(ctx context.Context, tenantID
 		bundles = append(bundles, bundleModel)
 	}
 	return bundles, nil
+}
+
+func (r *pgRepository) GetBySystemAndCorrelationId(ctx context.Context, systemName, systemURL, correlationId string) (*model.Bundle, error) {
+	// TODO Should return an array of bundles if there are duplicate entries for the same system - name + url?
+	// TODO Reuse the local getter?
+	var bndlEnt Entity
+
+	subqueryConditions := repo.Conditions{
+		repo.NewEqualCondition("name", systemName),
+		repo.NewEqualCondition("base_url", systemURL),
+	}
+	subquery, args, err := r.bundleAppQueryBuilder.BuildQueryGlobal(false, subqueryConditions...)
+	if err != nil {
+		return nil, err
+	}
+
+	conditions := repo.Conditions{
+		repo.NewInConditionForSubQuery("app_id", subquery, args),
+		repo.NewJSONArrMatchAnyStringCondition("correlation_ids", correlationId),
+	}
+	if err = r.singleGlobalGetter.GetGlobal(ctx, conditions, repo.NoOrderBy, &bndlEnt); err != nil {
+		return nil, err
+	}
+
+	return convertToBundle(r, &bndlEnt)
 }
