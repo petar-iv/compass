@@ -34,7 +34,7 @@ type LabelRepo interface {
 }
 
 type BundleRepo interface {
-	GetBySystemAndCorrelationId(ctx context.Context, systemName, systemURL, correlationId string) (*model.Bundle, error)
+	GetBySystemAndCorrelationId(ctx context.Context, tenantId, systemName, systemURL, correlationId string) ([]*model.Bundle, error)
 }
 
 type DestinationService struct {
@@ -71,54 +71,55 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 	}
 	defer d.transact.RollbackUnlessCommitted(ctx, tx)
 
-	subdomain, err := d.labelRepo.GetSubdomainLabelForRuntime(ctx, subaccountID)
+	bundles, err := d.bundleRepo.GetBySystemAndCorrelationId(ctx, "b37e1fdc-607c-4067-99aa-28841f5855af" , "sfsf-i335693", "https://qapatchpreview.hcm.ondemand.com/login?company=PLTSCPStage2", "correlation")
 	// TODO Should return 400 Bad Request?
 	// TODO Check if not found
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%+v", *subdomain)
-	if subdomain == nil {
-		return errors.New(fmt.Sprintf("subdomain for subaccount with id '%s' doesn't exist", subaccountID))
-	}
+	fmt.Printf("%+v", bundles)
+	// if subdomain == nil {
+	// 	return errors.New(fmt.Sprintf("subdomain for subaccount with id '%s' doesn't exist", subaccountID))
+	// }
 
-	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain.Value.(string))
-	if err != nil {
-		return errors.Wrap(err, "failed to create destinations API client")
-	}
+	// client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain.Value.(string))
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to create destinations API client")
+	// }
 
-	if err := d.walkthroughPages(client, func(destinations []Destination) error {
-		log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
-		for _, destination := range destinations {
-			correlationID := correlationIDPrefix + destination.CommunicationScenarioId
-			bundle, err := d.bundleRepo.GetBySystemAndCorrelationId(ctx, destination.XFSystemName, destination.URL, correlationID)
+	// if err := d.walkthroughPages(client, func(destinations []Destination) error {
+	// 	log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
+	// 	for _, destination := range destinations {
+	// 		correlationID := correlationIDPrefix + destination.CommunicationScenarioId
+	// 		bundle, err := d.bundleRepo.GetBySystemAndCorrelationId(ctx, destination.XFSystemName, destination.URL, correlationID)
 
-			// TODO Check if error is not found
-			if err != nil {
-				return err
-			}
+	// 		// TODO Check if error is not found
+	// 		if err != nil {
+	// 			return err
+	// 		}
 
-			destinationDB := domain.Entity{
-				ID:             d.uuidSvc.Generate(),
-				Name:           destination.Name,
-				Type:           destination.Type,
-				URL:            destination.URL,
-				Authentication: destination.Authentication,
-				BundleID:       bundle.ID,
-				TenantID:       *subdomain.Tenant,
-				Revision:       d.uuidSvc.Generate(),
-			}
-			fmt.Println(destinationDB)
-			if err := d.repo.Upsert(ctx); err != nil {
-				return errors.Wrapf(err, "failed to insert destination data '%+v' to DB: %w", destinationDB)
-			}
+	// 		destinationDB := domain.Entity{
+	// 			ID:             d.uuidSvc.Generate(),
+	// 			Name:           destination.Name,
+	// 			Type:           destination.Type,
+	// 			URL:            destination.URL,
+	// 			Authentication: destination.Authentication,
+	// 			BundleID:       bundle.ID,
+	// 			TenantID:       *subdomain.Tenant,
+	// 			Revision:       d.uuidSvc.Generate(),
+	// 		}
 
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
+	// 		fmt.Println(destinationDB)
+	// 		if err := d.repo.Upsert(ctx); err != nil {
+	// 			return errors.Wrapf(err, "failed to insert destination data '%+v' to DB: %w", destinationDB)
+	// 		}
+
+	// 	}
+	// 	return nil
+	// }); err != nil {
+	// 	return err
+	// }
 
 	if err = tx.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit database transaction")

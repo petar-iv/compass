@@ -2,8 +2,10 @@ package bundle
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/pagination"
+	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 
@@ -211,27 +213,41 @@ func (r *pgRepository) ListByApplicationIDNoPaging(ctx context.Context, tenantID
 	return bundles, nil
 }
 
-func (r *pgRepository) GetBySystemAndCorrelationId(ctx context.Context, systemName, systemURL, correlationId string) (*model.Bundle, error) {
-	// TODO Should return an array of bundles if there are duplicate entries for the same system - name + url?
-	// TODO Reuse the local getter?
-	var bndlEnt Entity
+func (r *pgRepository) GetBySystemAndCorrelationId(ctx context.Context, tenantId, systemName, systemURL, correlationId string) ([]*model.Bundle, error) {
+	bundleCollection := BundleCollection{}
 
-	subqueryConditions := repo.Conditions{
-		repo.NewEqualCondition("name", systemName),
-		repo.NewEqualCondition("base_url", systemURL),
-	}
-	subquery, args, err := r.bundleAppQueryBuilder.BuildQueryGlobal(false, subqueryConditions...)
+	persist, err := persistence.FromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	conditions := repo.Conditions{
-		repo.NewInConditionForSubQuery("app_id", subquery, args),
-		repo.NewJSONArrMatchAnyStringCondition("correlation_ids", correlationId),
-	}
-	if err = r.singleGlobalGetter.GetGlobal(ctx, conditions, repo.NoOrderBy, &bndlEnt); err != nil {
-		return nil, err
+	query := fmt.Sprintf(`
+	SELECT id
+	FROM bundles
+	WHERE app_id IN (
+		SELECT id
+		FROM public.applications
+		WHERE id IN (
+			SELECT id
+			FROM tenant_applications
+			WHERE tenant_id=(SELECT parent FROM business_tenant_mappings WHERE id='%s')
+		)
+		AND name='%s'
+		AND base_url='%s'
+	)`, tenantId, systemName, systemURL)
+
+	err = persist.SelectContext(ctx, &bundleCollection, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch bundles from DB")
 	}
 
-	return convertToBundle(r, &bndlEnt)
+	bundles := make([]*model.Bundle, 0, bundleCollection.Len())
+	for _, bundle := range bundleCollection {
+		bundleModel, err := r.conv.FromEntity(&bundle)
+		if err != nil {
+			return nil, err
+		}
+		bundles = append(bundles, bundleModel)
+	}
+	return bundles, nil
 }
