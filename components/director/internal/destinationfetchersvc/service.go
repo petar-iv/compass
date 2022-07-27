@@ -3,6 +3,7 @@ package destinationfetchersvc
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strconv"
 
 	domain "github.com/kyma-incubator/compass/components/director/internal/domain/destination"
@@ -149,7 +150,23 @@ func (d DestinationService) walkthroughPages(client *Client, process processFunc
 }
 
 func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error) {
-	subdomain := "i305674-4"
+	//subdomain := "i305674-4"
+
+	fmt.Println(subaccountID)
+	tx, err := d.transact.Begin()
+	ctx = persistence.SaveToContext(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	defer d.transact.RollbackUnlessCommitted(ctx, tx)
+	log.C(ctx).Infof("Getting subdomain name\n")
+	label, err := d.labelRepo.GetSubdomainLabelForRuntime(ctx, subaccountID)
+	if err != nil {
+		return nil, err
+	}
+
+	subdomain := label.Value.(string)
 	log.C(ctx).Infof("Fetching data for subdomain: %s \n", subdomain)
 
 	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain)
