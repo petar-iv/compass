@@ -2,6 +2,7 @@ package destinationfetchersvc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -9,6 +10,8 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 )
+
+const subaccountIdKey = "subaccountId"
 
 type DestinationsConfig struct {
 	OAuthConfig OAuth2Config
@@ -41,14 +44,15 @@ func NewDestinationsHTTPHandler(fetcher DestinationFetcher, config HandlerConfig
 func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
 
-	subaccountID := request.Header.Get(h.config.UserContextHeader)
-	if subaccountID == "" {
-		http.Error(writer, fmt.Sprintf("%s header is missing", h.config.UserContextHeader), http.StatusBadRequest)
+	userContextHeader := request.Header.Get(h.config.UserContextHeader)
+	subaccountID, err := h.readSubbacountIdFromUserContextHeader(userContextHeader)
+	if err != nil {
+		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if err := h.fetcher.FetchDestinationsOnDemand(ctx, subaccountID); err != nil {
-		http.Error(writer, fmt.Sprintf("Failed to fetch destinations for subaccount %s", subaccountID), http.StatusBadRequest)
+		http.Error(writer, fmt.Sprintf("failed to fetch destinations for subaccount %s", subaccountID), http.StatusInternalServerError)
 		return
 	}
 
@@ -79,9 +83,10 @@ func getDestinationNames(namesRaw string) ([]string, error) {
 func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
 
-	subaccountID := request.Header.Get(h.config.UserContextHeader)
-	if subaccountID == "" {
-		http.Error(writer, fmt.Sprintf("%s header is missing", h.config.UserContextHeader), http.StatusBadRequest)
+	userContextHeader := request.Header.Get(h.config.UserContextHeader)
+	subaccountID, err := h.readSubbacountIdFromUserContextHeader(userContextHeader)
+	if err != nil {
+		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -117,4 +122,21 @@ func sliceContainsEmptyString(s []string) error {
 	}
 
 	return nil
+}
+
+func (h *handler) readSubbacountIdFromUserContextHeader(header string) (string, error) {
+	if header == "" {
+		return "", fmt.Errorf("%s header is missing", h.config.UserContextHeader)
+	}
+
+	var headerMap map[string]string
+	if err := json.Unmarshal([]byte(header), &headerMap); err != nil {
+		return "", fmt.Errorf("failed to parse %s header", h.config.UserContextHeader)
+	}
+
+	subaccountId, ok := headerMap[subaccountIdKey]
+	if !ok {
+		return "", fmt.Errorf("%s not found in %s header", subaccountIdKey, h.config.UserContextHeader)
+	}
+	return subaccountId, nil
 }
