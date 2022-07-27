@@ -65,9 +65,9 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 	}
 
 	namesRaw := request.URL.Query().Get("name")
-	if namesRaw[0] != '[' || namesRaw[len(namesRaw)-1] != ']' {
+	if namesRaw == "" || namesRaw[0] != '[' || namesRaw[len(namesRaw)-1] != ']' {
 		log.C(ctx).Errorf("Failed validations")
-		http.Error(writer, fmt.Sprintf("%s name query parameter is invalid", namesRaw), http.StatusBadRequest)
+		http.Error(writer, fmt.Sprintf("%s name query parameter is missing or invalid", namesRaw), http.StatusBadRequest)
 		return
 	}
 
