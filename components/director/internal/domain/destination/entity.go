@@ -10,12 +10,3 @@ type Entity struct {
 	BundleID       string `db:"bundle_id"`
 	Revision       string `db:"revision"`
 }
-
-type Subdomain struct {
-	TenantID string `db:"tenant_id"`
-	Value    string `db:"value"`
-}
-
-type Bundle struct {
-	ID string `db:"id"`
-}

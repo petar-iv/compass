@@ -2,12 +2,10 @@ package destination
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/internal/repo"
-	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -22,46 +20,33 @@ var (
 )
 
 type repository struct {
-	deleterGlobal  repo.DeleterGlobal
-	upserterGlobal repo.UpserterGlobal
+	deleter  repo.DeleterGlobal
+	upserter repo.UpserterGlobal
 }
 
 func NewRepository() *repository {
 	return &repository{
-		deleterGlobal:  repo.NewDeleterGlobal(resource.Destination, destinationTable),
-		upserterGlobal: repo.NewUpserterGlobal(resource.Destination, destinationTable, destinationColumns, conflictingColumns, updateColumns),
+		deleter:  repo.NewDeleterGlobal(resource.Destination, destinationTable),
+		upserter: repo.NewUpserterGlobal(resource.Destination, destinationTable, destinationColumns, conflictingColumns, updateColumns),
 	}
 }
 
-func (r *repository) Upsert(ctx context.Context) error {
-	fmt.Println("#### UPSERT")
-	return nil
+func (r *repository) Upsert(ctx context.Context, in model.DestinationInput, id, tenantID, bundleID, revisionID string) error {
+	destination := Entity{
+		ID:             id,
+		Name:           in.Name,
+		Type:           in.Type,
+		URL:            in.URL,
+		Authentication: in.Authentication,
+		BundleID:       bundleID,
+		TenantID:       tenantID,
+		Revision:       revisionID,
+	}
+	return r.upserter.UpsertGlobal(ctx, destination)
 }
 
 func (r *repository) Delete(ctx context.Context, revision string) error {
 	conditions := repo.Conditions{repo.NewNotEqualCondition(revisionColumn, revision)}
-	r.deleterGlobal.DeleteManyGlobal(ctx, conditions)
+	r.deleter.DeleteManyGlobal(ctx, conditions)
 	return nil
 }
-
-func (r *repository) GetSubdomain(ctx context.Context, subaccountId string) (*Subdomain, error) {
-	var subdomain Subdomain
-
-	persist, err := persistence.FromCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	query := fmt.Sprintf(`
-	SELECT l.tenant_id, l.value #>> '{}' as value
-	FROM labels l
-	WHERE l.key='subdomain' AND l.tenant_id=(
-	SELECT id FROM business_tenant_mappings WHERE external_tenant='%s'
-	)`, subaccountId)
-
-	err = persist.GetContext(ctx, &subdomain, query)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to fetch subdomain for subaccount with id '%s' from DB", subaccountId)
-	}
-	return &subdomain, nil
-}
-

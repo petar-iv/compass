@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 
-	domain "github.com/kyma-incubator/compass/components/director/internal/domain/destination"
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
@@ -25,14 +24,13 @@ type UUIDService interface {
 }
 
 type DestinationRepo interface {
-	Upsert(ctx context.Context) error
+	Upsert(ctx context.Context, in model.DestinationInput, id, tenantID, bundleID, revision string) error
 	Delete(ctx context.Context, revision string) error
-	GetSubdomain(ctx context.Context, subaccountId string) (*domain.Subdomain, error)
 }
 
 type LabelRepo interface {
-	ListSubdomainLabelsForRuntimes(ctx context.Context) ([]*model.Label, error)
-	GetSubdomainLabelForRuntime(ctx context.Context, subaccountId string) (*model.Label, error)
+	ListSubdomainLabelsForSubscribedRuntimes(ctx context.Context) ([]*model.Label, error)
+	GetSubdomainLabelForSubscribedRuntime(ctx context.Context, subaccountId string) (*model.Label, error)
 }
 
 type BundleRepo interface {
@@ -74,7 +72,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 	ctx = persistence.SaveToContext(ctx, tx)
 	defer d.transact.RollbackUnlessCommitted(ctx, tx)
 
-	label, err := d.labelRepo.GetSubdomainLabelForRuntime(ctx, subaccountID)
+	label, err := d.labelRepo.GetSubdomainLabelForSubscribedRuntime(ctx, subaccountID)
 	if apperrors.IsNotFoundError(err) {
 		log.C(ctx).Errorf("No subscribed subdomain found for subbaccount '%s'", subaccountID)
 		return apperrors.NewNotFoundErrorWithMessage(resource.Label, subaccountID, fmt.Sprintf("subaccount %s not found", subaccountID))
@@ -88,11 +86,11 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 	subdomain := label.Value.(string)
 	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain)
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to create Destination API client: %v", err)
+		log.C(ctx).WithError(err).Errorf("Failed to create DestinationInput API client: %v", err)
 		return err
 	}
 
-	if err := d.walkthroughPages(client, func(destinations []Destination) error {
+	if err := d.walkthroughPages(client, func(destinations []model.DestinationInput) error {
 		log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
 		for _, destination := range destinations {
 			correlationID := correlationIDPrefix + destination.CommunicationScenarioId
@@ -109,21 +107,11 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 			}
 
 			for _, bundle := range bundles {
-				destinationDB := domain.Entity{
-					ID:             d.uuidSvc.Generate(),
-					Name:           destination.Name,
-					Type:           destination.Type,
-					URL:            destination.URL,
-					Authentication: destination.Authentication,
-					BundleID:       bundle.ID,
-					TenantID:       *label.Tenant,
-					Revision:       d.uuidSvc.Generate(),
-				}
-
-				fmt.Println(destinationDB)
-				if err := d.repo.Upsert(ctx); err != nil {
+				id := d.uuidSvc.Generate()
+				revision := d.uuidSvc.Generate()
+				if err := d.repo.Upsert(ctx, destination, id, *label.Tenant, bundle.ID, revision); err != nil {
 					log.C(ctx).WithError(err).Errorf("Failed to insert destination with name '%s' for bunlde '%s' and tenant '%s' to DB: %v", destination.Name, bundle.ID, *label.Tenant, err)
-					return err
+					continue
 				}
 			}
 		}
@@ -141,7 +129,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 	return nil
 }
 
-type processFunc func([]Destination) error
+type processFunc func([]model.DestinationInput) error
 
 func (d DestinationService) walkthroughPages(client *Client, process processFunc) error {
 	hasMorePages := true
@@ -175,7 +163,7 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 
 	defer d.transact.RollbackUnlessCommitted(ctx, tx)
 	log.C(ctx).Infof("Getting subdomain name\n")
-	label, err := d.labelRepo.GetSubdomainLabelForRuntime(ctx, subaccountID)
+	label, err := d.labelRepo.GetSubdomainLabelForSubscribedRuntime(ctx, subaccountID)
 	if err != nil {
 		return nil, err
 	}

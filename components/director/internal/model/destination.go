@@ -1,6 +1,6 @@
-package destinationfetchersvc
+package model
 
-type Destination struct {
+type DestinationInput struct {
 	Name                    string `json:"Name"`
 	Type                    string `json:"Type"`
 	URL                     string `json:"URL"`
