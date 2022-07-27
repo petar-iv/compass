@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
@@ -64,6 +63,27 @@ func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request 
 	writer.WriteHeader(http.StatusOK)
 }
 
+func getDestinationNames(namesRaw string) ([]string, error) {
+	namesRawLength := len(namesRaw)
+	if namesRawLength == 0 {
+		return nil, fmt.Errorf("name query parameter is missing")
+	}
+
+	if namesRaw[0] != '[' || namesRaw[namesRawLength-1] != ']' {
+		return nil, fmt.Errorf("%s name query parameter is invalid. Must start with '[' and end with ']'", namesRaw)
+	}
+
+	//removes brackets from query
+	namesRawWithoutBrackets := namesRaw[1 : namesRawLength-1]
+	names := strings.Split(namesRawWithoutBrackets, ",")
+
+	if err := sliceContainsEmptyString(names); err != nil {
+		return nil, fmt.Errorf("name parameter containes empty element")
+	}
+
+	return names, nil
+}
+
 func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
 
@@ -75,29 +95,11 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 	}
 
 	namesRaw := request.URL.Query().Get("name")
-	matched, err := regexp.MatchString(`^\[.+(,.+)\]$`, namesRaw)
+	names, err := getDestinationNames(namesRaw)
 	if err != nil {
-		log.C(ctx).Errorf("Failed to fetch destination sensitive data with error: %s", err.Error())
-		http.Error(writer, "Error validating query parameter", http.StatusInternalServerError)
+		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	blankArguments, err := regexp.MatchString(`((\[\s*,)+|(,\s*,)+|(,\s*\])+)`, namesRaw)
-	if err != nil {
-		log.C(ctx).Errorf("Failed to fetch destination sensitive data with error: %s", err.Error())
-		http.Error(writer, "Error validating query parameter for blanks", http.StatusInternalServerError)
-		return
-	}
-
-	if !matched || blankArguments {
-		log.C(ctx).Errorf("Failed regex validations")
-		http.Error(writer, fmt.Sprintf("%s name query parameter is invalid", namesRaw), http.StatusBadRequest)
-		return
-	}
-
-	//removes brackets from query
-	namesRawWithoutBrackets := namesRaw[1 : len(namesRaw)-1]
-	names := strings.Split(namesRawWithoutBrackets, ",")
 
 	json, err := h.fetcher.FetchDestinationsSensitiveData(ctx, subaccountID, names)
 
@@ -108,12 +110,22 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 			return
 		}
 
-		http.Error(writer, fmt.Sprintf("Failed to get destination info for names %s", namesRawWithoutBrackets), http.StatusInternalServerError)
+		http.Error(writer, fmt.Sprintf("Failed to get destination info for names %s", namesRaw), http.StatusInternalServerError)
 		return
 	}
 
 	writer.Write(json)
 	writer.WriteHeader(http.StatusOK)
+}
+
+func sliceContainsEmptyString(s []string) error {
+	for _, e := range s {
+		if strings.TrimSpace(e) == "" {
+			return fmt.Errorf("contains blank element")
+		}
+	}
+
+	return nil
 }
 
 func (h *handler) readSubbacountIdFromUserContextHeader(header string) (string, error) {
