@@ -3,6 +3,7 @@ package destinationfetchersvc
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strconv"
 
 	domain "github.com/kyma-incubator/compass/components/director/internal/domain/destination"
@@ -10,6 +11,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
+	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 
 	"github.com/pkg/errors"
 )
@@ -65,20 +67,29 @@ func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDServi
 
 func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, subaccountID string) error {
 	tx, err := d.transact.Begin()
-	ctx = persistence.SaveToContext(ctx, tx)
 	if err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction: %v")
 		return err
 	}
+	ctx = persistence.SaveToContext(ctx, tx)
 	defer d.transact.RollbackUnlessCommitted(ctx, tx)
 
 	label, err := d.labelRepo.GetSubdomainLabelForRuntime(ctx, subaccountID)
+	if apperrors.IsNotFoundError(err) {
+		log.C(ctx).Errorf("No subscribed subdomain found for subbaccount '%s'", subaccountID)
+		return apperrors.NewNotFoundErrorWithMessage(resource.Label, subaccountID, fmt.Sprintf("subaccount %s not found", subaccountID))
+	}
+
 	if err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to get subdomain for subaccount '%s' from db: %v", subaccountID, err)
 		return err
 	}
 
-	client, err := NewClient(d.oauthConfig, d.apiConfig, label.Value.(string))
+	subdomain := label.Value.(string)
+	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain)
 	if err != nil {
-		return errors.Wrap(err, "failed to create destinations API client")
+		log.C(ctx).WithError(err).Errorf("Failed to create Destination API client: %v", err)
+		return err
 	}
 
 	if err := d.walkthroughPages(client, func(destinations []Destination) error {
@@ -93,7 +104,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 			}
 
 			if err != nil {
-				log.C(ctx).Errorf("Failed to fetch bundle for system '%s', url '%s', correlation id '%s': %v", destination.XFSystemName, destination.URL, correlationID, err)
+				log.C(ctx).WithError(err).Errorf("Failed to fetch bundle for system '%s', url '%s', correlation id '%s', tenant id '%s': %v", destination.XFSystemName, destination.URL, correlationID, *label.Tenant, err)
 				continue
 			}
 
@@ -109,18 +120,22 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 					Revision:       d.uuidSvc.Generate(),
 				}
 
+				fmt.Println(destinationDB)
 				if err := d.repo.Upsert(ctx); err != nil {
-					return errors.Wrapf(err, "failed to insert destination data '%+v' to DB: %w", destinationDB)
+					log.C(ctx).WithError(err).Errorf("Failed to insert destination with name '%s' for bunlde '%s' and tenant '%s' to DB: %v", destination.Name, bundle.ID, *label.Tenant, err)
+					return err
 				}
 			}
 		}
 		return nil
 	}); err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to sync destinations for subaccount '%s': %v", subaccountID, err)
 		return err
 	}
 
 	if err = tx.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit database transaction")
+		log.C(ctx).WithError(err).Errorf("Failed to commit database transaction %v", err)
+		return err
 	}
 
 	return nil

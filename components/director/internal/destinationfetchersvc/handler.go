@@ -53,7 +53,11 @@ func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request 
 	}
 
 	if err := h.fetcher.FetchDestinationsOnDemand(ctx, subaccountID); err != nil {
-		http.Error(writer, fmt.Sprintf("failed to fetch destinations for subaccount %s", subaccountID), http.StatusInternalServerError)
+		if apperrors.IsNotFoundError(err) {
+			http.Error(writer, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(writer, fmt.Sprintf("Failed to fetch destinations for subaccount %s", subaccountID), http.StatusInternalServerError)
 		return
 	}
 

@@ -383,7 +383,7 @@ func (r *repository) GetSubdomainLabelForRuntime(ctx context.Context, subaccount
 
 	err = persist.GetContext(ctx, &entity, query)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch label from DB")
+		return nil, persistence.MapSQLError(ctx, err, resource.Label, resource.Get, "while getting label from db")
 	}
 
 	labelModel, err := r.conv.FromEntity(&entity)
