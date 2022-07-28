@@ -1,35 +1,90 @@
-package cronjob
+package cronjob_test
 
 import (
 	"context"
+	"github.com/kyma-incubator/compass/components/director/pkg/cronjob"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
 func TestCronJob(t *testing.T) {
-	templateCronJob := CronJob{
-		Name:           "Test",
-		Fn:             nil,
-		SchedulePeriod: time.Nanosecond,
+	const (
+		maxCronJobRuns        = 10 // Used for safeguarding the tests in case of infinite loop
+		defaultSchedulePeriod = time.Nanosecond
+	)
+
+	testCases := []struct {
+		Name                string
+		FnBody              func(executionsCount int, cancel context.CancelFunc)
+		ExpectedCronJobRuns int
+		SchedulePeriod      time.Duration
+	}{
+		{
+			Name:                "Should run cronJob until context end",
+			ExpectedCronJobRuns: 3,
+			FnBody: func(executionsCount int, cancelCtx context.CancelFunc) {
+				if executionsCount == 3 {
+					cancelCtx()
+				}
+			},
+			SchedulePeriod: defaultSchedulePeriod,
+		},
+		{
+			Name: "Should not schedule next cronJob in parallel if execution takes more than wait period",
+
+			ExpectedCronJobRuns: 1,
+			FnBody: func(executionsCount int, cancelCtx context.CancelFunc) {
+				<-time.After(defaultSchedulePeriod * 2)
+				cancelCtx()
+			},
+			SchedulePeriod: defaultSchedulePeriod,
+		},
+		{
+			Name:                "Should schedule next cronJob if execution takes more than wait period",
+			ExpectedCronJobRuns: 3,
+			FnBody: func(executionsCount int, cancelCtx context.CancelFunc) {
+				<-time.After(defaultSchedulePeriod * 2)
+				if executionsCount == 3 {
+					cancelCtx()
+				}
+			},
+			SchedulePeriod: defaultSchedulePeriod,
+		},
+		{
+			Name:                "Should stop schedule immediately if context is canceled during waiting",
+			ExpectedCronJobRuns: 1,
+			FnBody: func(executionsCount int, cancelCtx context.CancelFunc) {
+				// give some time for the function to exit and the CronJob to start waiting for the next execution
+				time.AfterFunc(time.Millisecond*5, func() {
+					cancelCtx()
+				})
+			},
+			SchedulePeriod: time.Minute,
+		},
 	}
-	cfgNoElection := ElectionConfig{ElectionEnabled: false}
 
-	t.Run("Should start executing cronJob", func(t *testing.T) {
-		const expectedCronJobRuns = 3
-		cronJob := templateCronJob
-		counter := 0
-		ctx, cancel := context.WithCancel(context.Background())
-
-		cronJob.Fn = func(ctx context.Context) {
-			counter += 1
-			if counter == expectedCronJobRuns {
-				cancel()
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			cronJob := cronjob.CronJob{
+				Name:           testCase.Name,
+				SchedulePeriod: testCase.SchedulePeriod,
 			}
-		}
-		RunCronJob(ctx, cfgNoElection, cronJob)
+			cronJobRuns := 0
+			ctx, cancel := context.WithCancel(context.Background())
 
-		assert.Equal(t, counter, expectedCronJobRuns)
-	})
+			cronJob.Fn = func(ctx context.Context) {
+				cronJobRuns += 1
+				if cronJobRuns == maxCronJobRuns {
+					cancel()
+				} else {
+					testCase.FnBody(cronJobRuns, cancel)
+				}
+			}
+			cronjob.RunCronJob(ctx, cronjob.ElectionConfig{ElectionEnabled: false}, cronJob)
+
+			assert.Equal(t, cronJobRuns, testCase.ExpectedCronJobRuns)
+		})
+	}
 
 }
