@@ -17,6 +17,7 @@ import (
 
 const (
 	correlationIDPrefix = "sap.s4:communicationScenario:"
+	regionLabelKey      = "region"
 )
 
 type UUIDService interface {
@@ -29,8 +30,8 @@ type DestinationRepo interface {
 }
 
 type LabelRepo interface {
-	ListSubdomainLabelsForSubscribedRuntimes(ctx context.Context) ([]*model.Label, error)
 	GetSubdomainLabelForSubscribedRuntime(ctx context.Context, subaccountId string) (*model.Label, error)
+	GetByKey(ctx context.Context, tenant string, objectType model.LabelableObject, objectID, key string) (*model.Label, error)
 }
 
 type BundleRepo interface {
@@ -64,24 +65,18 @@ func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDServi
 }
 
 func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, subaccountID string) error {
-	tx, err := d.transact.Begin()
+	label, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction: %v")
 		return err
 	}
-	ctx = persistence.SaveToContext(ctx, tx)
-	defer d.transact.RollbackUnlessCommitted(ctx, tx)
 
-	label, err := d.labelRepo.GetSubdomainLabelForSubscribedRuntime(ctx, subaccountID)
-	if apperrors.IsNotFoundError(err) {
-		log.C(ctx).Errorf("No subscribed subdomain found for subbaccount '%s'", subaccountID)
-		return apperrors.NewNotFoundErrorWithMessage(resource.Label, subaccountID, fmt.Sprintf("subaccount %s not found", subaccountID))
-	}
-
+	region, err := d.getRegionLabel(ctx, *label.Tenant)
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to get subdomain for subaccount '%s' from db: %v", subaccountID, err)
 		return err
 	}
+
+	fmt.Println(region.Value.(string))
+	// oauthConfig := oautconfigs[region]
 
 	subdomain := label.Value.(string)
 	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain)
@@ -92,12 +87,21 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 
 	if err := d.walkthroughPages(client, func(destinations []model.DestinationInput) error {
 		log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
+
+		tx, err := d.transact.Begin()
+		if err != nil {
+			log.C(ctx).WithError(err).Errorf("Failed to begin db transaction: %v")
+			return err
+		}
+		ctx = persistence.SaveToContext(ctx, tx)
+		defer d.transact.RollbackUnlessCommitted(ctx, tx)
+
 		for _, destination := range destinations {
 			correlationID := correlationIDPrefix + destination.CommunicationScenarioId
 			bundles, err := d.bundleRepo.GetBySystemAndCorrelationId(ctx, *label.Tenant, destination.XFSystemName, destination.URL, correlationID)
 
-			if apperrors.IsNotFoundError(err) {
-				log.C(ctx).Infof("No bundle found for system '%s', url '%s', correlation id '%s'. Will skip this destination ...", destination.XFSystemName, destination.URL, correlationID)
+			if len(bundles) == 0 {
+				log.C(ctx).Infof("No bundles found for system '%s', url '%s', correlation id '%s'", destination.XFSystemName, destination.URL, correlationID)
 				continue
 			}
 
@@ -115,14 +119,14 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 				}
 			}
 		}
+
+		if err = tx.Commit(); err != nil {
+			log.C(ctx).WithError(err).Errorf("Failed to commit database transaction %v", err)
+			return err
+		}
 		return nil
 	}); err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to sync destinations for subaccount '%s': %v", subaccountID, err)
-		return err
-	}
-
-	if err = tx.Commit(); err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to commit database transaction %v", err)
 		return err
 	}
 
@@ -189,4 +193,54 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 	combinedInfoJSON = append(combinedInfoJSON, ']', '}')
 
 	return append([]byte("{ \"destinations\": ["), combinedInfoJSON...), nil
+}
+
+func (d DestinationService) getSubscribedSubdomainLabel(ctx context.Context, subaccountID string) (*model.Label, error) {
+	tx, err := d.transact.Begin()
+	if err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction: %v")
+		return nil, err
+	}
+	ctx = persistence.SaveToContext(ctx, tx)
+	defer d.transact.RollbackUnlessCommitted(ctx, tx)
+
+	label, err := d.labelRepo.GetSubdomainLabelForSubscribedRuntime(ctx, subaccountID)
+	if err != nil {
+		if apperrors.IsNotFoundError(err) {
+			log.C(ctx).Errorf("No subscribed subdomain found for subbaccount '%s'", subaccountID)
+			return nil, apperrors.NewNotFoundErrorWithMessage(resource.Label, subaccountID, fmt.Sprintf("subaccount %s not found", subaccountID))
+		}
+		log.C(ctx).WithError(err).Errorf("Failed to get subdomain for subaccount '%s' from db: %v", subaccountID, err)
+		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to commit database transaction %v", err)
+		return nil, err
+	}
+
+	return label, nil
+}
+
+func (d DestinationService) getRegionLabel(ctx context.Context, tenantID string) (*model.Label, error) {
+	tx, err := d.transact.Begin()
+	if err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction: %v")
+		return nil, err
+	}
+	ctx = persistence.SaveToContext(ctx, tx)
+	defer d.transact.RollbackUnlessCommitted(ctx, tx)
+
+	region, err := d.labelRepo.GetByKey(ctx, tenantID, model.TenantLabelableObject, tenantID, regionLabelKey)
+	if err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to fetch region for tenant '%s': %v", tenantID, err)
+		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to commit database transaction %v", err)
+		return nil, err
+	}
+
+	return region, nil
 }

@@ -336,37 +336,6 @@ func (r *repository) GetScenarioLabelsForRuntimes(ctx context.Context, tenantID 
 	return labelModels, nil
 }
 
-func (r *repository) ListSubdomainLabelsForSubscribedRuntimes(ctx context.Context) ([]*model.Label, error) {
-	var entities Collection
-
-	persist, err := persistence.FromCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	query := `
-	SELECT l.tenant_id, l.value
-	FROM labels l
-	WHERE l.key='subdomain'
-	AND l.tenant_id IN (
-		SELECT id
-		FROM business_tenant_mappings
-		WHERE parent IS NOT NULL
-		AND id=l.tenant_id)
-		AND l.tenant_id IN (
-			SELECT tenant_id
-			FROM tenant_runtime_contexts
-		)
-	`
-
-	err = persist.SelectContext(ctx, &entities, query)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch labels from DB")
-	}
-
-	return r.multipleFromEntity(entities)
-}
-
 func (r *repository) GetSubdomainLabelForSubscribedRuntime(ctx context.Context, subaccountId string) (*model.Label, error) {
 	var entity Entity
 
