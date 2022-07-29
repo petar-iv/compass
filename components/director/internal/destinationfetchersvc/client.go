@@ -6,12 +6,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
+	"github.com/kyma-incubator/compass/components/director/pkg/config"
 	"github.com/kyma-incubator/compass/components/director/pkg/oauth"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 	"github.com/pkg/errors"
@@ -48,24 +52,30 @@ type DestinationResponse struct {
 	pageCount    string
 }
 
-func NewClient(oAuth2Config OAuth2Config, apiConfig APIConfig, subdomain string) (*Client, error) {
+func NewClient(instanceConfig config.DestinationInstanceConfig, apiConfig APIConfig, subdomain string) (*Client, error) {
 	ctx := context.Background()
 
-	authURL := fmt.Sprintf(oAuth2Config.OAuthTokenEndpoint, subdomain)
+	u, err := url.Parse(instanceConfig.AuthURL)
+	if err != nil {
+		return nil, errors.Errorf("failed to parse auth url '%s': %v", instanceConfig.AuthURL, err)
+	}
+	parts := strings.Split(u.Hostname(), ".")
+	originalSubdomain := parts[0]
+
+	tokenURL := strings.Replace(instanceConfig.AuthURL, originalSubdomain, subdomain, 1) + "/oauth/token"
 	cfg := clientcredentials.Config{
-		ClientID:  oAuth2Config.ClientID,
-		TokenURL:  authURL,
+		ClientID:  instanceConfig.ClientID,
+		TokenURL:  tokenURL,
 		AuthStyle: oauth2.AuthStyleInParams,
 	}
-
-	cert, err := oAuth2Config.X509Config.ParseCertificate()
-	if nil != err {
-		return nil, err
+	cert, err := tls.X509KeyPair([]byte(instanceConfig.Cert), []byte(instanceConfig.Key))
+	if err != nil {
+		return nil, errors.Errorf("failed to create destinations client x509 pair: %v", err)
 	}
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			Certificates: []tls.Certificate{*cert},
+			Certificates: []tls.Certificate{cert},
 		},
 	}
 

@@ -38,7 +38,6 @@ type EntityConverter interface {
 
 type pgRepository struct {
 	existQuerier          repo.ExistQuerier
-	bundleAppQueryBuilder repo.QueryBuilderGlobal
 	singleGetter          repo.SingleGetter
 	singleGlobalGetter    repo.SingleGetterGlobal
 	deleter               repo.Deleter
@@ -53,7 +52,6 @@ type pgRepository struct {
 func NewRepository(conv EntityConverter) *pgRepository {
 	return &pgRepository{
 		existQuerier:          repo.NewExistQuerier(bundleTable),
-		bundleAppQueryBuilder: repo.NewQueryBuilderGlobal(resource.Application, applicationTable, []string{"id"}),
 		singleGetter:          repo.NewSingleGetter(bundleTable, bundleColumns),
 		singleGlobalGetter:    repo.NewSingleGetterGlobal(resource.Bundle, bundleTable, bundleColumns),
 		deleter:               repo.NewDeleter(bundleTable),

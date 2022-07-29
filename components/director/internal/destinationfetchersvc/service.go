@@ -8,6 +8,7 @@ import (
 
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
+	"github.com/kyma-incubator/compass/components/director/pkg/config"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
@@ -38,29 +39,35 @@ type BundleRepo interface {
 	GetBySystemAndCorrelationId(ctx context.Context, tenantId, systemName, systemURL, correlationId string) ([]*model.Bundle, error)
 }
 
+type TenantRepo interface {
+	GetBySubscibredRuntimes(ctx context.Context) ([]*model.BusinessTenantMapping, error)
+}
+
 type DestinationService struct {
-	transact    persistence.Transactioner
-	uuidSvc     UUIDService
-	repo        DestinationRepo
-	bundleRepo  BundleRepo
-	labelRepo   LabelRepo
-	oauthConfig OAuth2Config
-	apiConfig   APIConfig
+	transact                  persistence.Transactioner
+	uuidSvc                   UUIDService
+	repo                      DestinationRepo
+	bundleRepo                BundleRepo
+	labelRepo                 LabelRepo
+	tenantRepo                TenantRepo
+	destinationInstanceConfig map[string]config.DestinationInstanceConfig
+	apiConfig                 APIConfig
 }
 
 type DestinationAPIClient interface {
 	FetchSubbacountDestinationsPage(page string) (*DestinationResponse, error)
 }
 
-func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDService, destRepo DestinationRepo, bundleRepo BundleRepo, labelRepo LabelRepo, oauthConfig OAuth2Config, apiConfig APIConfig) *DestinationService {
+func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDService, destRepo DestinationRepo, bundleRepo BundleRepo, labelRepo LabelRepo, tenantRepo TenantRepo, destinationInstanceConfig map[string]config.DestinationInstanceConfig, apiConfig APIConfig) *DestinationService {
 	return &DestinationService{
-		transact:    transact,
-		uuidSvc:     uuidSvc,
-		repo:        destRepo,
-		bundleRepo:  bundleRepo,
-		labelRepo:   labelRepo,
-		oauthConfig: oauthConfig,
-		apiConfig:   apiConfig,
+		transact:                  transact,
+		uuidSvc:                   uuidSvc,
+		repo:                      destRepo,
+		bundleRepo:                bundleRepo,
+		labelRepo:                 labelRepo,
+		tenantRepo:                tenantRepo,
+		destinationInstanceConfig: destinationInstanceConfig,
+		apiConfig:                 apiConfig,
 	}
 }
 
@@ -75,13 +82,15 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 		return err
 	}
 
-	fmt.Println(region.Value.(string))
-	// oauthConfig := oautconfigs[region]
-
 	subdomain := label.Value.(string)
-	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain)
+	instanceConfig, ok := d.destinationInstanceConfig[region.Value.(string)]
+	if !ok {
+		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
+		return err
+	}
+	client, err := NewClient(instanceConfig, d.apiConfig, subdomain)
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to create DestinationInput API client: %v", err)
+		log.C(ctx).WithError(err).Errorf("Failed to create Destination API client: %v", err)
 		return err
 	}
 
@@ -175,9 +184,20 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 	subdomain := label.Value.(string)
 	log.C(ctx).Infof("Fetching data for subdomain: %s \n", subdomain)
 
-	client, err := NewClient(d.oauthConfig, d.apiConfig, subdomain)
+	region, err := d.getRegionLabel(ctx, *label.Tenant)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create destinations API client")
+		return nil, err
+	}
+
+	instanceConfig, ok := d.destinationInstanceConfig[region.Value.(string)]
+	if !ok {
+		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
+		return nil, err
+	}
+	client, err := NewClient(instanceConfig, d.apiConfig, subdomain)
+	if err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to create Destination API client: %v", err)
+		return nil, err
 	}
 
 	results := make([][]byte, len(destinationNames))

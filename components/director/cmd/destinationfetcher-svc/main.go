@@ -22,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/kyma-incubator/compass/components/director/internal/domain/tenant"
 	"github.com/gorilla/mux"
 	destinationfetcher "github.com/kyma-incubator/compass/components/director/internal/destinationfetchersvc"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/api"
@@ -34,6 +35,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/internal/domain/label"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/spec"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/version"
+	configprovider "github.com/kyma-incubator/compass/components/director/pkg/config"
 	"github.com/kyma-incubator/compass/components/director/pkg/correlation"
 	timeouthandler "github.com/kyma-incubator/compass/components/director/pkg/handler"
 	httputil "github.com/kyma-incubator/compass/components/director/pkg/http"
@@ -58,7 +60,7 @@ type config struct {
 	APIConfig destinationfetcher.APIConfig
 
 	DestinationsRootAPI string `envconfig:"APP_ROOT_API,default=/destinations"`
-	DestinationsConfig  destinationfetcher.DestinationsConfig
+	DestinationsConfig  configprovider.DestinationsConfig
 	Database            persistence.DatabaseConfig
 	Log                 log.Config
 }
@@ -128,9 +130,17 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	uuidSvc := uuid.NewService()
 	destRepo := destination.NewRepository()
 	bundleRepo := bundleRepo()
+
 	labelConverter := label.NewConverter()
 	labelRepo := label.NewRepository(labelConverter)
-	svc := destinationfetcher.NewDestinationService(transact, uuidSvc, destRepo, bundleRepo, labelRepo, cfg.DestinationsConfig.OAuthConfig, cfg.APIConfig)
+
+	tenantConverter := tenant.NewConverter()
+	tenantRepo := tenant.NewRepository(tenantConverter)
+
+	err := cfg.DestinationsConfig.MapInstanceConfigs()
+	exitOnError(err, "error while loading destination instances config")
+
+	svc := destinationfetcher.NewDestinationService(transact, uuidSvc, destRepo, bundleRepo, labelRepo, tenantRepo, cfg.DestinationsConfig.RegionToDestinationCredentialsConfig, cfg.APIConfig)
 	fetcher := destinationfetcher.NewFetcher(*svc)
 
 	destinationsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
