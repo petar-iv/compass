@@ -50,7 +50,7 @@ type DestinationService struct {
 	bundleRepo                BundleRepo
 	labelRepo                 LabelRepo
 	tenantRepo                TenantRepo
-	destinationInstanceConfig map[string]config.DestinationInstanceConfig
+	destinationInstanceConfig map[string]config.InstanceConfig
 	apiConfig                 APIConfig
 }
 
@@ -58,7 +58,7 @@ type DestinationAPIClient interface {
 	FetchSubbacountDestinationsPage(page string) (*DestinationResponse, error)
 }
 
-func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDService, destRepo DestinationRepo, bundleRepo BundleRepo, labelRepo LabelRepo, tenantRepo TenantRepo, destinationInstanceConfig map[string]config.DestinationInstanceConfig, apiConfig APIConfig) *DestinationService {
+func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDService, destRepo DestinationRepo, bundleRepo BundleRepo, labelRepo LabelRepo, tenantRepo TenantRepo, destinationInstanceConfig map[string]config.InstanceConfig, apiConfig APIConfig) *DestinationService {
 	return &DestinationService{
 		transact:                  transact,
 		uuidSvc:                   uuidSvc,

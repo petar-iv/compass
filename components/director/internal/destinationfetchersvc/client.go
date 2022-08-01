@@ -4,9 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -52,17 +50,18 @@ type DestinationResponse struct {
 	pageCount    string
 }
 
-func NewClient(instanceConfig config.DestinationInstanceConfig, apiConfig APIConfig, subdomain string) (*Client, error) {
+func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, subdomain string) (*Client, error) {
 	ctx := context.Background()
 
-	u, err := url.Parse(instanceConfig.AuthURL)
+	u, err := url.Parse(instanceConfig.TokenURL)
 	if err != nil {
-		return nil, errors.Errorf("failed to parse auth url '%s': %v", instanceConfig.AuthURL, err)
+		return nil, errors.Errorf("failed to parse auth url '%s': %v", instanceConfig.TokenURL, err)
 	}
 	parts := strings.Split(u.Hostname(), ".")
 	originalSubdomain := parts[0]
 
-	tokenURL := strings.Replace(instanceConfig.AuthURL, originalSubdomain, subdomain, 1) + "/oauth/token"
+	// TODO use env variable for token path
+	tokenURL := strings.Replace(instanceConfig.TokenURL, originalSubdomain, subdomain, 1) + "/oauth/token"
 	cfg := clientcredentials.Config{
 		ClientID:  instanceConfig.ClientID,
 		TokenURL:  tokenURL,
