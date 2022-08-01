@@ -2,6 +2,7 @@ package tenantfetchersvc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -60,6 +61,11 @@ type HandlerConfig struct {
 
 	TenantInsertChunkSize int `envconfig:"default=500"`
 	TenantProviderConfig
+
+	TenantHandlerDependenciesConfigPath string `envconfig:"APP_REGION_DEPENDENCIES_CONFIG_PATH"`
+	DependencyXsappnamePath             string `envconfig:"APP_REGION_DEPENDENCIES_XSAPPNAME_PATH"`
+
+	RegionToDependenciesConfig map[string][]Dependency `envconfig:"-"`
 }
 
 // TenantProviderConfig includes the configuration for tenant providers - the tenant ID json property names, the subdomain property name, and the tenant provider name.
@@ -73,6 +79,10 @@ type TenantProviderConfig struct {
 	ProviderSubaccountIDProperty        string `envconfig:"APP_TENANT_PROVIDER_PROVIDER_SUBACCOUNT_ID_PROPERTY,default=providerSubaccountIdProperty"`
 	ConsumerTenantIDProperty            string `envconfig:"APP_TENANT_PROVIDER_CONSUMER_TENANT_ID_PROPERTY,default=consumerTenantIdProperty"`
 	SubscriptionProviderAppNameProperty string `envconfig:"APP_TENANT_PROVIDER_SUBSCRIPTION_PROVIDER_APP_NAME_PROPERTY,default=subscriptionProviderAppNameProperty"`
+}
+
+type Dependency struct {
+	Xsappname string `json:"xsappname"`
 }
 
 // EventsConfig contains configuration for Events API requests
@@ -164,7 +174,13 @@ func (h *handler) UnSubscribeTenant(writer http.ResponseWriter, request *http.Re
 // Dependencies handler returns all external services where once created in Compass, the tenant should be created as well.
 func (h *handler) Dependencies(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
-	if _, err := writer.Write([]byte("{}")); err != nil {
+	// TODO Where do we get the region from?
+	bytes, err := json.Marshal(h.config.RegionToDependenciesConfig["europe"])
+	if err != nil {
+		log.C(request.Context()).WithError(err).Errorf("Failed to marshal response body for dependencies request")
+		return
+	}
+	if _, err := writer.Write(bytes); err != nil {
 		log.C(request.Context()).WithError(err).Errorf("Failed to write response body for dependencies request")
 		return
 	}
