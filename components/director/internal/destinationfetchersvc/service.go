@@ -96,49 +96,52 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 
 	if err := d.walkthroughPages(client, func(destinations []model.DestinationInput) error {
 		log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
-
-		tx, err := d.transact.Begin()
-		if err != nil {
-			log.C(ctx).WithError(err).Errorf("Failed to begin db transaction: %v")
-			return err
-		}
-		ctx = persistence.SaveToContext(ctx, tx)
-		defer d.transact.RollbackUnlessCommitted(ctx, tx)
-
-		for _, destination := range destinations {
-			correlationID := correlationIDPrefix + destination.CommunicationScenarioId
-			bundles, err := d.bundleRepo.GetBySystemAndCorrelationId(ctx, *label.Tenant, destination.XFSystemName, destination.URL, correlationID)
-
-			if len(bundles) == 0 {
-				log.C(ctx).Infof("No bundles found for system '%s', url '%s', correlation id '%s'", destination.XFSystemName, destination.URL, correlationID)
-				continue
-			}
-
-			if err != nil {
-				log.C(ctx).WithError(err).Errorf("Failed to fetch bundle for system '%s', url '%s', correlation id '%s', tenant id '%s': %v", destination.XFSystemName, destination.URL, correlationID, *label.Tenant, err)
-				continue
-			}
-
-			for _, bundle := range bundles {
-				id := d.uuidSvc.Generate()
-				revision := d.uuidSvc.Generate()
-				if err := d.repo.Upsert(ctx, destination, id, *label.Tenant, bundle.ID, revision); err != nil {
-					log.C(ctx).WithError(err).Errorf("Failed to insert destination with name '%s' for bunlde '%s' and tenant '%s' to DB: %v", destination.Name, bundle.ID, *label.Tenant, err)
-					continue
-				}
-			}
-		}
-
-		if err = tx.Commit(); err != nil {
-			log.C(ctx).WithError(err).Errorf("Failed to commit database transaction %v", err)
-			return err
-		}
-		return nil
+		return d.mapDestinationsToTenant(ctx, *label.Tenant, destinations)
 	}); err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to sync destinations for subaccount '%s': %v", subaccountID, err)
 		return err
 	}
 
+	return nil
+}
+
+func (d DestinationService) mapDestinationsToTenant(ctx context.Context, tenant string, destinations []model.DestinationInput) error {
+	tx, err := d.transact.Begin()
+	if err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction: %v")
+		return err
+	}
+	ctx = persistence.SaveToContext(ctx, tx)
+	defer d.transact.RollbackUnlessCommitted(ctx, tx)
+
+	for _, destination := range destinations {
+		correlationID := correlationIDPrefix + destination.CommunicationScenarioId
+		bundles, err := d.bundleRepo.GetBySystemAndCorrelationId(ctx, tenant, destination.XFSystemName, destination.URL, correlationID)
+
+		if len(bundles) == 0 {
+			log.C(ctx).Infof("No bundles found for system '%s', url '%s', correlation id '%s'", destination.XFSystemName, destination.URL, correlationID)
+			continue
+		}
+
+		if err != nil {
+			log.C(ctx).WithError(err).Errorf("Failed to fetch bundle for system '%s', url '%s', correlation id '%s', tenant id '%s': %v", destination.XFSystemName, destination.URL, correlationID, tenant, err)
+			continue
+		}
+
+		for _, bundle := range bundles {
+			id := d.uuidSvc.Generate()
+			revision := d.uuidSvc.Generate()
+			if err := d.repo.Upsert(ctx, destination, id, tenant, bundle.ID, revision); err != nil {
+				log.C(ctx).WithError(err).Errorf("Failed to insert destination with name '%s' for bunlde '%s' and tenant '%s' to DB: %v", destination.Name, bundle.ID, tenant, err)
+				continue
+			}
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to commit database transaction %v", err)
+		return err
+	}
 	return nil
 }
 
@@ -165,29 +168,18 @@ func (d DestinationService) walkthroughPages(client *Client, process processFunc
 }
 
 func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error) {
-	//subdomain := "i305674-4"
-
-	fmt.Println(subaccountID)
-	tx, err := d.transact.Begin()
-	ctx = persistence.SaveToContext(ctx, tx)
+	label, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
 	if err != nil {
 		return nil, err
 	}
 
-	defer d.transact.RollbackUnlessCommitted(ctx, tx)
-	log.C(ctx).Infof("Getting subdomain name\n")
-	label, err := d.labelRepo.GetSubdomainLabelForSubscribedRuntime(ctx, subaccountID)
+	region, err := d.getRegionLabel(ctx, *label.Tenant)
 	if err != nil {
 		return nil, err
 	}
 
 	subdomain := label.Value.(string)
 	log.C(ctx).Infof("Fetching data for subdomain: %s \n", subdomain)
-
-	region, err := d.getRegionLabel(ctx, *label.Tenant)
-	if err != nil {
-		return nil, err
-	}
 
 	instanceConfig, ok := d.destinationInstanceConfig[region.Value.(string)]
 	if !ok {

@@ -18,9 +18,9 @@ type DestinationsConfig struct {
 }
 
 type HandlerConfig struct {
-	DestinationsEndpoint     string `envconfig:"APP_DESTINATIONS_ON_DEMAND_HANDLER_ENDPOINT,default=/v1/fetch"`
-	DestinationsInfoEndpoint string `envconfig:"APP_DESTINATIONS_GET_DESTINATION,default=/v1/info"`
-	UserContextHeader        string `envconfig:"APP_USER_CONTEXT_HEADER,default=user_context"`
+	DestinationsEndpoint          string `envconfig:"APP_DESTINATIONS_ON_DEMAND_HANDLER_ENDPOINT,default=/v1/fetch"`
+	DestinationsSensitiveEndpoint string `envconfig:"APP_DESTINATIONS_GET_DESTINATION,default=/v1/info"`
+	UserContextHeader             string `envconfig:"APP_USER_CONTEXT_HEADER,default=user_context"`
 }
 
 type handler struct {
@@ -77,7 +77,7 @@ func getDestinationNames(namesRaw string) ([]string, error) {
 	namesRawWithoutBrackets := namesRaw[1 : namesRawLength-1]
 	names := strings.Split(namesRawWithoutBrackets, ",")
 
-	if err := sliceContainsEmptyString(names); err != nil {
+	if sliceContainsEmptyString(names) {
 		return nil, fmt.Errorf("name parameter containes empty element")
 	}
 
@@ -118,14 +118,14 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 	writer.WriteHeader(http.StatusOK)
 }
 
-func sliceContainsEmptyString(s []string) error {
+func sliceContainsEmptyString(s []string) bool {
 	for _, e := range s {
 		if strings.TrimSpace(e) == "" {
-			return fmt.Errorf("contains blank element")
+			return true
 		}
 	}
 
-	return nil
+	return false
 }
 
 func (h *handler) readSubbacountIdFromUserContextHeader(header string) (string, error) {
