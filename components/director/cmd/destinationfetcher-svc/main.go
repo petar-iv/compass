@@ -22,7 +22,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/kyma-incubator/compass/components/director/internal/domain/tenant"
 	"github.com/gorilla/mux"
 	destinationfetcher "github.com/kyma-incubator/compass/components/director/internal/destinationfetchersvc"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/api"
@@ -34,6 +33,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/internal/domain/fetchrequest"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/label"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/spec"
+	"github.com/kyma-incubator/compass/components/director/internal/domain/tenant"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/version"
 	configprovider "github.com/kyma-incubator/compass/components/director/pkg/config"
 	"github.com/kyma-incubator/compass/components/director/pkg/correlation"
@@ -148,8 +148,8 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsEndpoint)
 	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.FetchDestinationsOnDemand).Methods(http.MethodGet)
-	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsInfoEndpoint)
-	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsInfoEndpoint, destinationHandler.FetchDestinationsSensitiveData).Methods(http.MethodGet)
+	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsSensitiveEndpoint)
+	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsSensitiveEndpoint, destinationHandler.FetchDestinationsSensitiveData).Methods(http.MethodGet)
 
 	healthCheckRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
 	logger.Infof("Registering readiness endpoint...")
