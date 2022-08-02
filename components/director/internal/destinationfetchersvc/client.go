@@ -15,6 +15,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/config"
+	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -137,8 +138,9 @@ func (c *Client) buildRequest(url string, page string) (*http.Request, error) {
 	return req, nil
 }
 
-func (c *Client) FetchDestinationSensitiveData(destinationName string) ([]byte, error) {
+func (c *Client) FetchDestinationSensitiveData(ctx context.Context, destinationName string) ([]byte, error) {
 	url := fmt.Sprintf("%s%s/%s", c.apiURL, c.apiConfig.EndpointFindDestination, destinationName)
+	log.C(ctx).Infof("Getting destination data from: %s \n", url)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build request")
