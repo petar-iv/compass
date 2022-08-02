@@ -11,7 +11,10 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 )
 
-const subaccountIdKey = "subaccountId"
+const (
+	subaccountIdKey = "subaccountId"
+	regionKey       = "region"
+)
 
 type DestinationsConfig struct {
 	OAuthConfig OAuth2Config
@@ -29,8 +32,8 @@ type handler struct {
 }
 
 type DestinationFetcher interface {
-	FetchDestinationsOnDemand(ctx context.Context, subaccountID string) error
-	FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error)
+	FetchDestinationsOnDemand(ctx context.Context, subaccountID string, region string) error
+	FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, region string, destinationNames []string) ([]byte, error)
 }
 
 // NewDestinationsHTTPHandler returns a new HTTP handler, responsible for handleing HTTP requests
@@ -45,13 +48,13 @@ func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request 
 	ctx := request.Context()
 
 	userContextHeader := request.Header.Get(h.config.UserContextHeader)
-	subaccountID, err := h.readSubbacountIdFromUserContextHeader(userContextHeader)
+	region, subaccountID, err := h.readSubbacountIdFromUserContextHeader(userContextHeader)
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := h.fetcher.FetchDestinationsOnDemand(ctx, subaccountID); err != nil {
+	if err := h.fetcher.FetchDestinationsOnDemand(ctx, subaccountID, region); err != nil {
 		if apperrors.IsNotFoundError(err) {
 			http.Error(writer, err.Error(), http.StatusBadRequest)
 			return
@@ -88,7 +91,7 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 	ctx := request.Context()
 
 	userContextHeader := request.Header.Get(h.config.UserContextHeader)
-	subaccountID, err := h.readSubbacountIdFromUserContextHeader(userContextHeader)
+	region, subaccountID, err := h.readSubbacountIdFromUserContextHeader(userContextHeader)
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
@@ -101,7 +104,7 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 		return
 	}
 
-	json, err := h.fetcher.FetchDestinationsSensitiveData(ctx, subaccountID, names)
+	json, err := h.fetcher.FetchDestinationsSensitiveData(ctx, subaccountID, region, names)
 
 	if err != nil {
 		log.C(ctx).Errorf("Failed to fetch destination sensitive data with error: %s", err.Error())
@@ -128,19 +131,26 @@ func sliceContainsEmptyString(s []string) bool {
 	return false
 }
 
-func (h *handler) readSubbacountIdFromUserContextHeader(header string) (string, error) {
+func (h *handler) readSubbacountIdFromUserContextHeader(header string) (string, string, error) {
 	if header == "" {
-		return "", fmt.Errorf("%s header is missing", h.config.UserContextHeader)
+		return "", "", fmt.Errorf("%s header is missing", h.config.UserContextHeader)
 	}
 
 	var headerMap map[string]string
 	if err := json.Unmarshal([]byte(header), &headerMap); err != nil {
-		return "", fmt.Errorf("failed to parse %s header", h.config.UserContextHeader)
+		return "", "", fmt.Errorf("failed to parse %s header", h.config.UserContextHeader)
 	}
 
 	subaccountId, ok := headerMap[subaccountIdKey]
 	if !ok {
-		return "", fmt.Errorf("%s not found in %s header", subaccountIdKey, h.config.UserContextHeader)
+		return "", "", fmt.Errorf("%s not found in %s header", subaccountIdKey, h.config.UserContextHeader)
 	}
-	return subaccountId, nil
+
+	region, ok := headerMap[regionKey]
+
+	if !ok {
+		return "", "", fmt.Errorf("%s not found in %s header", regionKey, h.config.UserContextHeader)
+	}
+
+	return region, subaccountId, nil
 }

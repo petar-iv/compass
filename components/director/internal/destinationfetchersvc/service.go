@@ -72,19 +72,22 @@ func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDServi
 	}
 }
 
-func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, subaccountID string) error {
+func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, subaccountID string, region string) error {
 	label, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
 	if err != nil {
 		return err
 	}
 
-	region, err := d.getRegionLabel(ctx, *label.Tenant)
-	if err != nil {
-		return err
+	if region == "" {
+		regionLabel, err := d.getRegionLabel(ctx, *label.Tenant)
+		if err != nil {
+			return err
+		}
+		region = regionLabel.Value.(string)
 	}
 
 	subdomain := label.Value.(string)
-	instanceConfig, ok := d.destinationInstanceConfig[region.Value.(string)]
+	instanceConfig, ok := d.destinationInstanceConfig[region]
 	if !ok {
 		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
 		return err
@@ -168,13 +171,8 @@ func (d DestinationService) walkthroughPages(client *Client, process processFunc
 	return nil
 }
 
-func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error) {
+func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, region string, destinationNames []string) ([]byte, error) {
 	label, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
-	if err != nil {
-		return nil, err
-	}
-
-	region, err := d.getRegionLabel(ctx, *label.Tenant)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +180,7 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 	subdomain := label.Value.(string)
 	log.C(ctx).Infof("Fetching data for subdomain: %s \n", subdomain)
 
-	instanceConfig, ok := d.destinationInstanceConfig[region.Value.(string)]
+	instanceConfig, ok := d.destinationInstanceConfig[region]
 	if !ok {
 		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
 		return nil, err
