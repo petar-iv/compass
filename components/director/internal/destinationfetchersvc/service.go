@@ -12,6 +12,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
+	"golang.org/x/sync/semaphore"
 
 	"github.com/pkg/errors"
 )
@@ -192,12 +193,26 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 		return nil, err
 	}
 
-	results := make([][]byte, len(destinationNames))
-	for i, destination := range destinationNames {
-		log.C(ctx).Infof("Fetching data for destination: %s \n", destination)
-		results[i], err = client.fetchDestinationSensitiveData(destination)
-		if err != nil {
+	nameCount := len(destinationNames)
+	results := make([][]byte, nameCount)
+	weighted := semaphore.NewWeighted(d.apiConfig.GoroutineLimit)
+	resChan := make(chan []byte)
+	errChan := make(chan error)
+
+	go func() {
+		for _, destination := range destinationNames {
+			weighted.Acquire(ctx, 1)
+			go fetchDestination(ctx, destination, weighted, client, resChan, errChan)
+		}
+	}()
+
+	for i := 0; i < nameCount; {
+		select {
+		case err := <-errChan:
 			return nil, err
+		case res := <-resChan:
+			results[i] = res
+			i++
 		}
 	}
 
@@ -205,6 +220,20 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 	combinedInfoJSON = append(combinedInfoJSON, ']', '}')
 
 	return append([]byte("{ \"destinations\": ["), combinedInfoJSON...), nil
+}
+
+func fetchDestination(ctx context.Context, dest string, weighted *semaphore.Weighted,
+	client *Client, resChan chan []byte, errChan chan error) {
+
+	log.C(ctx).Infof("Fetching data for destination: %s \n", dest)
+	defer weighted.Release(1)
+	result, err := client.fetchDestinationSensitiveData(dest)
+	if err != nil {
+		errChan <- err
+		return
+	}
+
+	resChan <- result
 }
 
 func (d DestinationService) getSubscribedSubdomainLabel(ctx context.Context, subaccountID string) (*model.Label, error) {

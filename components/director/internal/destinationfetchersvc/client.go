@@ -30,6 +30,9 @@ type OAuth2Config struct {
 
 type APIConfig struct {
 	//TODO optional?
+	GoroutineLimit                    int64         `envconfig:"APP_DESTINATIONS_SENSITIVE_GOROUTINE_LIMIT"`
+	RetryInterval                     int           `envconfig:"APP_DESTINATIONS_RETRY_INTERVAL"`
+	RetryLimit                        int           `envconfig:"APP_DESTINATIONS_RETRY_LIMIT"`
 	EndpointGetSubbacountDestinations string        `envconfig:"APP_ENDPOINT_GET_SUBACCOUNT_DESTINATIONS"`
 	EndpointFindDestination           string        `envconfig:"APP_ENDPOINT_FIND_DESTINATION"`
 	Timeout                           time.Duration `envconfig:"APP_DESTINATIONS_TIMEOUT"`
@@ -145,9 +148,9 @@ func (c *Client) fetchDestinationSensitiveData(destinationName string) ([]byte, 
 		return nil, errors.Wrapf(err, "failed to build request")
 	}
 
-	res, err := c.httpClient.Do(req)
+	res, err := c.sendRequestWithRetry(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to execute HTTP request")
+		return nil, err
 	}
 
 	if res.StatusCode == http.StatusNotFound {
@@ -165,4 +168,23 @@ func (c *Client) fetchDestinationSensitiveData(destinationName string) ([]byte, 
 	}
 
 	return body, nil
+}
+
+func (c *Client) sendRequestWithRetry(req *http.Request) (*http.Response, error) {
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to execute HTTP request")
+	}
+
+	i := 0
+	for i < c.apiConfig.RetryLimit && res.StatusCode == http.StatusInternalServerError {
+		time.Sleep(time.Millisecond * time.Duration(c.apiConfig.RetryInterval))
+		i++
+		res, err = c.httpClient.Do(req)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to execute HTTP request")
+		}
+	}
+
+	return res, nil
 }
