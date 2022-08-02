@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -14,19 +15,11 @@ import (
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/config"
-	"github.com/kyma-incubator/compass/components/director/pkg/oauth"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
-
-type OAuth2Config struct {
-	ClientID           string `envconfig:"APP_CLIENT_ID"`
-	OAuthTokenEndpoint string `envconfig:"APP_OAUTH_TOKEN_ENDPOINT"`
-	SkipSSLValidation  bool   `envconfig:"APP_OAUTH_SKIP_SSL_VALIDATION,default=false"`
-	X509Config         oauth.X509Config
-}
 
 type APIConfig struct {
 	//TODO optional?
@@ -53,7 +46,7 @@ type DestinationResponse struct {
 	pageCount    string
 }
 
-func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, subdomain string) (*Client, error) {
+func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, tokenPath, subdomain string) (*Client, error) {
 	ctx := context.Background()
 
 	u, err := url.Parse(instanceConfig.TokenURL)
@@ -63,8 +56,7 @@ func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, subdom
 	parts := strings.Split(u.Hostname(), ".")
 	originalSubdomain := parts[0]
 
-	// TODO use env variable for token path
-	tokenURL := strings.Replace(instanceConfig.TokenURL, originalSubdomain, subdomain, 1) + "/oauth/token"
+	tokenURL := strings.Replace(instanceConfig.TokenURL, originalSubdomain, subdomain, 1) + tokenPath
 	cfg := clientcredentials.Config{
 		ClientID:  instanceConfig.ClientID,
 		TokenURL:  tokenURL,
@@ -97,8 +89,9 @@ func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, subdom
 	}, nil
 }
 
-func (c *Client) FetchSubbacountDestinationsPage(page string) (*DestinationResponse, error) {
-	req, err := c.buildRequest(c.apiConfig.EndpointGetSubbacountDestinations, page)
+func (c *Client) FetchSubbacountDestinationsPage(apiURL, page string) (*DestinationResponse, error) {
+	url := apiURL + c.apiConfig.EndpointGetSubbacountDestinations
+	req, err := c.buildRequest(url, page)
 	if err != nil {
 		return nil, err
 	}
@@ -142,8 +135,9 @@ func (c *Client) buildRequest(url string, page string) (*http.Request, error) {
 	return req, nil
 }
 
-func (c *Client) fetchDestinationSensitiveData(destinationName string) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, c.apiConfig.EndpointFindDestination+destinationName, nil)
+func (c *Client) FetchDestinationSensitiveData(apiURL, destinationName string) ([]byte, error) {
+	url := fmt.Sprintf("%s%s/%s", apiURL, c.apiConfig.EndpointFindDestination, destinationName)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build request")
 	}

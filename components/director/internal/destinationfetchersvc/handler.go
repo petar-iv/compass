@@ -16,10 +16,6 @@ const (
 	regionKey       = "region"
 )
 
-type DestinationsConfig struct {
-	OAuthConfig OAuth2Config
-}
-
 type HandlerConfig struct {
 	DestinationsEndpoint          string `envconfig:"APP_DESTINATIONS_ON_DEMAND_HANDLER_ENDPOINT,default=/v1/fetch"`
 	DestinationsSensitiveEndpoint string `envconfig:"APP_DESTINATIONS_GET_DESTINATION,default=/v1/info"`

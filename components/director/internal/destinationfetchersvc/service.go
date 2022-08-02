@@ -45,62 +45,64 @@ type TenantRepo interface {
 }
 
 type DestinationService struct {
-	transact                  persistence.Transactioner
-	uuidSvc                   UUIDService
-	repo                      DestinationRepo
-	bundleRepo                BundleRepo
-	labelRepo                 LabelRepo
-	tenantRepo                TenantRepo
-	destinationInstanceConfig map[string]config.InstanceConfig
-	apiConfig                 APIConfig
+	transact           persistence.Transactioner
+	uuidSvc            UUIDService
+	repo               DestinationRepo
+	bundleRepo         BundleRepo
+	labelRepo          LabelRepo
+	tenantRepo         TenantRepo
+	destinationsConfig config.DestinationsConfig
+	apiConfig          APIConfig
 }
 
 type DestinationAPIClient interface {
 	FetchSubbacountDestinationsPage(page string) (*DestinationResponse, error)
 }
 
-func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDService, destRepo DestinationRepo, bundleRepo BundleRepo, labelRepo LabelRepo, tenantRepo TenantRepo, destinationInstanceConfig map[string]config.InstanceConfig, apiConfig APIConfig) *DestinationService {
+func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDService, destRepo DestinationRepo, bundleRepo BundleRepo, labelRepo LabelRepo, tenantRepo TenantRepo, destinationsConfig config.DestinationsConfig, apiConfig APIConfig) *DestinationService {
 	return &DestinationService{
-		transact:                  transact,
-		uuidSvc:                   uuidSvc,
-		repo:                      destRepo,
-		bundleRepo:                bundleRepo,
-		labelRepo:                 labelRepo,
-		tenantRepo:                tenantRepo,
-		destinationInstanceConfig: destinationInstanceConfig,
-		apiConfig:                 apiConfig,
+		transact:           transact,
+		uuidSvc:            uuidSvc,
+		repo:               destRepo,
+		bundleRepo:         bundleRepo,
+		labelRepo:          labelRepo,
+		tenantRepo:         tenantRepo,
+		destinationsConfig: destinationsConfig,
+		apiConfig:          apiConfig,
 	}
 }
 
 func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, subaccountID string, region string) error {
-	label, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
+	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
 	if err != nil {
 		return err
 	}
 
 	if region == "" {
-		regionLabel, err := d.getRegionLabel(ctx, *label.Tenant)
+		regionLabel, err := d.getRegionLabel(ctx, *subdomainLabel.Tenant)
 		if err != nil {
 			return err
 		}
 		region = regionLabel.Value.(string)
 	}
 
-	subdomain := label.Value.(string)
-	instanceConfig, ok := d.destinationInstanceConfig[region]
+	subdomain := subdomainLabel.Value.(string)
+	instanceConfig, ok := d.destinationsConfig.RegionToInstanceConfig[region]
 	if !ok {
 		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
-		return err
+		return errors.New(fmt.Sprintf("No destination instance credentials found for region '%s'", region))
 	}
-	client, err := NewClient(instanceConfig, d.apiConfig, subdomain)
+
+	client, err := NewClient(instanceConfig, d.apiConfig, d.destinationsConfig.OauthTokenPath, subdomain)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to create Destination API client: %v", err)
 		return err
 	}
 
-	if err := d.walkthroughPages(client, func(destinations []model.DestinationInput) error {
+	apiURL := instanceConfig.URL
+	if err := d.walkthroughPages(client, apiURL, func(destinations []model.DestinationInput) error {
 		log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
-		return d.mapDestinationsToTenant(ctx, *label.Tenant, destinations)
+		return d.mapDestinationsToTenant(ctx, *subdomainLabel.Tenant, destinations)
 	}); err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to sync destinations for subaccount '%s': %v", subaccountID, err)
 		return err
@@ -151,12 +153,12 @@ func (d DestinationService) mapDestinationsToTenant(ctx context.Context, tenant 
 
 type processFunc func([]model.DestinationInput) error
 
-func (d DestinationService) walkthroughPages(client *Client, process processFunc) error {
+func (d DestinationService) walkthroughPages(client *Client, apiURL string, process processFunc) error {
 	hasMorePages := true
 
 	for page := 1; hasMorePages; page++ {
 		pageString := strconv.Itoa(page)
-		resp, err := client.FetchSubbacountDestinationsPage(pageString)
+		resp, err := client.FetchSubbacountDestinationsPage(apiURL, pageString)
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch destinations page")
 		}
@@ -171,25 +173,27 @@ func (d DestinationService) walkthroughPages(client *Client, process processFunc
 	return nil
 }
 
-func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, region string, destinationNames []string) ([]byte, error) {
-	label, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
+func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, subaccountID, region string, destinationNames []string) ([]byte, error) {
+	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
 	if err != nil {
 		return nil, err
 	}
 
-	subdomain := label.Value.(string)
+	subdomain := subdomainLabel.Value.(string)
 	log.C(ctx).Infof("Fetching data for subdomain: %s \n", subdomain)
 
-	instanceConfig, ok := d.destinationInstanceConfig[region]
+	instanceConfig, ok := d.destinationsConfig.RegionToInstanceConfig[region]
 	if !ok {
 		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("No destination instance credentials found for region '%s'", region))
 	}
-	client, err := NewClient(instanceConfig, d.apiConfig, subdomain)
+	client, err := NewClient(instanceConfig, d.apiConfig, d.destinationsConfig.OauthTokenPath, subdomain)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to create Destination API client: %v", err)
 		return nil, err
 	}
+
+	apiURL := instanceConfig.URL
 
 	nameCount := len(destinationNames)
 	results := make([][]byte, nameCount)
@@ -200,7 +204,7 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 	go func() {
 		for _, destination := range destinationNames {
 			weighted.Acquire(ctx, 1)
-			go fetchDestination(ctx, destination, weighted, client, resChan, errChan)
+			go fetchDestination(ctx, destination, weighted, client, apiURL, resChan, errChan)
 		}
 	}()
 
@@ -221,11 +225,11 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 }
 
 func fetchDestination(ctx context.Context, dest string, weighted *semaphore.Weighted,
-	client *Client, resChan chan []byte, errChan chan error) {
+	client *Client, apiURL string, resChan chan []byte, errChan chan error) {
 
 	log.C(ctx).Infof("Fetching data for destination: %s \n", dest)
 	defer weighted.Release(1)
-	result, err := client.fetchDestinationSensitiveData(dest)
+	result, err := client.FetchDestinationSensitiveData(apiURL, dest)
 	if err != nil {
 		errChan <- err
 		return

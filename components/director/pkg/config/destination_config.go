@@ -14,10 +14,11 @@ type DestinationsConfig struct {
 	InstanceCertPath         string `envconfig:"APP_DESTINATION_INSTANCE_X509_CERT_PATH"`
 	InstanceKeyPath          string `envconfig:"APP_DESTINATION_INSTANCE_X509_KEY_PATH"`
 
-	DestinationSecretPath                string                    `envconfig:"APP_DESTINATION_SECRET_PATH"`
-	RegionToDestinationCredentialsConfig map[string]InstanceConfig `envconfig:"-"`
+	DestinationSecretPath  string                    `envconfig:"APP_DESTINATION_SECRET_PATH"`
+	RegionToInstanceConfig map[string]InstanceConfig `envconfig:"-"`
 
-	OAuthMode oauth.AuthMode `envconfig:"APP_DESTINATION_OAUTH_MODE,default=oauth-mtls"`
+	OauthTokenPath string         `envconfig:"APP_DESTINATION_OAUTH_TOKEN_PATH,optional"`
+	OAuthMode      oauth.AuthMode `envconfig:"APP_DESTINATION_OAUTH_MODE,default=oauth-mtls"`
 }
 
 func (c *DestinationsConfig) MapInstanceConfigs() error {
@@ -31,7 +32,7 @@ func (c *DestinationsConfig) MapInstanceConfigs() error {
 		return err
 	}
 
-	c.RegionToDestinationCredentialsConfig = make(map[string]InstanceConfig)
+	c.RegionToInstanceConfig = make(map[string]InstanceConfig)
 	for region, config := range bindingsMap {
 		i := InstanceConfig{
 			ClientID:     gjson.Get(config.String(), c.InstanceClientIDPath).String(),
@@ -43,10 +44,10 @@ func (c *DestinationsConfig) MapInstanceConfigs() error {
 		}
 
 		if err := i.validate(c.OAuthMode); err != nil {
-			c.RegionToDestinationCredentialsConfig = nil
+			c.RegionToInstanceConfig = nil
 			return errors.Wrapf(err, "while validating instance for region: %q", region)
 		}
-		c.RegionToDestinationCredentialsConfig[region] = i
+		c.RegionToInstanceConfig[region] = i
 	}
 
 	return nil

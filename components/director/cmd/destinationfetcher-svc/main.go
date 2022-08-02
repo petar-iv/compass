@@ -140,7 +140,7 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	err := cfg.DestinationsConfig.MapInstanceConfigs()
 	exitOnError(err, "error while loading destination instances config")
 
-	svc := destinationfetcher.NewDestinationService(transact, uuidSvc, destRepo, bundleRepo, labelRepo, tenantRepo, cfg.DestinationsConfig.RegionToDestinationCredentialsConfig, cfg.APIConfig)
+	svc := destinationfetcher.NewDestinationService(transact, uuidSvc, destRepo, bundleRepo, labelRepo, tenantRepo, cfg.DestinationsConfig, cfg.APIConfig)
 	fetcher := destinationfetcher.NewFetcher(*svc)
 
 	destinationsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
