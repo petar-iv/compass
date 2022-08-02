@@ -22,7 +22,7 @@ import (
 )
 
 type APIConfig struct {
-	//TODO optional?
+	//TODO optional, default?
 	GoroutineLimit                    int64         `envconfig:"APP_DESTINATIONS_SENSITIVE_GOROUTINE_LIMIT"`
 	RetryInterval                     int           `envconfig:"APP_DESTINATIONS_RETRY_INTERVAL"`
 	RetryLimit                        int           `envconfig:"APP_DESTINATIONS_RETRY_LIMIT"`
@@ -39,6 +39,7 @@ type APIConfig struct {
 type Client struct {
 	httpClient *http.Client
 	apiConfig  APIConfig
+	apiURL     string
 }
 
 type DestinationResponse struct {
@@ -86,11 +87,12 @@ func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, tokenP
 	return &Client{
 		httpClient: httpClient,
 		apiConfig:  apiConfig,
+		apiURL:     instanceConfig.URL,
 	}, nil
 }
 
-func (c *Client) FetchSubbacountDestinationsPage(apiURL, page string) (*DestinationResponse, error) {
-	url := apiURL + c.apiConfig.EndpointGetSubbacountDestinations
+func (c *Client) FetchSubbacountDestinationsPage(page string) (*DestinationResponse, error) {
+	url := c.apiURL + c.apiConfig.EndpointGetSubbacountDestinations
 	req, err := c.buildRequest(url, page)
 	if err != nil {
 		return nil, err
@@ -135,8 +137,8 @@ func (c *Client) buildRequest(url string, page string) (*http.Request, error) {
 	return req, nil
 }
 
-func (c *Client) FetchDestinationSensitiveData(apiURL, destinationName string) ([]byte, error) {
-	url := fmt.Sprintf("%s%s/%s", apiURL, c.apiConfig.EndpointFindDestination, destinationName)
+func (c *Client) FetchDestinationSensitiveData(destinationName string) ([]byte, error) {
+	url := fmt.Sprintf("%s%s/%s", c.apiURL, c.apiConfig.EndpointFindDestination, destinationName)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build request")

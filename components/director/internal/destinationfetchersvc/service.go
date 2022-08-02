@@ -55,10 +55,6 @@ type DestinationService struct {
 	apiConfig          APIConfig
 }
 
-type DestinationAPIClient interface {
-	FetchSubbacountDestinationsPage(page string) (*DestinationResponse, error)
-}
-
 func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDService, destRepo DestinationRepo, bundleRepo BundleRepo, labelRepo LabelRepo, tenantRepo TenantRepo, destinationsConfig config.DestinationsConfig, apiConfig APIConfig) *DestinationService {
 	return &DestinationService{
 		transact:           transact,
@@ -99,8 +95,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 		return err
 	}
 
-	apiURL := instanceConfig.URL
-	if err := d.walkthroughPages(client, apiURL, func(destinations []model.DestinationInput) error {
+	if err := d.walkthroughPages(client, func(destinations []model.DestinationInput) error {
 		log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
 		return d.mapDestinationsToTenant(ctx, *subdomainLabel.Tenant, destinations)
 	}); err != nil {
@@ -153,12 +148,12 @@ func (d DestinationService) mapDestinationsToTenant(ctx context.Context, tenant 
 
 type processFunc func([]model.DestinationInput) error
 
-func (d DestinationService) walkthroughPages(client *Client, apiURL string, process processFunc) error {
+func (d DestinationService) walkthroughPages(client *Client, process processFunc) error {
 	hasMorePages := true
 
 	for page := 1; hasMorePages; page++ {
 		pageString := strconv.Itoa(page)
-		resp, err := client.FetchSubbacountDestinationsPage(apiURL, pageString)
+		resp, err := client.FetchSubbacountDestinationsPage(pageString)
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch destinations page")
 		}
@@ -193,8 +188,6 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 		return nil, err
 	}
 
-	apiURL := instanceConfig.URL
-
 	nameCount := len(destinationNames)
 	results := make([][]byte, nameCount)
 	weighted := semaphore.NewWeighted(d.apiConfig.GoroutineLimit)
@@ -204,7 +197,7 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 	go func() {
 		for _, destination := range destinationNames {
 			weighted.Acquire(ctx, 1)
-			go fetchDestination(ctx, destination, weighted, client, apiURL, resChan, errChan)
+			go fetchDestination(ctx, destination, weighted, client, resChan, errChan)
 		}
 	}()
 
@@ -225,11 +218,11 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 }
 
 func fetchDestination(ctx context.Context, dest string, weighted *semaphore.Weighted,
-	client *Client, apiURL string, resChan chan []byte, errChan chan error) {
+	client *Client, resChan chan []byte, errChan chan error) {
 
 	log.C(ctx).Infof("Fetching data for destination: %s \n", dest)
 	defer weighted.Release(1)
-	result, err := client.FetchDestinationSensitiveData(apiURL, dest)
+	result, err := client.FetchDestinationSensitiveData(dest)
 	if err != nil {
 		errChan <- err
 		return
