@@ -411,7 +411,7 @@ func regionDetailsToMap(regionDetails []tenantfetcher.RegionDetails) map[string]
 }
 
 func dependenciesConfigToMap(cfg tenantfetcher.HandlerConfig) (map[string][]tenantfetcher.Dependency, error) {
-	secretData, err := configprovider.ReadConfigFile(cfg.TenantHandlerDependenciesConfigPath)
+	secretData, err := configprovider.ReadConfigFile(cfg.TenantDependenciesConfigPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while reading tenant service dependencies config file")
 	}

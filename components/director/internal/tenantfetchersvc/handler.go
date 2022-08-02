@@ -62,10 +62,8 @@ type HandlerConfig struct {
 	TenantInsertChunkSize int `envconfig:"default=500"`
 	TenantProviderConfig
 
-	TenantHandlerDependenciesConfigPath string `envconfig:"APP_REGION_DEPENDENCIES_CONFIG_PATH"`
-	DependencyXsappnamePath             string `envconfig:"APP_REGION_DEPENDENCIES_XSAPPNAME_PATH"`
-
-	RegionToDependenciesConfig map[string][]Dependency `envconfig:"-"`
+	TenantDependenciesConfigPath string                  `envconfig:"APP_TENANT_REGION_DEPENDENCIES_CONFIG_PATH"`
+	RegionToDependenciesConfig   map[string][]Dependency `envconfig:"-"`
 }
 
 // TenantProviderConfig includes the configuration for tenant providers - the tenant ID json property names, the subdomain property name, and the tenant provider name.
