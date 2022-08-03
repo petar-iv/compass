@@ -534,13 +534,13 @@ global:
     server:
       fetchTenantEndpoint: "/v1/fetch/{parentTenantId}/{tenantId}"
       regionalHandlerEndpoint: "/v1/regional/{region}/callback/{tenantId}"
-      dependenciesEndpoint: "/v1/dependencies"
+      dependenciesEndpoint: "/v1/regional/{region}/dependencies"
       tenantPathParam: "tenantId"
       regionPathParam: "region"
     dependenciesConfig:
       configMapName: "dependencies-config"
-      key: "keyConfig"
-      path: "/tmp"
+      file: "dependencies.json"
+      path: "/cfg/dependencies"
     containerName: "tenant-fetcher"
     oauth:
       client: "client_id"
