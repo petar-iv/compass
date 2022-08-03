@@ -537,6 +537,10 @@ global:
       dependenciesEndpoint: "/v1/dependencies"
       tenantPathParam: "tenantId"
       regionPathParam: "region"
+    dependenciesConfig:
+      configMapName: "dependencies-config"
+      key: "keyConfig"
+      path: "/tmp"
     containerName: "tenant-fetcher"
     oauth:
       client: "client_id"
