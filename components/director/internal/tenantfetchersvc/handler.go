@@ -181,9 +181,16 @@ func (h *handler) Dependencies(writer http.ResponseWriter, request *http.Request
 		return
 	}
 
-	bytes, err := json.Marshal(h.config.RegionToDependenciesConfig[region])
+	dependencies, ok := h.config.RegionToDependenciesConfig[region]
+	if !ok {
+		log.C(ctx).Errorf("Invalid region provided: %s", region)
+		http.Error(writer, fmt.Sprintf("Invalid region provided: %s", region), http.StatusBadRequest)
+		return
+	}	
+
+	bytes, err := json.Marshal(dependencies)
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to marshal response body for dependencies request")
+		log.C(ctx).WithError(err).Error("Failed to marshal response body for dependencies request")
 		http.Error(writer, InternalServerError, http.StatusInternalServerError)
 		return
 	}
