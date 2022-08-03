@@ -1,0 +1,178 @@
+//WIP
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+    release: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.deployment.minReplicas }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+      release: {{ .Release.Name }}
+  strategy:
+    {{- toYaml .Values.deployment.strategy | nindent 4 }}
+  template:
+    metadata:
+      annotations:
+        restartOnNewInstallationMarker: {{ randAlphaNum 5 | quote }} # Restarts the deployment on a new Helm installation. (https://helm.sh/docs/howto/charts_tips_and_tricks/#automatically-roll-deployments)
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+        {{ if .Values.deployment.resourcesIstioProxy.requests.cpu }}
+        sidecar.istio.io/proxyCPU: {{ .Values.deployment.resourcesIstioProxy.requests.cpu }}
+        {{ end }}
+        {{ if .Values.deployment.resourcesIstioProxy.requests.memory }}
+        sidecar.istio.io/proxyMemory: {{ .Values.deployment.resourcesIstioProxy.requests.memory }}
+        {{ end }}
+        {{ if .Values.deployment.resourcesIstioProxy.limits.cpu }}
+        sidecar.istio.io/proxyCPULimit: {{ .Values.deployment.resourcesIstioProxy.limits.cpu }}
+        {{ end }}
+        {{ if .Values.deployment.resourcesIstioProxy.limits.memory }}
+        sidecar.istio.io/proxyMemoryLimit: {{ .Values.deployment.resourcesIstioProxy.limits.memory }}
+        {{ end }}
+      labels:
+        app: {{ .Chart.Name }}
+        reqlimit: {{ .Values.global.istio.ingressgateway.requestPayloadSizeLimit2MBLabel }}
+        release: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ template "fullname" . }}
+      nodeSelector:
+        {{- toYaml .Values.deployment.nodeSelector | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ $.Values.global.images.containerRegistry.path }}/{{ $.Values.global.images.director.dir }}compass-director:{{ $.Values.global.images.director.version }}
+          imagePullPolicy: {{ .Values.deployment.image.pullPolicy }}
+          command:
+            - "/bin/sh"
+          args:
+              - "-c"
+              - "./destinationfetcher-svc; exit_code=$?; echo '# KILLING PILOT-AGENT #'; pkill -INT cloud_sql_proxy; curl -XPOST http://127.0.0.1:15020/quitquitquit; sleep 5; exit $exit_code;"
+          ports:
+            - name: http
+              containerPort: {{ .Values.deployment.args.containerPort }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.deployment.resources | nindent 12 }}
+          {{- with .Values.deployment.securityContext }}
+          securityContext:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          env:
+            - name: APP_DESTINATION_INSTANCE_CLIENT_ID_PATH
+              value: {{ .Values.global.destinationFetcher.destinationInstance.clientId }}
+            - name: APP_DESTINATION_INSTANCE_CLIENT_SECRET_PATH
+              value: {{ .Values.global.destinationFetcher.destinationInstance.secretPath }}
+            - name: APP_DESTINATION_INSTANCE_URL_PATH
+              value: {{ .Values.global.destinationFetcher.destinationInstance.url_path }}
+            - name: APP_DESTINATION_INSTANCE_TOKEN_URL_PATH
+              value: {{ .Values.global.destinationFetcher.destinationInstance.token_url_path }}
+            - name: APP_DESTINATION_INSTANCE_X509_CERT_PATH
+              value: {{ .Values.global.destinationFetcher.destinationInstance.x509_cert_path }}
+            - name: APP_DESTINATION_INSTANCE_X509_KEY_PATH
+              value: {{ .Values.global.destinationFetcher.destinationInstance.x509_key_path }}
+            - name: APP_DESTINATION_SECRET_PATH
+              value: {{ .Values.global.destinationFetcher.secretPath }}
+            - name: APP_ENDPOINT_GET_SUBACCOUNT_DESTINATIONS //"/destination-configuration/v1/subaccountDestinations"
+              value: {{ .Values.global.destinationFetcher.subaccountDestinationsPath }}
+            - name: APP_ENDPOINT_FIND_DESTINATION
+              value: {{ .Values.global.destinationFetcher.subaccountDestinationsPath }}
+            - name: APP_DESTINATIONS_TIMEOUT
+              value: {{ .Values.global.destinationFetcher.requestTimeout }}
+            - name: APP_DESTINATIONS_PAGE_SIZE
+              value: {{ .Values.global.destinationFetcher.pageSize }}
+            - name: APP_DESTINATIONS_PAGE_PARAM
+              value: {{ .Values.global.destinationFetcher.pageParam }}
+            - name: APP_DESTINATIONS_PAGE_SIZE_PARAM
+              value: {{ .Values.global.destinationFetcher.pageSizeParam }}
+            - name: APP_DESTINATIONS_PAGE_COUNT_PARAM
+              value: {{ .Values.global.destinationFetcher.pageCountParam }}
+            - name: APP_DESTINATIONS_PAGE_COUNT_HEADER
+              value: {{ .Values.global.destinationFetcher.pageCountHeader }}
+            - name: APP_DESTINATION_OAUTH_TOKEN_PATH
+              value: {{ .Values.global.destinationFetcher.oauthTokenPath }}
+            - name: APP_DESTINATIONS_SENSITIVE_GOROUTINE_LIMIT
+              value: {{ .Values.global.destinationFetcher.request.goroutineLimit }}
+            - name: APP_DESTINATIONS_RETRY_INTERVAL
+              value: {{ .Values.global.destinationFetcher.request.retry_interval }}
+            - name: APP_DESTINATIONS_RETRY_LIMIT
+              value: {{ .Values.global.destinationFetcher.request.retry_limit }}
+            - name: APP_DEFAULT_SCENARIO_ENABLED
+              value: {{ .Values.global.enableCompassDefaultScenarioAssignment | quote }}
+            - name: APP_LOG_FORMAT
+              value: {{.Values.global.log.format | quote }}
+            - name: APP_ADDRESS
+              value: "0.0.0.0:{{ .Values.deployment.args.containerPort }}"
+            - name: APP_ROOT_API
+              value: "{{ .Values.global.destinationFetcher.prefix }}"
+            ## Maybe scope for our endpoints?
+            ##- name: APP_SUBSCRIPTION_CALLBACK_SCOPE
+            ##  value: {{ .Values.global.tenantFetcher.requiredAuthScope | quote }}
+            ##- name: APP_FETCH_TENANT_ON_DEMAND_SCOPE
+            ##  value: {{ .Values.global.tenantFetcher.fetchTenantAuthScope | quote }}
+            - name: APP_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: compass-postgresql
+                  key: postgresql-director-username
+            - name: APP_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: compass-postgresql
+                  key: postgresql-director-password
+            - name: APP_DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: compass-postgresql
+                  key: postgresql-serviceName
+            - name: APP_DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: compass-postgresql
+                  key: postgresql-servicePort
+            - name: APP_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: compass-postgresql
+                  key: postgresql-director-db-name
+            - name: APP_DB_SSL
+              valueFrom:
+                secretKeyRef:
+                  name: compass-postgresql
+                  key: postgresql-sslMode
+            - name: APP_DB_MAX_OPEN_CONNECTIONS
+              value: {{ .Values.database.dbPool.maxOpenConnections | quote }}
+            - name: APP_DB_MAX_IDLE_CONNECTIONS
+              value: {{ .Values.database.dbPool.maxIdleConnections | quote }}
+            {{ if and ($.Values.global.metrics.enabled) ($.Values.global.metrics.pushEndpoint) }}
+            - name: APP_METRICS_PUSH_ENDPOINT
+              value: {{ $.Values.global.metrics.pushEndpoint }}
+            {{ end }}
+          livenessProbe:
+            httpGet:
+              port: {{.Values.deployment.args.containerPort }}
+              path: "{{ .Values.global.destinationFetcher.prefix }}/healthz"
+            initialDelaySeconds: {{ .Values.global.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.global.livenessProbe.timeoutSeconds }}
+            periodSeconds: {{.Values.global.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              port: {{.Values.deployment.args.containerPort }}
+              path: "{{ .Values.global.destinationFetcher.prefix }}/readyz"
+            initialDelaySeconds: {{ .Values.global.readinessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.global.readinessProbe.timeoutSeconds }}
+            periodSeconds: {{.Values.global.readinessProbe.periodSeconds }}
+        {{if eq .Values.global.database.embedded.enabled false}}
+        - name: cloudsql-proxy
+          image: gcr.io/cloudsql-docker/gce-proxy:1.23.0-alpine
+          command: ["/cloud_sql_proxy",
+                    "-instances={{ .Values.global.database.managedGCP.instanceConnectionName }}=tcp:5432",
+                    "-term_timeout=2s"]
+          resources:
+          {{- toYaml .Values.deployment.resourcesCloudsqlProxy | nindent 12 }}
+          {{- with .Values.deployment.securityContext }}
+          securityContext:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+        {{end}}
