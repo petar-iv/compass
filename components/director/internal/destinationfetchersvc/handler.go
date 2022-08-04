@@ -16,11 +16,6 @@ const (
 	regionKey       = "region"
 )
 
-type UserContext struct {
-	Region       string
-	SubaccountID string
-}
-
 type HandlerConfig struct {
 	DestinationsEndpoint          string `envconfig:"APP_DESTINATIONS_ON_DEMAND_HANDLER_ENDPOINT,default=/v1/fetch"`
 	DestinationsSensitiveEndpoint string `envconfig:"APP_DESTINATIONS_GET_DESTINATION,default=/v1/info"`
@@ -33,8 +28,8 @@ type handler struct {
 }
 
 type DestinationFetcher interface {
-	FetchDestinationsOnDemand(ctx context.Context, userContext *UserContext) error
-	FetchDestinationsSensitiveData(ctx context.Context, userContext *UserContext, destinationNames []string) ([]byte, error)
+	FetchDestinationsOnDemand(ctx context.Context, subaccountID string) error
+	FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error)
 }
 
 // NewDestinationsHTTPHandler returns a new HTTP handler, responsible for handleing HTTP requests
@@ -49,19 +44,19 @@ func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request 
 	ctx := request.Context()
 
 	userContextHeader := request.Header.Get(h.config.UserContextHeader)
-	userContext, err := h.readUserContextHeader(userContextHeader)
+	subaccountID, err := h.readSubaccountFromHeader(userContextHeader)
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := h.fetcher.FetchDestinationsOnDemand(ctx, userContext); err != nil {
+	if err := h.fetcher.FetchDestinationsOnDemand(ctx, subaccountID); err != nil {
 		if apperrors.IsNotFoundError(err) {
 			http.Error(writer, err.Error(), http.StatusBadRequest)
 			return
 		}
-		http.Error(writer, fmt.Sprintf("Failed to fetch destinations for userContext %v",
-			userContext), http.StatusInternalServerError)
+		http.Error(writer, fmt.Sprintf("Failed to fetch destinations for subaccount %s",
+			subaccountID), http.StatusInternalServerError)
 		return
 	}
 	writer.WriteHeader(http.StatusOK)
@@ -92,7 +87,7 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 	ctx := request.Context()
 
 	userContextHeader := request.Header.Get(h.config.UserContextHeader)
-	userContext, err := h.readUserContextHeader(userContextHeader)
+	subaccountID, err := h.readSubaccountFromHeader(userContextHeader)
 	if err != nil {
 		log.C(ctx).Errorf("Failed to read userContext header with error: %s", err.Error())
 		http.Error(writer, err.Error(), http.StatusBadRequest)
@@ -107,11 +102,11 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 		return
 	}
 
-	json, err := h.fetcher.FetchDestinationsSensitiveData(ctx, userContext, names)
+	json, err := h.fetcher.FetchDestinationsSensitiveData(ctx, subaccountID, names)
 
 	if err != nil {
-		log.C(ctx).Errorf("Failed to fetch destination sensitive data with error %s for names %s and userContext %v",
-			err.Error(), namesRaw, userContext)
+		log.C(ctx).Errorf("Failed to fetch destination sensitive data with error %s for names %s and subaccount %v",
+			err.Error(), namesRaw, subaccountID)
 		if apperrors.IsNotFoundError(err) {
 			http.Error(writer, err.Error(), http.StatusNotFound)
 			return
@@ -135,26 +130,20 @@ func sliceContainsEmptyString(s []string) bool {
 	return false
 }
 
-func (h *handler) readUserContextHeader(header string) (*UserContext, error) {
+func (h *handler) readSubaccountFromHeader(header string) (string, error) {
 	if header == "" {
-		return nil, fmt.Errorf("%s header is missing", h.config.UserContextHeader)
+		return "", fmt.Errorf("%s header is missing", h.config.UserContextHeader)
 	}
 
 	var headerMap map[string]string
 	if err := json.Unmarshal([]byte(header), &headerMap); err != nil {
-		return nil, fmt.Errorf("failed to parse %s header", h.config.UserContextHeader)
+		return "", fmt.Errorf("failed to parse %s header", h.config.UserContextHeader)
 	}
 
 	subaccountId, ok := headerMap[subaccountIdKey]
 	if !ok {
-		return nil, fmt.Errorf("%s not found in %s header", subaccountIdKey, h.config.UserContextHeader)
+		return "", fmt.Errorf("%s not found in %s header", subaccountIdKey, h.config.UserContextHeader)
 	}
 
-	region, ok := headerMap[regionKey]
-
-	if !ok {
-		return nil, fmt.Errorf("%s not found in %s header", regionKey, h.config.UserContextHeader)
-	}
-
-	return &UserContext{region, subaccountId}, nil
+	return subaccountId, nil
 }

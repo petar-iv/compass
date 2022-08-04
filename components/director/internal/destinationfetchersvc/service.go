@@ -68,25 +68,23 @@ func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDServi
 	}
 }
 
-func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, userContext *UserContext) error {
-	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, userContext.SubaccountID)
+func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, subaccountID string) error {
+	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
 	if err != nil {
 		return err
 	}
 
-	if userContext.Region == "" {
-		regionLabel, err := d.getRegionLabel(ctx, *subdomainLabel.Tenant)
-		if err != nil {
-			return err
-		}
-		userContext.Region = regionLabel.Value.(string)
+	regionLabel, err := d.getRegionLabel(ctx, *subdomainLabel.Tenant)
+	if err != nil {
+		return err
 	}
 
 	subdomain := subdomainLabel.Value.(string)
-	instanceConfig, ok := d.destinationsConfig.RegionToInstanceConfig[userContext.Region]
+	region := regionLabel.Value.(string)
+	instanceConfig, ok := d.destinationsConfig.RegionToInstanceConfig[region]
 	if !ok {
-		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", userContext.Region)
-		return errors.New(fmt.Sprintf("No destination instance credentials found for region '%s'", userContext.Region))
+		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
+		return errors.New(fmt.Sprintf("No destination instance credentials found for region '%s'", region))
 	}
 
 	client, err := NewClient(instanceConfig, d.apiConfig, d.destinationsConfig.OauthTokenPath, subdomain)
@@ -96,10 +94,10 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, user
 	}
 
 	if err := d.walkthroughPages(client, func(destinations []model.DestinationInput) error {
-		log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), userContext.SubaccountID)
+		log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
 		return d.mapDestinationsToTenant(ctx, *subdomainLabel.Tenant, destinations)
 	}); err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to sync destinations for subaccount '%s': %v", userContext.SubaccountID, err)
+		log.C(ctx).WithError(err).Errorf("Failed to sync destinations for subaccount '%s': %v", subaccountID, err)
 		return err
 	}
 
@@ -169,19 +167,25 @@ func (d DestinationService) walkthroughPages(client *Client, process processFunc
 	return nil
 }
 
-func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, userContext *UserContext, destinationNames []string) ([]byte, error) {
-	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, userContext.SubaccountID)
+func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error) {
+	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
+	if err != nil {
+		return nil, err
+	}
+
+	regionLabel, err := d.getRegionLabel(ctx, *subdomainLabel.Tenant)
 	if err != nil {
 		return nil, err
 	}
 
 	subdomain := subdomainLabel.Value.(string)
+	region := regionLabel.Value.(string)
 	log.C(ctx).Infof("Fetching data for subdomain: %s \n", subdomain)
 
-	instanceConfig, ok := d.destinationsConfig.RegionToInstanceConfig[userContext.Region]
+	instanceConfig, ok := d.destinationsConfig.RegionToInstanceConfig[region]
 	if !ok {
-		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", userContext.Region)
-		return nil, errors.New(fmt.Sprintf("No destination instance credentials found for region '%s'", userContext.Region))
+		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
+		return nil, errors.New(fmt.Sprintf("No destination instance credentials found for region '%s'", region))
 	}
 	client, err := NewClient(instanceConfig, d.apiConfig, d.destinationsConfig.OauthTokenPath, subdomain)
 	if err != nil {

@@ -13,10 +13,10 @@ func NewFetcher(svc DestinationService) *fetcher {
 	return &fetcher{svc: svc}
 }
 
-func (f *fetcher) FetchDestinationsOnDemand(ctx context.Context, userContext *UserContext) error {
-	return f.svc.SyncSubaccountDestinations(ctx, userContext)
+func (f *fetcher) FetchDestinationsOnDemand(ctx context.Context, subaccountID string) error {
+	return f.svc.SyncSubaccountDestinations(ctx, subaccountID)
 }
 
-func (f *fetcher) FetchDestinationsSensitiveData(ctx context.Context, userContext *UserContext, names []string) ([]byte, error) {
-	return f.svc.FetchDestinationsSensitiveData(ctx, userContext, names)
+func (f *fetcher) FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, names []string) ([]byte, error) {
+	return f.svc.FetchDestinationsSensitiveData(ctx, subaccountID, names)
 }
