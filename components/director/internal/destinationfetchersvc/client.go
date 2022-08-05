@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/config"
@@ -23,18 +24,17 @@ import (
 )
 
 type APIConfig struct {
-	//TODO optional, default?
-	GoroutineLimit                    int64         `envconfig:"APP_DESTINATIONS_SENSITIVE_GOROUTINE_LIMIT"`
-	RetryInterval                     int           `envconfig:"APP_DESTINATIONS_RETRY_INTERVAL"`
-	RetryLimit                        int           `envconfig:"APP_DESTINATIONS_RETRY_LIMIT"`
+	GoroutineLimit                    int64         `envconfig:"APP_DESTINATIONS_SENSITIVE_GOROUTINE_LIMIT,default=10"`
+	RetryInterval                     time.Duration `envconfig:"APP_DESTINATIONS_RETRY_INTERVAL,default=100ms"`
+	RetryAttempts                     uint          `envconfig:"APP_DESTINATIONS_RETRY_ATTEMPTS,default=3"`
 	EndpointGetSubbacountDestinations string        `envconfig:"APP_ENDPOINT_GET_SUBACCOUNT_DESTINATIONS"`
 	EndpointFindDestination           string        `envconfig:"APP_ENDPOINT_FIND_DESTINATION"`
-	Timeout                           time.Duration `envconfig:"APP_DESTINATIONS_TIMEOUT"`
-	PageSize                          int           `envconfig:"APP_DESTINATIONS_PAGE_SIZE"`
-	PagingPageParam                   string        `envconfig:"APP_DESTINATIONS_PAGE_PARAM"`
-	PagingSizeParam                   string        `envconfig:"APP_DESTINATIONS_PAGE_SIZE_PARAM"`
-	PagingCountParam                  string        `envconfig:"APP_DESTINATIONS_PAGE_COUNT_PARAM"`
-	PagingCountHeader                 string        `envconfig:"APP_DESTINATIONS_PAGE_COUNT_HEADER"`
+	Timeout                           time.Duration `envconfig:"APP_DESTINATIONS_TIMEOUT,default=30s"`
+	PageSize                          int           `envconfig:"APP_DESTINATIONS_PAGE_SIZE,default=100"`
+	PagingPageParam                   string        `envconfig:"APP_DESTINATIONS_PAGE_PARAM,default=$page"`
+	PagingSizeParam                   string        `envconfig:"APP_DESTINATIONS_PAGE_SIZE_PARAM,default=$pageSize"`
+	PagingCountParam                  string        `envconfig:"APP_DESTINATIONS_PAGE_COUNT_PARAM,default=$pageCount"`
+	PagingCountHeader                 string        `envconfig:"APP_DESTINATIONS_PAGE_COUNT_HEADER,default=Page-Count"`
 }
 
 type Client struct {
@@ -92,16 +92,16 @@ func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, tokenP
 	}, nil
 }
 
-func (c *Client) FetchSubbacountDestinationsPage(page string) (*DestinationResponse, error) {
+func (c *Client) FetchSubbacountDestinationsPage(ctx context.Context, page string) (*DestinationResponse, error) {
 	url := c.apiURL + c.apiConfig.EndpointGetSubbacountDestinations
 	req, err := c.buildRequest(url, page)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := c.httpClient.Do(req)
+	res, err := c.sendRequestWithRetry(ctx, req)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to execute HTTP request")
+		return nil, err
 	}
 
 	var destinations []model.DestinationInput
@@ -146,7 +146,7 @@ func (c *Client) FetchDestinationSensitiveData(ctx context.Context, destinationN
 		return nil, errors.Wrapf(err, "failed to build request")
 	}
 
-	res, err := c.sendRequestWithRetry(req)
+	res, err := c.sendRequestWithRetry(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -168,21 +168,27 @@ func (c *Client) FetchDestinationSensitiveData(ctx context.Context, destinationN
 	return body, nil
 }
 
-func (c *Client) sendRequestWithRetry(req *http.Request) (*http.Response, error) {
-	res, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to execute HTTP request")
-	}
-
-	i := 0
-	for i < c.apiConfig.RetryLimit && res.StatusCode == http.StatusInternalServerError {
-		time.Sleep(time.Millisecond * time.Duration(c.apiConfig.RetryInterval))
-		i++
-		res, err = c.httpClient.Do(req)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to execute HTTP request")
+func (c *Client) sendRequestWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
+	var response *http.Response
+	err := retry.Do(func() error {
+		res, err := c.httpClient.Do(req)
+		if err == nil && res.StatusCode < http.StatusInternalServerError {
+			response = res
 		}
-	}
 
-	return res, nil
+		if err != nil {
+			return errors.Wrap(err, "failed to execute HTTP request")
+		}
+
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return errors.Wrap(err, "failed to read response body")
+		}
+
+		return errors.Errorf("request failed with status code %d, error message: %v", res.StatusCode, string(body))
+	}, retry.Attempts(c.apiConfig.RetryAttempts), retry.Delay(c.apiConfig.RetryInterval))
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
 }

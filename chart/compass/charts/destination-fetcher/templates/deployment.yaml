@@ -96,7 +96,7 @@ spec:
               value: {{ .Values.global.destinationFetcher.request.goroutineLimit }}
             - name: APP_DESTINATIONS_RETRY_INTERVAL
               value: {{ .Values.global.destinationFetcher.request.retry_interval }}
-            - name: APP_DESTINATIONS_RETRY_LIMIT
+            - name: APP_DESTINATIONS_RETRY_ATTEMPTS
               value: {{ .Values.global.destinationFetcher.request.retry_limit }}
             - name: APP_DEFAULT_SCENARIO_ENABLED
               value: {{ .Values.global.enableCompassDefaultScenarioAssignment | quote }}

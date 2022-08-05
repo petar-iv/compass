@@ -81,6 +81,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 
 	subdomain := subdomainLabel.Value.(string)
 	region := regionLabel.Value.(string)
+	
 	instanceConfig, ok := d.destinationsConfig.RegionToInstanceConfig[region]
 	if !ok {
 		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
@@ -93,7 +94,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 		return err
 	}
 
-	if err := d.walkthroughPages(client, func(destinations []model.DestinationInput) error {
+	if err := d.walkthroughPages(ctx, client, func(destinations []model.DestinationInput) error {
 		log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
 		return d.mapDestinationsToTenant(ctx, *subdomainLabel.Tenant, destinations)
 	}); err != nil {
@@ -147,12 +148,12 @@ func (d DestinationService) mapDestinationsToTenant(ctx context.Context, tenant 
 
 type processFunc func([]model.DestinationInput) error
 
-func (d DestinationService) walkthroughPages(client *Client, process processFunc) error {
+func (d DestinationService) walkthroughPages(ctx context.Context, client *Client, process processFunc) error {
 	hasMorePages := true
 
 	for page := 1; hasMorePages; page++ {
 		pageString := strconv.Itoa(page)
-		resp, err := client.FetchSubbacountDestinationsPage(pageString)
+		resp, err := client.FetchSubbacountDestinationsPage(ctx, pageString)
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch destinations page")
 		}
@@ -229,7 +230,7 @@ func fetchDestination(ctx context.Context, dest string, weighted *semaphore.Weig
 	defer weighted.Release(1)
 	result, err := client.FetchDestinationSensitiveData(ctx, dest)
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to get destination: %s with error: %v", dest, err)
+		log.C(ctx).WithError(err).Errorf("Failed to fetch data for destination %s: %v", dest, err)
 		errChan <- err
 		return
 	}

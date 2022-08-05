@@ -97,7 +97,7 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 	namesRaw := request.URL.Query().Get("name")
 	names, err := getDestinationNames(namesRaw)
 	if err != nil {
-		log.C(ctx).Errorf("Failed to get destination names with error: %s", err.Error())
+		log.C(ctx).Errorf("Failed to fetch sensitive data for destinations %s: %v", err.Error())
 		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -105,14 +105,14 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 	json, err := h.fetcher.FetchDestinationsSensitiveData(ctx, subaccountID, names)
 
 	if err != nil {
-		log.C(ctx).Errorf("Failed to fetch destination sensitive data with error %s for names %s and subaccount %v",
-			err.Error(), namesRaw, subaccountID)
+		log.C(ctx).Errorf("Failed to fetch sensitive data for destinations %s and subaccount %s: %v",
+			namesRaw, subaccountID, err)
 		if apperrors.IsNotFoundError(err) {
 			http.Error(writer, err.Error(), http.StatusNotFound)
 			return
 		}
 
-		http.Error(writer, fmt.Sprintf("Failed to get destination info for names %s", namesRaw), http.StatusInternalServerError)
+		http.Error(writer, fmt.Sprintf("Failed to fetch sensitive data for destinations %s", namesRaw), http.StatusInternalServerError)
 		return
 	}
 
