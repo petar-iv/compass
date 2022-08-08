@@ -512,37 +512,38 @@ global:
       clientID: ""
       scopes: "openid profile email"
       path: "/oauth2/certs"
-  destinationsFetcher:
+  destinationFetcher:
     manageSecrets: true
     host: compass-destination-fetcher.compass-system.svc.cluster.local
-    prefix: /destinations
+    prefix: /destination-configuration
     port: 3000
-    requiredAuthScope: Callback
-    fetchTenantAuthScope: fetch_tenant
+    #requiredAuthScope: Callback
+    #fetchTenantAuthScope: fetch_tenant
     authentication:
       jwksEndpoint: "http://ory-oathkeeper-api.kyma-system.svc.cluster.local:4456/.well-known/jwks.json"
-    tenantProvider:
-      tenantIdProperty: "tenantId"
-      customerIdProperty: "customerId"
-      subaccountTenantIdProperty: "subaccountTenantId"
-      subdomainProperty: "subdomain"
-      name: "provider"
-      subscriptionProviderIdProperty: "subscriptionProviderIdProperty"
-      providerSubaccountIdProperty: "providerSubaccountIdProperty"
-      consumerTenantIdProperty: "consumerTenantIdProperty"
-      subscriptionProviderAppNameProperty: "subscriptionProviderAppNameProperty"
     server:
-      fetchTenantEndpoint: "/v1/fetch/{parentTenantId}/{tenantId}"
-      regionalHandlerEndpoint: "/v1/regional/{region}/callback/{tenantId}"
-      dependenciesEndpoint: "/v1/dependencies"
-      tenantPathParam: "tenantId"
-      regionPathParam: "region"
+      subaccountDestinationsEndpoint: "/v1/subaccountDestinations"
+      sensitiveDataEndpoint: "/v1/destinations"
+    request:
+      retry_interval: "100ms"
+      retry_attempts: 3
+      goroutineLimit: 100
+      requestTimeout: "30s"
+      pageSize: 10
+      pageParam: "\\$page"
+      pageSizeParam: "\\$pageSize"
+      pageCountParam: "\\$pageCount"
+      pageCountHeader: "Page-Count"
+      oauthTokenPath: "/oauth/token"
     containerName: "destination-fetcher"
-    oauth:
-      client: "client_id"
-      secret: ""
-      tokenURL: '{{ printf "https://%s.%s" .Values.global.externalServicesMock.certSecuredHost .Values.global.ingress.domainName }}'
-      tokenPath: "/cert/token"
+    instance:
+      clientIdPath: "client_id"
+      clientSecretPath: "client_secret"
+      urlPath: "uri"
+      tokenUrlPath: "certurl"
+      x509CertPath: "certificate"
+      x509KeyPath: "key"
+    secretPath: "/etc/instances/config.json"
     secret:
       name: "compass-tenant-fetcher-secret"
       clientIdKey: "client-id"
@@ -551,23 +552,6 @@ global:
       clientKeyKey: "client-key"
       oauthUrlKey: "url"
       skipSSLValidation: true
-    endpoints:
-      subaccountCreated: "127.0.0.1/events?type=subaccount-created"
-    fieldMapping:
-      totalPagesField: "totalPages"
-      totalResultsField: "totalResults"
-      tenantEventsField: "events"
-      idField: "id"
-      nameField: "name"
-      customerIdField: "customerId"
-      subdomainField: "subdomain"
-      discriminatorField: ""
-      discriminatorValue: ""
-      detailsField: "details"
-      entityTypeField: "entityType"
-      globalAccountID: "gaID"
-      regionField: "region"
-    regionDetails: '[{"central", ""}]'
   tenantFetcher:
     manageSecrets: true
     host: compass-tenant-fetcher.compass-system.svc.cluster.local

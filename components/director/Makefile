@@ -38,6 +38,8 @@ deploy-on-k3d: build-for-k3d
 	kubectl rollout restart -n $(NAMESPACE) deployment/compass-director
 	kubectl set image -n $(NAMESPACE) deployment/compass-ns-adapter ns-adapter=k3d-kyma-registry:5001/compass-director:latest
 	kubectl rollout restart -n $(NAMESPACE) deployment/compass-ns-adapter
+	kubectl set image -n $(NAMESPACE) deployment/compass-destinations compass-destinations=k3d-kyma-registry:5001/compass-director:latest
+	kubectl rollout restart -n $(NAMESPACE) deployment/compass-destinations
 	kubectl set image -n $(NAMESPACE) cronjob/compass-ord-aggregator aggregator=k3d-kyma-registry:5001/compass-director:latest
 	kubectl set image -n $(NAMESPACE) cronjob/compass-system-fetcher system-fetcher=k3d-kyma-registry:5001/compass-director:latest
 	kubectl set image -n $(NAMESPACE) cronjob/compass-director-tenant-loader-external loader=k3d-kyma-registry:5001/compass-director:latest

@@ -1,4 +1,3 @@
-//WIP
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -48,11 +47,15 @@ spec:
             - "/bin/sh"
           args:
               - "-c"
-              - "./destinationfetcher-svc; exit_code=$?; echo '# KILLING PILOT-AGENT #'; pkill -INT cloud_sql_proxy; curl -XPOST http://127.0.0.1:15020/quitquitquit; sleep 5; exit $exit_code;"
+              - "./destinationfetcher; exit_code=$?; echo '# KILLING PILOT-AGENT #'; pkill -INT cloud_sql_proxy; curl -XPOST http://127.0.0.1:15020/quitquitquit; sleep 5; exit $exit_code;"
           ports:
             - name: http
               containerPort: {{ .Values.deployment.args.containerPort }}
               protocol: TCP
+          volumeMounts:
+            - name: instances
+              mountPath: "/etc/instances/"
+              readOnly: true
           resources:
             {{- toYaml .Values.deployment.resources | nindent 12 }}
           {{- with .Values.deployment.securityContext }}
@@ -61,43 +64,43 @@ spec:
           {{- end }}
           env:
             - name: APP_DESTINATION_INSTANCE_CLIENT_ID_PATH
-              value: {{ .Values.global.destinationFetcher.destinationInstance.clientId }}
+              value: {{ .Values.global.destinationFetcher.instance.clientIdPath }}
             - name: APP_DESTINATION_INSTANCE_CLIENT_SECRET_PATH
-              value: {{ .Values.global.destinationFetcher.destinationInstance.secretPath }}
+              value: {{ .Values.global.destinationFetcher.instance.clientSecretPath }}
             - name: APP_DESTINATION_INSTANCE_URL_PATH
-              value: {{ .Values.global.destinationFetcher.destinationInstance.url_path }}
+              value: {{ .Values.global.destinationFetcher.instance.urlPath }}
             - name: APP_DESTINATION_INSTANCE_TOKEN_URL_PATH
-              value: {{ .Values.global.destinationFetcher.destinationInstance.token_url_path }}
+              value: {{ .Values.global.destinationFetcher.instance.tokenUrlPath }}
             - name: APP_DESTINATION_INSTANCE_X509_CERT_PATH
-              value: {{ .Values.global.destinationFetcher.destinationInstance.x509_cert_path }}
+              value: {{ .Values.global.destinationFetcher.instance.x509CertPath }}
             - name: APP_DESTINATION_INSTANCE_X509_KEY_PATH
-              value: {{ .Values.global.destinationFetcher.destinationInstance.x509_key_path }}
+              value: {{ .Values.global.destinationFetcher.instance.x509KeyPath }}
             - name: APP_DESTINATION_SECRET_PATH
-              value: {{ .Values.global.destinationFetcher.secretPath }}
-            - name: APP_ENDPOINT_GET_SUBACCOUNT_DESTINATIONS //"/destination-configuration/v1/subaccountDestinations"
-              value: {{ .Values.global.destinationFetcher.subaccountDestinationsPath }}
+              value: "{{ .Values.global.destinationFetcher.secretPath }}"
+            - name: APP_ENDPOINT_GET_SUBACCOUNT_DESTINATIONS
+              value: "{{ .Values.global.destinationFetcher.server.subaccountDestinationsEndpoint }}"
             - name: APP_ENDPOINT_FIND_DESTINATION
-              value: {{ .Values.global.destinationFetcher.subaccountDestinationsPath }}
+              value: "{{ .Values.global.destinationFetcher.server.sensitiveDataEndpoint }}"
             - name: APP_DESTINATIONS_TIMEOUT
-              value: {{ .Values.global.destinationFetcher.requestTimeout }}
+              value: {{ .Values.global.destinationFetcher.request.requestTimeout }}
             - name: APP_DESTINATIONS_PAGE_SIZE
-              value: {{ .Values.global.destinationFetcher.pageSize }}
+              value: "{{ .Values.global.destinationFetcher.request.pageSize }}"
             - name: APP_DESTINATIONS_PAGE_PARAM
-              value: {{ .Values.global.destinationFetcher.pageParam }}
+              value: {{ .Values.global.destinationFetcher.request.pageParam }}
             - name: APP_DESTINATIONS_PAGE_SIZE_PARAM
-              value: {{ .Values.global.destinationFetcher.pageSizeParam }}
+              value: {{ .Values.global.destinationFetcher.request.pageSizeParam }}
             - name: APP_DESTINATIONS_PAGE_COUNT_PARAM
-              value: {{ .Values.global.destinationFetcher.pageCountParam }}
+              value: {{ .Values.global.destinationFetcher.request.pageCountParam }}
             - name: APP_DESTINATIONS_PAGE_COUNT_HEADER
-              value: {{ .Values.global.destinationFetcher.pageCountHeader }}
+              value: {{ .Values.global.destinationFetcher.request.pageCountHeader }}
             - name: APP_DESTINATION_OAUTH_TOKEN_PATH
-              value: {{ .Values.global.destinationFetcher.oauthTokenPath }}
+              value: {{ .Values.global.destinationFetcher.request.oauthTokenPath }}
             - name: APP_DESTINATIONS_SENSITIVE_GOROUTINE_LIMIT
-              value: {{ .Values.global.destinationFetcher.request.goroutineLimit }}
+              value: "{{ .Values.global.destinationFetcher.request.goroutineLimit }}"
             - name: APP_DESTINATIONS_RETRY_INTERVAL
               value: {{ .Values.global.destinationFetcher.request.retry_interval }}
             - name: APP_DESTINATIONS_RETRY_ATTEMPTS
-              value: {{ .Values.global.destinationFetcher.request.retry_limit }}
+              value: "{{ .Values.global.destinationFetcher.request.retry_attempts }}"
             - name: APP_DEFAULT_SCENARIO_ENABLED
               value: {{ .Values.global.enableCompassDefaultScenarioAssignment | quote }}
             - name: APP_LOG_FORMAT
@@ -176,3 +179,7 @@ spec:
 {{ toYaml . | indent 12 }}
           {{- end }}
         {{end}}
+      volumes:
+        - name: instances
+          secret:
+            secretName: instances
