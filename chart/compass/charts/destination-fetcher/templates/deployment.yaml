@@ -109,11 +109,12 @@ spec:
               value: "0.0.0.0:{{ .Values.deployment.args.containerPort }}"
             - name: APP_ROOT_API
               value: "{{ .Values.global.destinationFetcher.prefix }}"
-            ## Maybe scope for our endpoints?
-            ##- name: APP_SUBSCRIPTION_CALLBACK_SCOPE
-            ##  value: {{ .Values.global.tenantFetcher.requiredAuthScope | quote }}
-            ##- name: APP_FETCH_TENANT_ON_DEMAND_SCOPE
-            ##  value: {{ .Values.global.tenantFetcher.fetchTenantAuthScope | quote }}
+            - name: APP_JWKS_ENDPOINT
+              value: "{{ .Values.global.destinationFetcher.authentication.jwksEndpoint }}"
+            - name: APP_DESTINATIONS_ON_DEMAND_SCOPE
+              value: {{ .Values.global.destinationFetcher.authentication.appDestinationsOnDemandScope | quote }}
+            - name: APP_DETINATIONS_SENSITIVE_DATA_SCOPE
+              value: {{ .Values.global.destinationFetcher.authentication.appDetinationsSensitiveDataScope | quote }}
             - name: APP_DB_USER
               valueFrom:
                 secretKeyRef:

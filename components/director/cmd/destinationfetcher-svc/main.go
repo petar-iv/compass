@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/kyma-incubator/compass/components/director/internal/authenticator"
+	"github.com/kyma-incubator/compass/components/director/internal/authenticator/claims"
 	destinationfetcher "github.com/kyma-incubator/compass/components/director/internal/destinationfetchersvc"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/api"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/auth"
@@ -37,6 +39,7 @@ import (
 	"github.com/kyma-incubator/compass/components/director/internal/domain/version"
 	configprovider "github.com/kyma-incubator/compass/components/director/pkg/config"
 	"github.com/kyma-incubator/compass/components/director/pkg/correlation"
+	"github.com/kyma-incubator/compass/components/director/pkg/executor"
 	timeouthandler "github.com/kyma-incubator/compass/components/director/pkg/handler"
 	httputil "github.com/kyma-incubator/compass/components/director/pkg/http"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
@@ -63,15 +66,16 @@ type config struct {
 	DestinationsConfig  configprovider.DestinationsConfig
 	Database            persistence.DatabaseConfig
 	Log                 log.Config
+	SecurityConfig      securityConfig
 }
 
-// type securityConfig struct {
-// 	JWKSSyncPeriod            time.Duration `envconfig:"default=5m"`
-// 	AllowJWTSigningNone       bool          `envconfig:"APP_ALLOW_JWT_SIGNING_NONE,default=false"`
-// 	JwksEndpoint              string        `envconfig:"default=file://hack/default-jwks.json,APP_JWKS_ENDPOINT"`
-// 	SubscriptionCallbackScope string        `envconfig:"APP_SUBSCRIPTION_CALLBACK_SCOPE"`
-// 	FetchTenantOnDemandScope  string        `envconfig:"APP_FETCH_TENANT_ON_DEMAND_SCOPE"`
-// }
+type securityConfig struct {
+	JWKSSyncPeriod                 time.Duration `envconfig:"default=5m"`
+	AllowJWTSigningNone            bool          `envconfig:"APP_ALLOW_JWT_SIGNING_NONE,default=false"`
+	JwksEndpoint                   string        `envconfig:"APP_JWKS_ENDPOINT,default=file://hack/default-jwks.json"`
+	DestinationsOnDemandScope      string        `envconfig:"APP_DESTINATIONS_ON_DEMAND_SCOPE"`
+	DestinationsSensitiveDataScope string        `envconfig:"APP_DETINATIONS_SENSITIVE_DATA_SCOPE"`
+}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -115,6 +119,21 @@ func main() {
 	runMainSrv()
 }
 
+// TODO: fix code duplication with tenant fetcher
+func configureAuthMiddleware(ctx context.Context, httpClient *http.Client, router *mux.Router, cfg securityConfig, requiredScopes ...string) {
+	scopeValidator := claims.NewScopesValidator(requiredScopes)
+	middleware := authenticator.New(httpClient, cfg.JwksEndpoint, cfg.AllowJWTSigningNone, "", scopeValidator)
+	router.Use(middleware.Handler())
+
+	log.C(ctx).Infof("JWKS synchronization enabled. Sync period: %v", cfg.JWKSSyncPeriod)
+	periodicExecutor := executor.NewPeriodic(cfg.JWKSSyncPeriod, func(ctx context.Context) {
+		if err := middleware.SynchronizeJWKS(ctx); err != nil {
+			log.C(ctx).WithError(err).Errorf("An error has occurred while synchronizing JWKS: %v", err)
+		}
+	})
+	go periodicExecutor.Run(ctx)
+}
+
 func exitOnError(err error, context string) {
 	if err != nil {
 		wrappedError := errors.Wrap(err, context)
@@ -145,11 +164,15 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 
 	destinationsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
 	destinationHandler := destinationfetcher.NewDestinationsHTTPHandler(fetcher, cfg.Handler)
+	sensitiveDataAPIRouter := destinationsOnDemandAPIRouter
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsEndpoint)
+	configureAuthMiddleware(ctx, httpClient, destinationsOnDemandAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.DestinationsSensitiveDataScope)
 	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.FetchDestinationsOnDemand).Methods(http.MethodGet)
+
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsSensitiveEndpoint)
-	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsSensitiveEndpoint, destinationHandler.FetchDestinationsSensitiveData).Methods(http.MethodGet)
+	configureAuthMiddleware(ctx, httpClient, sensitiveDataAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.DestinationsSensitiveDataScope)
+	sensitiveDataAPIRouter.HandleFunc(cfg.Handler.DestinationsSensitiveEndpoint, destinationHandler.FetchDestinationsSensitiveData).Methods(http.MethodGet)
 
 	healthCheckRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
 	logger.Infof("Registering readiness endpoint...")
