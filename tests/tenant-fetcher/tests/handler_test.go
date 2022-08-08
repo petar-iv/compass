@@ -19,6 +19,7 @@ package tests
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -326,10 +327,8 @@ func TestRegionalOnboardingHandler(t *testing.T) {
 }
 
 func TestGetDependenciesHandler(t *testing.T) {
-	t.Run("Should fail when invalid region is provided", func(t *testing.T) {
+	t.Run("Returns empty array", func(t *testing.T) {
 		// GIVEN
-		// TODO: should replace path param {region} in config.TenantFetcherFullDependenciesURL
-		// It currently just calls https://compass-gateway.local.kyma.dev/tenants/v1/regional/{region}/dependencies
 		request, err := http.NewRequest(http.MethodGet, config.TenantFetcherFullDependenciesURL, nil)
 		require.NoError(t, err)
 
@@ -339,12 +338,17 @@ func TestGetDependenciesHandler(t *testing.T) {
 		// WHEN
 		response, err := httpClient.Do(request)
 		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+
+		responseBody, err := ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		responseBodyJson := make([]interface{}, 0)
 
 		// THEN
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		err = json.Unmarshal(responseBody, &responseBodyJson)
+		require.NoError(t, err)
+		require.Empty(t, responseBodyJson)
 	})
-	// TODO: Should succeed on existing region provided (+ validate the response)
-	// Mocked data is created from configmap 'region-instances-credetials.yaml'. So for this test case is could be called with eu-1 or eu-2
 }
 
 func addRegionalTenantExpectStatusCode(t *testing.T, providedTenant tenantfetcher.Tenant, expectedStatusCode int) {

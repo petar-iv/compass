@@ -340,9 +340,7 @@ func TestService_SubscriptionFlows(t *testing.T) {
 func TestService_Dependencies(t *testing.T) {
 	const (
 		regionPathVar  = "region"
-		missingRegion  = "eu-2"
 		existingRegion = "eu-1"
-		xsappname      = "xsappname"
 	)
 	target := fmt.Sprintf("/v1/regional/:%s/dependencies", regionPathVar)
 
@@ -350,14 +348,9 @@ func TestService_Dependencies(t *testing.T) {
 
 	validHandlerConfig := tenantfetchersvc.HandlerConfig{
 		RegionPathParam: "region",
-		RegionToDependenciesConfig: map[string][]tenantfetchersvc.Dependency{
-			existingRegion: []tenantfetchersvc.Dependency{
-				tenantfetchersvc.Dependency{Xsappname: xsappname},
-			},
-		},
 	}
 
-	validResponse := fmt.Sprintf("[{\"xsappname\":\"%s\"}]", xsappname)
+	validResponse := fmt.Sprintf("[]")
 
 	testCases := []struct {
 		Name                  string
@@ -373,15 +366,6 @@ func TestService_Dependencies(t *testing.T) {
 			PathParams:          map[string]string{},
 			ExpectedStatusCode:  http.StatusBadRequest,
 			ExpectedErrorOutput: "Region path parameter is missing from request",
-		},
-		{
-			Name:    "Failure when region is invalid",
-			Request: httptest.NewRequest(http.MethodGet, target, nil),
-			PathParams: map[string]string{
-				regionPathVar: missingRegion,
-			},
-			ExpectedStatusCode:  http.StatusBadRequest,
-			ExpectedErrorOutput: fmt.Sprintf("Invalid region provided: %s", missingRegion),
 		},
 		{
 			Name:    "Success when existing region is provided",
@@ -426,6 +410,7 @@ func TestService_Dependencies(t *testing.T) {
 		})
 	}
 }
+
 func TestService_FetchTenantOnDemand(t *testing.T) {
 	const (
 		parentIDPathVar = "tenantId"
