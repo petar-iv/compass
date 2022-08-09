@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-
 	auth "github.com/kyma-incubator/compass/components/director/internal/authenticator"
 	"github.com/kyma-incubator/compass/components/director/internal/authenticator/claims"
 	"github.com/kyma-incubator/compass/components/director/internal/domain/api"
@@ -373,7 +372,6 @@ func registerTenantsHandler(ctx context.Context, router *mux.Router, cfg tenantf
 
 	provisioner := tenantfetcher.NewTenantProvisioner(directorClient, tenantConverter, cfg.TenantProvider)
 	subscriber := tenantfetcher.NewSubscriber(directorClient, provisioner)
-
 	tenantHandler := tenantfetcher.NewTenantsHTTPHandler(subscriber, cfg)
 
 	log.C(ctx).Infof("Registering Regional Tenant Onboarding endpoint on %s...", cfg.RegionalHandlerEndpoint)
