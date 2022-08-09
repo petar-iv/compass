@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"github.com/kyma-incubator/compass/components/director/pkg/cronjob"
 	"net/http"
 	"os"
 	"time"
@@ -55,8 +56,10 @@ const envPrefix = "APP"
 type config struct {
 	Address string `envconfig:"default=127.0.0.1:8080"`
 
-	ServerTimeout   time.Duration `envconfig:"default=110s"`
-	ShutdownTimeout time.Duration `envconfig:"default=10s"`
+	ServerTimeout              time.Duration `envconfig:"default=110s"`
+	ShutdownTimeout            time.Duration `envconfig:"default=10s"`
+	DestinationFetcherSchedule time.Duration `envconfig:"APP_DESTINATION_FETCHER_SCHEDULE,default=10m"`
+	ParallelTenantResyncs      int64         `envconfig:"APP_DESTINATION_FETCHER_PARALLEL_TENANTS,default=10"`
 
 	Handler destinationfetcher.HandlerConfig
 
@@ -67,6 +70,7 @@ type config struct {
 	Database            persistence.DatabaseConfig
 	Log                 log.Config
 	SecurityConfig      securityConfig
+	ElectionConfig      cronjob.ElectionConfig
 }
 
 type securityConfig struct {
@@ -74,7 +78,7 @@ type securityConfig struct {
 	AllowJWTSigningNone            bool          `envconfig:"APP_ALLOW_JWT_SIGNING_NONE,default=false"`
 	JwksEndpoint                   string        `envconfig:"APP_JWKS_ENDPOINT,default=file://hack/default-jwks.json"`
 	DestinationsOnDemandScope      string        `envconfig:"APP_DESTINATIONS_ON_DEMAND_SCOPE"`
-	DestinationsSensitiveDataScope string        `envconfig:"APP_DETINATIONS_SENSITIVE_DATA_SCOPE"`
+	DestinationsSensitiveDataScope string        `envconfig:"APP_DESTINATIONS_SENSITIVE_DATA_SCOPE"`
 }
 
 func main() {
@@ -107,13 +111,28 @@ func main() {
 		},
 	}
 
-	handler := initAPIHandler(ctx, httpClient, cfg, transact)
+	svcs := getServices(cfg, transact)
+	handler := initAPIHandler(ctx, httpClient, cfg, svcs.destFetcher)
 	runMainSrv, shutdownMainSrv := createServer(ctx, cfg, handler, "main")
 
 	go func() {
 		<-ctx.Done()
 		// Interrupt signal received - shut down the servers
 		shutdownMainSrv()
+	}()
+
+	resyncJobConfig := destinationfetcher.ResyncJobConfig{
+		ElectionCfg:       cfg.ElectionConfig,
+		JobSchedulePeriod: cfg.DestinationFetcherSchedule,
+		ParallelTenants:   cfg.ParallelTenantResyncs,
+	}
+	go func() {
+		err := destinationfetcher.StartDestinationFetcherResyncJob(
+			ctx, resyncJobConfig, svcs.subscribedTenantFetcher, svcs.destFetcher)
+		if err != nil {
+			log.C(ctx).WithError(err).Error("Failed to start destination fetcher job. Stopping app...")
+			cancel()
+		}
 	}()
 
 	runMainSrv()
@@ -141,11 +160,12 @@ func exitOnError(err error, context string) {
 	}
 }
 
-func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, transact persistence.Transactioner) http.Handler {
-	logger := log.C(ctx)
-	mainRouter := mux.NewRouter()
-	mainRouter.Use(correlation.AttachCorrelationIDToContext(), log.RequestLogger())
+type services struct {
+	destFetcher             destinationfetcher.DestinationFetcher
+	subscribedTenantFetcher destinationfetcher.SubscribedTenantFetcher
+}
 
+func getServices(cfg config, transact persistence.Transactioner) services {
 	uuidSvc := uuid.NewService()
 	destRepo := destination.NewRepository()
 	bundleRepo := bundleRepo()
@@ -161,6 +181,19 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 
 	svc := destinationfetcher.NewDestinationService(transact, uuidSvc, destRepo, bundleRepo, labelRepo, tenantRepo, cfg.DestinationsConfig, cfg.APIConfig)
 	fetcher := destinationfetcher.NewFetcher(*svc)
+
+	return services{
+		destFetcher:             fetcher,
+		subscribedTenantFetcher: tenantRepo,
+	}
+}
+
+func initAPIHandler(
+	ctx context.Context, httpClient *http.Client, cfg config, fetcher destinationfetcher.DestinationFetcher) http.Handler {
+
+	logger := log.C(ctx)
+	mainRouter := mux.NewRouter()
+	mainRouter.Use(correlation.AttachCorrelationIDToContext(), log.RequestLogger())
 
 	destinationsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
 	destinationHandler := destinationfetcher.NewDestinationsHTTPHandler(fetcher, cfg.Handler)

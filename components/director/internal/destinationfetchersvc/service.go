@@ -41,7 +41,7 @@ type BundleRepo interface {
 }
 
 type TenantRepo interface {
-	GetBySubscibredRuntimes(ctx context.Context) ([]*model.BusinessTenantMapping, error)
+	GetBySubscribedRuntimes(ctx context.Context) ([]*model.BusinessTenantMapping, error)
 }
 
 type DestinationService struct {

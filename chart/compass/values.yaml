@@ -517,6 +517,10 @@ global:
     host: compass-destination-fetcher.compass-system.svc.cluster.local
     prefix: /destination-configuration
     port: 3000
+    jobSchedule: 10m
+    lease:
+      lockname: destinationlease
+    parallelTenants: 10
     authentication:
       jwksEndpoint: "http://ory-oathkeeper-api.kyma-system.svc.cluster.local:4456/.well-known/jwks.json"
       appDestinationsOnDemandScope: "destinations_on_demand"

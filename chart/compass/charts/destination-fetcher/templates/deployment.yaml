@@ -113,7 +113,15 @@ spec:
               value: "{{ .Values.global.destinationFetcher.authentication.jwksEndpoint }}"
             - name: APP_DESTINATIONS_ON_DEMAND_SCOPE
               value: {{ .Values.global.destinationFetcher.authentication.appDestinationsOnDemandScope | quote }}
-            - name: APP_DETINATIONS_SENSITIVE_DATA_SCOPE
+            - name: APP_DESTINATION_FETCHER_SCHEDULE
+              value: "{{ .Values.global.destinationFetcher.jobSchedule }}"
+            - name: APP_ELECTION_LEASE_LOCK_NAME
+              value: {{ .Values.global.destinationFetcher.lease.lockname | quote }}
+            - name: APP_DESTINATION_FETCHER_PARALLEL_TENANTS
+              value: {{ .Values.global.destinationFetcher.parallelTenants }}
+            - name: APP_ELECTION_LEASE_LOCK_NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: APP_DESTINATIONS_SENSITIVE_DATA_SCOPE
               value: {{ .Values.global.destinationFetcher.authentication.appDetinationsSensitiveDataScope | quote }}
             - name: APP_DB_USER
               valueFrom:

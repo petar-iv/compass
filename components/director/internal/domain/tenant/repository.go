@@ -356,7 +356,7 @@ func (r *pgRepository) GetLowestOwnerForResource(ctx context.Context, resourceTy
 	return dest.TenantID, nil
 }
 
-func (r *pgRepository) GetBySubscibredRuntimes(ctx context.Context) ([]*model.BusinessTenantMapping, error) {
+func (r *pgRepository) GetBySubscribedRuntimes(ctx context.Context) ([]*model.BusinessTenantMapping, error) {
 	persist, err := persistence.FromCtx(ctx)
 	if err != nil {
 		return nil, err
