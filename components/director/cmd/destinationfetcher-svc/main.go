@@ -167,8 +167,8 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client, cfg config, tr
 	sensitiveDataAPIRouter := destinationsOnDemandAPIRouter
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsEndpoint)
-	configureAuthMiddleware(ctx, httpClient, destinationsOnDemandAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.DestinationsSensitiveDataScope)
-	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.FetchDestinationsOnDemand).Methods(http.MethodGet)
+	configureAuthMiddleware(ctx, httpClient, destinationsOnDemandAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.DestinationsOnDemandScope)
+	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.FetchDestinationsOnDemand).Methods(http.MethodPut)
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsSensitiveEndpoint)
 	configureAuthMiddleware(ctx, httpClient, sensitiveDataAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.DestinationsSensitiveDataScope)

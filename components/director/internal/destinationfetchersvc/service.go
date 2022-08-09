@@ -55,7 +55,8 @@ type DestinationService struct {
 	apiConfig          APIConfig
 }
 
-func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDService, destRepo DestinationRepo, bundleRepo BundleRepo, labelRepo LabelRepo, tenantRepo TenantRepo, destinationsConfig config.DestinationsConfig, apiConfig APIConfig) *DestinationService {
+func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDService, destRepo DestinationRepo,
+	bundleRepo BundleRepo, labelRepo LabelRepo, tenantRepo TenantRepo, destinationsConfig config.DestinationsConfig, apiConfig APIConfig) *DestinationService {
 	return &DestinationService{
 		transact:           transact,
 		uuidSvc:            uuidSvc,
@@ -81,7 +82,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 
 	subdomain := subdomainLabel.Value.(string)
 	region := regionLabel.Value.(string)
-	
+
 	instanceConfig, ok := d.destinationsConfig.RegionToInstanceConfig[region]
 	if !ok {
 		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
@@ -108,7 +109,7 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 func (d DestinationService) mapDestinationsToTenant(ctx context.Context, tenant string, destinations []model.DestinationInput) error {
 	tx, err := d.transact.Begin()
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction: %v")
+		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
 		return err
 	}
 	ctx = persistence.SaveToContext(ctx, tx)
@@ -243,7 +244,7 @@ func fetchDestination(ctx context.Context, dest string, weighted *semaphore.Weig
 func (d DestinationService) getSubscribedSubdomainLabel(ctx context.Context, subaccountID string) (*model.Label, error) {
 	tx, err := d.transact.Begin()
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction: %v")
+		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
 		return nil, err
 	}
 	ctx = persistence.SaveToContext(ctx, tx)
@@ -270,7 +271,7 @@ func (d DestinationService) getSubscribedSubdomainLabel(ctx context.Context, sub
 func (d DestinationService) getRegionLabel(ctx context.Context, tenantID string) (*model.Label, error) {
 	tx, err := d.transact.Begin()
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction: %v")
+		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
 		return nil, err
 	}
 	ctx = persistence.SaveToContext(ctx, tx)

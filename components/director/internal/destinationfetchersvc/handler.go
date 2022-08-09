@@ -97,7 +97,7 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 	namesRaw := request.URL.Query().Get("name")
 	names, err := getDestinationNames(namesRaw)
 	if err != nil {
-		log.C(ctx).Errorf("Failed to fetch sensitive data for destinations %s: %v", err.Error())
+		log.C(ctx).Errorf("Failed to fetch sensitive data for destinations %s: %v", namesRaw, err.Error())
 		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}

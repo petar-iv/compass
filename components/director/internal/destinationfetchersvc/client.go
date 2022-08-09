@@ -99,6 +99,8 @@ func (c *Client) FetchSubbacountDestinationsPage(ctx context.Context, page strin
 		return nil, err
 	}
 
+	log.C(ctx).Infof("Getting destinations page: %s data from: %s \n", page, url)
+
 	res, err := c.sendRequestWithRetry(ctx, req)
 	if err != nil {
 		return nil, err
@@ -152,7 +154,7 @@ func (c *Client) FetchDestinationSensitiveData(ctx context.Context, destinationN
 	}
 
 	if res.StatusCode == http.StatusNotFound {
-		return nil, apperrors.NewNotFoundErrorWithMessage(resource.Destination, destinationName, "")
+		return nil, apperrors.NewNotFoundError(resource.Destination, destinationName)
 	}
 
 	if res.StatusCode != http.StatusOK {
@@ -174,6 +176,7 @@ func (c *Client) sendRequestWithRetry(ctx context.Context, req *http.Request) (*
 		res, err := c.httpClient.Do(req)
 		if err == nil && res.StatusCode < http.StatusInternalServerError {
 			response = res
+			return nil
 		}
 
 		if err != nil {
@@ -184,7 +187,6 @@ func (c *Client) sendRequestWithRetry(ctx context.Context, req *http.Request) (*
 		if err != nil {
 			return errors.Wrap(err, "failed to read response body")
 		}
-
 		return errors.Errorf("request failed with status code %d, error message: %v", res.StatusCode, string(body))
 	}, retry.Attempts(c.apiConfig.RetryAttempts), retry.Delay(c.apiConfig.RetryInterval))
 	if err != nil {
