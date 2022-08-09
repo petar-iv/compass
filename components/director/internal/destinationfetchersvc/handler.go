@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	subaccountIdKey = "subaccountId"
-	regionKey       = "region"
+	subaccountIdKey    = "subaccountId"
+	regionKey          = "region"
+	destQueryParameter = "dest"
 )
 
 type HandlerConfig struct {
@@ -27,6 +28,7 @@ type handler struct {
 	config  HandlerConfig
 }
 
+//go:generate mockery --name=DestinationFetcher --output=automock --outpkg=automock --case=underscore --disable-version-string
 type DestinationFetcher interface {
 	FetchDestinationsOnDemand(ctx context.Context, subaccountID string) error
 	FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error)
@@ -65,11 +67,11 @@ func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request 
 func getDestinationNames(namesRaw string) ([]string, error) {
 	namesRawLength := len(namesRaw)
 	if namesRawLength == 0 {
-		return nil, fmt.Errorf("name query parameter is missing")
+		return nil, fmt.Errorf("dest query parameter is missing")
 	}
 
 	if namesRaw[0] != '[' || namesRaw[namesRawLength-1] != ']' {
-		return nil, fmt.Errorf("%s name query parameter is invalid. Must start with '[' and end with ']'", namesRaw)
+		return nil, fmt.Errorf("%s dest query parameter is invalid. Must start with '[' and end with ']'", namesRaw)
 	}
 
 	//removes brackets from query
@@ -94,7 +96,7 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 		return
 	}
 
-	namesRaw := request.URL.Query().Get("name")
+	namesRaw := request.URL.Query().Get(destQueryParameter)
 	names, err := getDestinationNames(namesRaw)
 	if err != nil {
 		log.C(ctx).Errorf("Failed to fetch sensitive data for destinations %s: %v", namesRaw, err.Error())
