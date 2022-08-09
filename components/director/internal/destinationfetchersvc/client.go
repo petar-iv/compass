@@ -106,18 +106,18 @@ func (c *Client) FetchSubbacountDestinationsPage(ctx context.Context, page strin
 		return nil, err
 	}
 
+	if res.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("received status code %d when trying to fetch destinations", res.StatusCode)
+	}
+
 	var destinations []model.DestinationInput
 	if err := json.NewDecoder(res.Body).Decode(&destinations); err != nil {
 		return nil, errors.Wrap(err, "failed to decode response body")
 	}
 
-	if res.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("received status code %d when trying to fetch destinations", res.StatusCode)
-	}
-
 	pageCount := res.Header.Get(c.apiConfig.PagingCountHeader)
 	if pageCount == "" {
-		return nil, errors.Wrapf(err, "failed to extract header '%s' from destinations response", c.apiConfig.PagingCountParam)
+		return nil, errors.Errorf("failed to extract header '%s' from destinations response", c.apiConfig.PagingCountParam)
 	}
 
 	return &DestinationResponse{

@@ -30,18 +30,28 @@ const (
 	subaccountEndpoint = "/destination-configuration/v1/subaccountDestinations"
 	subdomain          = "test"
 	tokenPath          = "/test"
+	noPageCountHeader  = "noPageCount"
 )
 
 func TestClient_SubaccountEndpoint(t *testing.T) {
 	// GIVEN
 	ctx := context.Background()
-	mockClient, mockServerCloseFn, endpoint := fixHTTPClient(t)
+	mockClient, mockServerCloseFn, endpoint := fixHTTPClientSubaccount(t)
 	defer mockServerCloseFn()
 
-	apiConfig := destinationfetchersvc.APIConfig{}
-	apiConfig.EndpointGetSubbacountDestinations = endpoint + subaccountEndpoint
-	apiConfig.RetryAttempts = 3
-	apiConfig.RetryInterval = time.Duration(100 * time.Millisecond)
+	apiConfig := destinationfetchersvc.APIConfig{
+		GoroutineLimit:                    10,
+		RetryInterval:                     time.Duration(100 * time.Millisecond),
+		RetryAttempts:                     3,
+		EndpointGetSubbacountDestinations: endpoint + subaccountEndpoint,
+		EndpointFindDestination:           "",
+		Timeout:                           time.Duration(100 * time.Millisecond),
+		PageSize:                          100,
+		PagingPageParam:                   "$page",
+		PagingSizeParam:                   "$pageSize",
+		PagingCountParam:                  "$pageCount",
+		PagingCountHeader:                 "Page-Count",
+	}
 
 	cert, key := generateTestCertAndKey(t, "test")
 	instanceCfg := config.InstanceConfig{}
@@ -52,40 +62,41 @@ func TestClient_SubaccountEndpoint(t *testing.T) {
 	require.NoError(t, err)
 	client.SetHTTPClient(mockClient)
 
-	t.Run("Success fetching sensitive data on first try", func(t *testing.T) {
+	t.Run("Success fetching data page 3", func(t *testing.T) {
 		// WHEN
-		res, err := client.FetchDestinationSensitiveData(ctx, "s4ext")
+		res, err := client.FetchSubbacountDestinationsPage(ctx, "3")
 		// THEN
 		require.NoError(t, err)
 		assert.NotEmpty(t, res)
 	})
 
-	t.Run("Fetch should fail with status cod 500, but do three attempts", func(t *testing.T) {
+	t.Run("Success fetching data page but no Page-Count header is in response", func(t *testing.T) {
 		// WHEN
-		_, err := client.FetchDestinationSensitiveData(ctx, "internalServerError")
+		_, err := client.FetchSubbacountDestinationsPage(ctx, noPageCountHeader)
+		// THEN
+		require.ErrorContains(t, err, "failed to extract header")
+	})
+
+	t.Run("Fetch should fail with status code 500, but do three attempts", func(t *testing.T) {
+		// WHEN
+		_, err := client.FetchSubbacountDestinationsPage(ctx, "internalServerError")
 		// THEN
 		require.ErrorContains(t, err, "#3")
 		require.ErrorContains(t, err, "status code 500")
 	})
 
-	t.Run("NewNotFoundError should be returned for status 404", func(t *testing.T) {
+	t.Run("Fetch should fail with status code 4xx", func(t *testing.T) {
 		// WHEN
-		_, err := client.FetchDestinationSensitiveData(ctx, "notFound")
+		_, err := client.FetchSubbacountDestinationsPage(ctx, "forbidden")
 		// THEN
-		require.ErrorIs(t, err, apperrors.NewNotFoundError(resource.Destination, "notFound"))
-	})
-
-	t.Run("Error should be returned for status 400", func(t *testing.T) {
-		// WHEN
-		_, err := client.FetchDestinationSensitiveData(ctx, "badRequest")
-		// THEN
-		require.ErrorContains(t, err, "400")
+		require.ErrorContains(t, err, "status code 403")
 	})
 }
+
 func TestClient_SenstiveDataEndpoint(t *testing.T) {
 	// GIVEN
 	ctx := context.Background()
-	mockClient, mockServerCloseFn, endpoint := fixHTTPClient(t)
+	mockClient, mockServerCloseFn, endpoint := fixHTTPClientSensitive(t)
 	defer mockServerCloseFn()
 
 	apiConfig := destinationfetchersvc.APIConfig{}
@@ -103,7 +114,7 @@ func TestClient_SenstiveDataEndpoint(t *testing.T) {
 	require.NoError(t, err)
 	client.SetHTTPClient(mockClient)
 
-	t.Run("Success fetching sensitive data on first try", func(t *testing.T) {
+	t.Run("Success fetching sensitive data", func(t *testing.T) {
 		// WHEN
 		res, err := client.FetchDestinationSensitiveData(ctx, "s4ext")
 		// THEN
@@ -111,7 +122,7 @@ func TestClient_SenstiveDataEndpoint(t *testing.T) {
 		assert.NotEmpty(t, res)
 	})
 
-	t.Run("Fetch should fail with status cod 500, but do three attempts", func(t *testing.T) {
+	t.Run("Fetch should fail with status code 500, but do three attempts", func(t *testing.T) {
 		// WHEN
 		_, err := client.FetchDestinationSensitiveData(ctx, "internalServerError")
 		// THEN
@@ -134,7 +145,50 @@ func TestClient_SenstiveDataEndpoint(t *testing.T) {
 	})
 }
 
-func fixHTTPClient(t *testing.T) (*http.Client, func(), string) {
+func fixHTTPClientSubaccount(t *testing.T) (*http.Client, func(), string) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(subaccountEndpoint, func(w http.ResponseWriter, r *http.Request) {
+		pageCount := r.URL.Query().Get("$pageCount")
+		page := r.URL.Query().Get("$page")
+		pageSize := r.URL.Query().Get("$pageSize")
+
+		if page == "forbidden" {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+
+		if page != "3" && page != noPageCountHeader {
+			http.Error(w, "page number invalid", http.StatusInternalServerError)
+			return
+		}
+
+		if pageSize != "100" {
+			http.Error(w, "pageSize invalid", http.StatusInternalServerError)
+			return
+		}
+
+		if pageCount != "true" {
+			http.Error(w, "pageCount invalid", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if page != noPageCountHeader {
+			w.Header().Set("Page-Count", "3")
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, err := io.WriteString(w, fixSubaccountDestinationsEndpoint())
+		require.NoError(t, err)
+	})
+
+	ts := httptest.NewServer(mux)
+
+	return ts.Client(), ts.Close, ts.URL
+}
+
+func fixHTTPClientSensitive(t *testing.T) (*http.Client, func(), string) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc(sensitiveEndpoint+"/s4ext", func(w http.ResponseWriter, r *http.Request) {
@@ -149,13 +203,6 @@ func fixHTTPClient(t *testing.T) (*http.Client, func(), string) {
 
 	mux.HandleFunc(sensitiveEndpoint+"/badRequest", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-	})
-
-	mux.HandleFunc(subaccountEndpoint, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, err := io.WriteString(w, fixSubaccountDestinationsEndpoint())
-		require.NoError(t, err)
 	})
 
 	ts := httptest.NewServer(mux)
@@ -238,7 +285,19 @@ func fixSesnitiveDataJSON() string {
 }
 
 func fixSubaccountDestinationsEndpoint() string {
-	return ""
+	return `
+  [
+    {
+      "Name": "string",
+      "Type": "HTTP",
+      "PropertyName": "string"
+    },
+    {
+      "Name": "string",
+      "Type": "HTTP",
+      "PropertyName": "string"
+    }
+  ]`
 }
 
 func generateTestCertAndKey(t *testing.T, commonName string) (crtPem, keyPem []byte) {
