@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/kyma-incubator/compass/components/director/internal/destinationfetchersvc"
@@ -26,7 +25,7 @@ func TestService_FetchDestinationsOnDemand(t *testing.T) {
 	target := "/v1/fetch"
 
 	validHandlerConfig := destinationfetchersvc.HandlerConfig{
-		DestinationsEndpoint:          "/v1/fetch",
+		SyncDestinationsEndpoint:      "/v1/fetch",
 		DestinationsSensitiveEndpoint: "/v1/info",
 		UserContextHeader:             userContextHeader,
 	}
@@ -125,13 +124,13 @@ func TestService_FetchDestinationsSensitiveData(t *testing.T) {
 	target := "/v1/info"
 
 	validHandlerConfig := destinationfetchersvc.HandlerConfig{
-		DestinationsEndpoint:          "/v1/fetch",
+		SyncDestinationsEndpoint:      "/v1/fetch",
 		DestinationsSensitiveEndpoint: "/v1/info",
 		UserContextHeader:             userContextHeader,
 	}
 
 	namesRaw := "[Rand, Mat]"
-	names := strings.Split("Rand, Mat", ",")
+	names := []string{"Rand", "Mat"}
 	reqWithUserContext := httptest.NewRequest(http.MethodPut, target, nil)
 	userContext := `{"subaccountId":"` + tenantID + `"}`
 	reqWithUserContext.Header.Set(userContextHeader, userContext)

@@ -523,10 +523,10 @@ global:
     parallelTenants: 10
     authentication:
       jwksEndpoint: "http://ory-oathkeeper-api.kyma-system.svc.cluster.local:4456/.well-known/jwks.json"
-      appDestinationsOnDemandScope: "destinations_on_demand"
+      appDestinationsSyncScope: "destinations_sync"
       appDetinationsSensitiveDataScope: "destinations_sensitive_data"
     server:
-      tenantDestinationsEndpoint: "/v1/tenantDestinations"
+      tenantDestinationsEndpoint: "/v1/syncDestinations"
       sensitiveDataEndpoint: "/v1/destinations"
     request:
       retry_interval: "100ms"

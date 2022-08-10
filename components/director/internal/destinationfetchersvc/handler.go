@@ -13,19 +13,18 @@ import (
 
 const (
 	tenantIDKey        = "subaccountId"
-	regionKey          = "region"
 	destQueryParameter = "dest"
 )
 
 type HandlerConfig struct {
-	DestinationsEndpoint          string `envconfig:"APP_DESTINATIONS_ON_DEMAND_HANDLER_ENDPOINT,default=/v1/fetch"`
-	DestinationsSensitiveEndpoint string `envconfig:"APP_DESTINATIONS_GET_DESTINATION,default=/v1/info"`
+	SyncDestinationsEndpoint      string `envconfig:"APP_DESTINATIONS_SYNC_ENDPOINT,default=/v1/syncDestinations"`
+	DestinationsSensitiveEndpoint string `envconfig:"APP_DESTINATIONS_SENSITIVE_DATA_ENDPOINT,default=/v1/destinations"`
 	UserContextHeader             string `envconfig:"APP_USER_CONTEXT_HEADER,default=user_context"`
 }
 
 type handler struct {
-	fetcher DestinationManager
-	config  HandlerConfig
+	destinationManager DestinationManager
+	config             HandlerConfig
 }
 
 //go:generate mockery --name=DestinationManager --output=automock --outpkg=automock --case=underscore --disable-version-string
@@ -35,10 +34,10 @@ type DestinationManager interface {
 }
 
 // NewDestinationsHTTPHandler returns a new HTTP handler, responsible for handling HTTP requests
-func NewDestinationsHTTPHandler(fetcher DestinationManager, config HandlerConfig) *handler {
+func NewDestinationsHTTPHandler(destinationManager DestinationManager, config HandlerConfig) *handler {
 	return &handler{
-		fetcher: fetcher,
-		config:  config,
+		destinationManager: destinationManager,
+		config:             config,
 	}
 }
 
@@ -52,7 +51,7 @@ func (h *handler) SyncTenantDestinations(writer http.ResponseWriter, request *ht
 		return
 	}
 
-	if err := h.fetcher.SyncTenantDestinations(ctx, tenantID); err != nil {
+	if err := h.destinationManager.SyncTenantDestinations(ctx, tenantID); err != nil {
 		if apperrors.IsNotFoundError(err) {
 			http.Error(writer, err.Error(), http.StatusBadRequest)
 			return
@@ -74,12 +73,16 @@ func getDestinationNames(namesRaw string) ([]string, error) {
 		return nil, fmt.Errorf("%s dest query parameter is invalid. Must start with '[' and end with ']'", namesRaw)
 	}
 
-	//removes brackets from query
+	// Remove brackets from query
 	namesRawWithoutBrackets := namesRaw[1 : namesRawLength-1]
 	names := strings.Split(namesRawWithoutBrackets, ",")
 
 	if sliceContainsEmptyString(names) {
 		return nil, fmt.Errorf("name parameter containes empty element")
+	}
+
+	for idx, name := range names {
+		names[idx] = strings.Trim(name, " ")
 	}
 
 	return names, nil
@@ -104,7 +107,7 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 		return
 	}
 
-	json, err := h.fetcher.FetchDestinationsSensitiveData(ctx, tenantID, names)
+	json, err := h.destinationManager.FetchDestinationsSensitiveData(ctx, tenantID, names)
 
 	if err != nil {
 		log.C(ctx).Errorf("Failed to fetch sensitive data for destinations %s and tenant %s: %v",

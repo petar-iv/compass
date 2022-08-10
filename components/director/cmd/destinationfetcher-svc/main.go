@@ -77,7 +77,7 @@ type securityConfig struct {
 	JWKSSyncPeriod                 time.Duration `envconfig:"default=5m"`
 	AllowJWTSigningNone            bool          `envconfig:"APP_ALLOW_JWT_SIGNING_NONE,default=false"`
 	JwksEndpoint                   string        `envconfig:"APP_JWKS_ENDPOINT,default=file://hack/default-jwks.json"`
-	DestinationsOnDemandScope      string        `envconfig:"APP_DESTINATIONS_ON_DEMAND_SCOPE"`
+	DestinationsOnDemandScope      string        `envconfig:"APP_DESTINATIONS_SYNC_SCOPE"`
 	DestinationsSensitiveDataScope string        `envconfig:"APP_DESTINATIONS_SENSITIVE_DATA_SCOPE"`
 }
 
@@ -178,19 +178,17 @@ func getServices(cfg config, transact persistence.Transactioner) services {
 	err := cfg.DestinationsConfig.MapInstanceConfigs()
 	exitOnError(err, "error while loading destination instances config")
 
-	fetcher := destinationfetcher.NewFetcher(destinationfetcher.DestinationService{
-		Transactioner:      transact,
-		UUIDSvc:            uuidSvc,
-		Repo:               destRepo,
-		BundleRepo:         bundleRepo,
-		LabelRepo:          labelRepo,
-		TenantRepo:         tenantRepo,
-		DestinationsConfig: cfg.DestinationsConfig,
-		APIConfig:          cfg.APIConfig,
-	})
-
 	return services{
-		destinationManager:      fetcher,
+		destinationManager: destinationfetcher.DestinationService{
+			Transactioner:      transact,
+			UUIDSvc:            uuidSvc,
+			Repo:               destRepo,
+			BundleRepo:         bundleRepo,
+			LabelRepo:          labelRepo,
+			TenantRepo:         tenantRepo,
+			DestinationsConfig: cfg.DestinationsConfig,
+			APIConfig:          cfg.APIConfig,
+		},
 		subscribedTenantFetcher: tenantRepo,
 	}
 }
@@ -202,20 +200,21 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client,
 	mainRouter := mux.NewRouter()
 	mainRouter.Use(correlation.AttachCorrelationIDToContext(), log.RequestLogger())
 
-	destinationsOnDemandAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
+	syncDestinationsAPIRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
 	destinationHandler := destinationfetcher.NewDestinationsHTTPHandler(fetcher, cfg.Handler)
-	sensitiveDataAPIRouter := destinationsOnDemandAPIRouter
+	sensitiveDataAPIRouter := syncDestinationsAPIRouter
 
-	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsEndpoint)
-	configureAuthMiddleware(ctx, httpClient, destinationsOnDemandAPIRouter,
+	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.SyncDestinationsEndpoint)
+	configureAuthMiddleware(ctx, httpClient, syncDestinationsAPIRouter,
 		cfg.SecurityConfig, cfg.SecurityConfig.DestinationsOnDemandScope)
 
-	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.SyncTenantDestinations).
+	syncDestinationsAPIRouter.HandleFunc(cfg.Handler.SyncDestinationsEndpoint, destinationHandler.SyncTenantDestinations).
 		Methods(http.MethodPut)
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsSensitiveEndpoint)
 	configureAuthMiddleware(ctx, httpClient, sensitiveDataAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.DestinationsSensitiveDataScope)
-	sensitiveDataAPIRouter.HandleFunc(cfg.Handler.DestinationsSensitiveEndpoint, destinationHandler.FetchDestinationsSensitiveData).Methods(http.MethodGet)
+	sensitiveDataAPIRouter.HandleFunc(cfg.Handler.DestinationsSensitiveEndpoint, destinationHandler.FetchDestinationsSensitiveData).
+		Methods(http.MethodGet)
 
 	healthCheckRouter := mainRouter.PathPrefix(cfg.DestinationsRootAPI).Subrouter()
 	logger.Infof("Registering readiness endpoint...")

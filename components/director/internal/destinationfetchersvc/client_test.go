@@ -26,26 +26,26 @@ import (
 )
 
 const (
-	sensitiveEndpoint  = "/destination-configuration/v1/destinations"
-	subaccountEndpoint = "/destination-configuration/v1/subaccountDestinations"
-	subdomain          = "test"
-	tokenPath          = "/test"
-	noPageCountHeader  = "noPageCount"
+	sensitiveEndpoint = "/destination-configuration/v1/destinations"
+	syncEndpoint      = "/destination-configuration/v1/syncDestinations"
+	subdomain         = "test"
+	tokenPath         = "/test"
+	noPageCountHeader = "noPageCount"
 )
 
 func TestClient_SubaccountEndpoint(t *testing.T) {
 	// GIVEN
 	ctx := context.Background()
-	mockClient, mockServerCloseFn, endpoint := fixHTTPClientSubaccount(t)
+	mockClient, mockServerCloseFn, endpoint := fixHTTPClientTenant(t)
 	defer mockServerCloseFn()
 
 	apiConfig := destinationfetchersvc.APIConfig{
 		GoroutineLimit:                10,
-		RetryInterval:                 time.Duration(100 * time.Millisecond),
+		RetryInterval:                 100 * time.Millisecond,
 		RetryAttempts:                 3,
-		EndpointGetTenantDestinations: endpoint + subaccountEndpoint,
+		EndpointGetTenantDestinations: endpoint + syncEndpoint,
 		EndpointFindDestination:       "",
-		Timeout:                       time.Duration(100 * time.Millisecond),
+		Timeout:                       100 * time.Millisecond,
 		PageSize:                      100,
 		PagingPageParam:               "$page",
 		PagingSizeParam:               "$pageSize",
@@ -101,7 +101,7 @@ func TestClient_SenstiveDataEndpoint(t *testing.T) {
 
 	apiConfig := destinationfetchersvc.APIConfig{}
 	apiConfig.EndpointFindDestination = endpoint + sensitiveEndpoint
-	apiConfig.EndpointGetTenantDestinations = endpoint + subaccountEndpoint
+	apiConfig.EndpointGetTenantDestinations = endpoint + syncEndpoint
 	apiConfig.RetryAttempts = 3
 	apiConfig.RetryInterval = time.Duration(100 * time.Millisecond)
 
@@ -145,10 +145,10 @@ func TestClient_SenstiveDataEndpoint(t *testing.T) {
 	})
 }
 
-func fixHTTPClientSubaccount(t *testing.T) (*http.Client, func(), string) {
+func fixHTTPClientTenant(t *testing.T) (*http.Client, func(), string) {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc(subaccountEndpoint, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(syncEndpoint, func(w http.ResponseWriter, r *http.Request) {
 		pageCount := r.URL.Query().Get("$pageCount")
 		page := r.URL.Query().Get("$page")
 		pageSize := r.URL.Query().Get("$pageSize")
