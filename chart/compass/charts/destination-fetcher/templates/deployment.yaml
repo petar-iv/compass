@@ -77,8 +77,8 @@ spec:
               value: {{ .Values.global.destinationFetcher.instance.x509KeyPath }}
             - name: APP_DESTINATION_SECRET_PATH
               value: "{{ .Values.global.destinationFetcher.secretPath }}"
-            - name: APP_ENDPOINT_GET_SUBACCOUNT_DESTINATIONS
-              value: "{{ .Values.global.destinationFetcher.server.subaccountDestinationsEndpoint }}"
+            - name: APP_ENDPOINT_GET_TENANT_DESTINATIONS
+              value: "{{ .Values.global.destinationFetcher.server.tenantDestinationsEndpoint }}"
             - name: APP_ENDPOINT_FIND_DESTINATION
               value: "{{ .Values.global.destinationFetcher.server.sensitiveDataEndpoint }}"
             - name: APP_DESTINATIONS_TIMEOUT

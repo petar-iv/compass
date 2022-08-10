@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	subaccountID       = "f09ba084-0e82-49ab-ab2e-b7ecc988312d"
+	tenantID           = "f09ba084-0e82-49ab-ab2e-b7ecc988312d"
 	userContextHeader  = "user_context"
 	runtimeID          = "d09ba084-0e82-49ab-ab2e-b7ecc988312d"
 	subaccountLabelKey = "subaccount"
@@ -29,8 +29,8 @@ const (
 )
 
 var (
-	tenantID = "f09ba084-0e82-49ab-ab2e-b7ecc988312f"
-	testErr  = errors.New("test error")
+	labelTenantID = "f09ba084-0e82-49ab-ab2e-b7ecc988312f"
+	testErr       = errors.New("test error")
 )
 
 func TestService_SyncSubaccountDestinations(t *testing.T) {
@@ -40,7 +40,7 @@ func TestService_SyncSubaccountDestinations(t *testing.T) {
 
 	cert, key := generateTestCertAndKey(t, "test")
 	instanceConfig := config.InstanceConfig{
-		ClientID:     subaccountID,
+		ClientID:     tenantID,
 		ClientSecret: "secret",
 		URL:          "https://destination-configuration.com",
 		TokenURL:     "https://test.auth.com",
@@ -84,7 +84,7 @@ func TestService_SyncSubaccountDestinations(t *testing.T) {
 			Transactioner: txGen.ThatSucceeds,
 			LabelRepo: func() *automock.LabelRepo {
 				repo := &automock.LabelRepo{}
-				repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, subaccountID).
+				repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, tenantID).
 					Return(nil, apperrors.NewNotFoundError(resource.Label, "id"))
 				return repo
 			},
@@ -92,14 +92,14 @@ func TestService_SyncSubaccountDestinations(t *testing.T) {
 			BundleRepo:          unusedBundleRepo,
 			DestRepo:            unusedDestinationsRepo,
 			UUIDService:         unusedUUIDService,
-			ExpectedErrorOutput: fmt.Sprintf("subaccount %s not found", subaccountID),
+			ExpectedErrorOutput: fmt.Sprintf("subaccount %s not found", tenantID),
 		},
 		{
 			Name:          "Error while getting subdomain label",
 			Transactioner: txGen.ThatSucceeds,
 			LabelRepo: func() *automock.LabelRepo {
 				repo := &automock.LabelRepo{}
-				repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, subaccountID).
+				repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, tenantID).
 					Return(nil, testErr)
 				return repo
 			},
@@ -142,12 +142,20 @@ func TestService_SyncSubaccountDestinations(t *testing.T) {
 			uuidService := testCase.UUIDService()
 			defer mock.AssertExpectationsForObjects(t, tx, destRepo, labelRepo, uuidService, tenantRepo, bundleRepo)
 
-			destSvc := destinationfetchersvc.NewDestinationService(tx, uuidService, destRepo, bundleRepo, labelRepo,
-				tenantRepo, destConfig, destAPIConfig)
+			destSvc := destinationfetchersvc.DestinationService{
+				Transactioner:      tx,
+				UUIDSvc:            uuidService,
+				Repo:               destRepo,
+				BundleRepo:         bundleRepo,
+				LabelRepo:          labelRepo,
+				TenantRepo:         tenantRepo,
+				DestinationsConfig: destConfig,
+				APIConfig:          destAPIConfig,
+			}
 
 			ctx := context.Background()
 			// WHEN
-			err := destSvc.SyncSubaccountDestinations(ctx, subaccountID)
+			err := destSvc.SyncTenantDestinations(ctx, tenantID)
 
 			// THEN
 			if len(testCase.ExpectedErrorOutput) > 0 {
@@ -172,9 +180,9 @@ func usedUUIDService() *automock.UUIDService {
 func successfullLabelSubdomainRequest() *automock.LabelRepo {
 	labelValue := "ta-subdomain"
 	repo := &automock.LabelRepo{}
-	label := model.NewLabelForRuntime(runtimeID, tenantID, subaccountLabelKey, labelValue)
-	label.Tenant = &tenantID
-	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, subaccountID).
+	label := model.NewLabelForRuntime(runtimeID, labelTenantID, subaccountLabelKey, labelValue)
+	label.Tenant = &labelTenantID
+	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, tenantID).
 		Return(label, nil)
 	return repo
 }
@@ -182,11 +190,11 @@ func successfullLabelSubdomainRequest() *automock.LabelRepo {
 func failedLabelRegionAndSuccesfullSubdomainRequest() *automock.LabelRepo {
 	labelValue := "ta-subdomain"
 	repo := &automock.LabelRepo{}
-	label := model.NewLabelForRuntime(runtimeID, tenantID, subaccountLabelKey, labelValue)
-	label.Tenant = &tenantID
-	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, subaccountID).
+	label := model.NewLabelForRuntime(runtimeID, labelTenantID, subaccountLabelKey, labelValue)
+	label.Tenant = &labelTenantID
+	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, tenantID).
 		Return(label, nil)
-	repo.On("GetByKey", mock.Anything, tenantID, model.TenantLabelableObject, tenantID, regionLabelKey).
+	repo.On("GetByKey", mock.Anything, labelTenantID, model.TenantLabelableObject, labelTenantID, regionLabelKey).
 		Return(nil, testErr)
 
 	return repo
@@ -195,13 +203,13 @@ func failedLabelRegionAndSuccesfullSubdomainRequest() *automock.LabelRepo {
 func successfullLabelRegionAndSubdomainRequest() *automock.LabelRepo {
 	labelValue := "ta-subdomain"
 	repo := &automock.LabelRepo{}
-	label := model.NewLabelForRuntime(runtimeID, tenantID, subaccountLabelKey, labelValue)
-	label.Tenant = &tenantID
-	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, subaccountID).
+	label := model.NewLabelForRuntime(runtimeID, labelTenantID, subaccountLabelKey, labelValue)
+	label.Tenant = &labelTenantID
+	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, tenantID).
 		Return(label, nil)
-	label = model.NewLabelForRuntime(runtimeID, tenantID, regionLabelKey, region)
-	label.Tenant = &tenantID
-	repo.On("GetByKey", mock.Anything, tenantID, model.TenantLabelableObject, tenantID, regionLabelKey).
+	label = model.NewLabelForRuntime(runtimeID, labelTenantID, regionLabelKey, region)
+	label.Tenant = &labelTenantID
+	repo.On("GetByKey", mock.Anything, labelTenantID, model.TenantLabelableObject, labelTenantID, regionLabelKey).
 		Return(label, nil)
 
 	return repo

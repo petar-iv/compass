@@ -13,13 +13,13 @@ type DestinationSyncer struct {
 	mock.Mock
 }
 
-// SyncSubaccountDestinations provides a mock function with given fields: ctx, subaccountID
-func (_m *DestinationSyncer) SyncSubaccountDestinations(ctx context.Context, subaccountID string) error {
-	ret := _m.Called(ctx, subaccountID)
+// SyncTenantDestinations provides a mock function with given fields: ctx, tenantID
+func (_m *DestinationSyncer) SyncTenantDestinations(ctx context.Context, tenantID string) error {
+	ret := _m.Called(ctx, tenantID)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, subaccountID)
+		r0 = rf(ctx, tenantID)
 	} else {
 		r0 = ret.Error(0)
 	}

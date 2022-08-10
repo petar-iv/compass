@@ -19,7 +19,7 @@ import (
 
 func TestService_FetchDestinationsOnDemand(t *testing.T) {
 	const (
-		subaccountID      = "f09ba084-0e82-49ab-ab2e-b7ecc988312d"
+		tenantID          = "f09ba084-0e82-49ab-ab2e-b7ecc988312d"
 		userContextHeader = "user_context"
 	)
 
@@ -32,7 +32,7 @@ func TestService_FetchDestinationsOnDemand(t *testing.T) {
 	}
 
 	reqWithUserContext := httptest.NewRequest(http.MethodPut, target, nil)
-	userContext := `{"subaccountId":"` + subaccountID + `"}`
+	userContext := `{"subaccountId":"` + tenantID + `"}`
 	reqWithUserContext.Header.Set(userContextHeader, userContext)
 	testCases := []struct {
 		Name                string
@@ -46,7 +46,7 @@ func TestService_FetchDestinationsOnDemand(t *testing.T) {
 			Request: reqWithUserContext,
 			DestinationManager: func() *automock.DestinationManager {
 				svc := &automock.DestinationManager{}
-				svc.On("SyncSubaccountDestinations", mock.Anything, subaccountID).Return(nil)
+				svc.On("SyncTenantDestinations", mock.Anything, tenantID).Return(nil)
 				return svc
 			},
 			ExpectedStatusCode: http.StatusOK,
@@ -60,16 +60,16 @@ func TestService_FetchDestinationsOnDemand(t *testing.T) {
 			ExpectedStatusCode: http.StatusBadRequest,
 		},
 		{
-			Name:    "Subaccount not found",
+			Name:    "Tenant not found",
 			Request: reqWithUserContext,
 			DestinationManager: func() *automock.DestinationManager {
 				svc := &automock.DestinationManager{}
 				err := apperrors.NewNotFoundErrorWithMessage(resource.Label,
-					subaccountID, fmt.Sprintf("subaccount %s not found", subaccountID))
-				svc.On("SyncSubaccountDestinations", mock.Anything, subaccountID).Return(err)
+					tenantID, fmt.Sprintf("tenant %s not found", tenantID))
+				svc.On("SyncTenantDestinations", mock.Anything, tenantID).Return(err)
 				return svc
 			},
-			ExpectedErrorOutput: fmt.Sprintf("subaccount %s not found", subaccountID),
+			ExpectedErrorOutput: fmt.Sprintf("tenant %s not found", tenantID),
 			ExpectedStatusCode:  http.StatusBadRequest,
 		},
 		{
@@ -77,11 +77,11 @@ func TestService_FetchDestinationsOnDemand(t *testing.T) {
 			Request: reqWithUserContext,
 			DestinationManager: func() *automock.DestinationManager {
 				svc := &automock.DestinationManager{}
-				err := fmt.Errorf("Random error")
-				svc.On("SyncSubaccountDestinations", mock.Anything, subaccountID).Return(err)
+				err := fmt.Errorf("random error")
+				svc.On("SyncTenantDestinations", mock.Anything, tenantID).Return(err)
 				return svc
 			},
-			ExpectedErrorOutput: fmt.Sprintf("Failed to fetch destinations for subaccount %s", subaccountID),
+			ExpectedErrorOutput: fmt.Sprintf("Failed to fetch destinations for tenant %s", tenantID),
 			ExpectedStatusCode:  http.StatusInternalServerError,
 		},
 	}
@@ -95,7 +95,7 @@ func TestService_FetchDestinationsOnDemand(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			// WHEN
-			handler.FetchDestinationsOnDemand(w, req)
+			handler.SyncTenantDestinations(w, req)
 
 			// THEN
 			resp := w.Result()
@@ -115,7 +115,7 @@ func TestService_FetchDestinationsOnDemand(t *testing.T) {
 
 func TestService_FetchDestinationsSensitiveData(t *testing.T) {
 	const (
-		subaccountID       = "f09ba084-0e82-49ab-ab2e-b7ecc988312d"
+		tenantID           = "f09ba084-0e82-49ab-ab2e-b7ecc988312d"
 		userContextHeader  = "user_context"
 		destQueryParameter = "dest"
 	)
@@ -133,7 +133,7 @@ func TestService_FetchDestinationsSensitiveData(t *testing.T) {
 	namesRaw := "[Rand, Mat]"
 	names := strings.Split("Rand, Mat", ",")
 	reqWithUserContext := httptest.NewRequest(http.MethodPut, target, nil)
-	userContext := `{"subaccountId":"` + subaccountID + `"}`
+	userContext := `{"subaccountId":"` + tenantID + `"}`
 	reqWithUserContext.Header.Set(userContextHeader, userContext)
 	testCases := []struct {
 		Name                  string
@@ -149,12 +149,12 @@ func TestService_FetchDestinationsSensitiveData(t *testing.T) {
 			DestQueryParameter: namesRaw,
 			DestinationFetcherSvc: func() *automock.DestinationManager {
 				svc := &automock.DestinationManager{}
-				svc.On("FetchDestinationsSensitiveData", mock.Anything, subaccountID, names).
+				svc.On("FetchDestinationsSensitiveData", mock.Anything, tenantID, names).
 					Return(
-						func(ctx context.Context, subaccountID string, destNames []string) []byte {
+						func(ctx context.Context, tenantID string, destNames []string) []byte {
 							return json
 						},
-						func(ctx context.Context, subaccountID string, destNames []string) error {
+						func(ctx context.Context, tenantID string, destNames []string) error {
 							return nil
 						},
 					)

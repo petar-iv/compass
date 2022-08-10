@@ -13,7 +13,7 @@ import (
 // DestinationSyncer missing godoc
 //go:generate mockery --name=DestinationSyncer --output=automock --outpkg=automock --case=underscore --disable-version-string
 type DestinationSyncer interface {
-	SyncSubaccountDestinations(ctx context.Context, subaccountID string) error
+	SyncTenantDestinations(ctx context.Context, tenantID string) error
 }
 
 // SubscribedTenantFetcher missing godoc
@@ -61,7 +61,7 @@ func StartDestinationFetcherSyncJob(ctx context.Context, cfg SyncJobConfig,
 }
 
 func resyncTenantDestinations(ctx context.Context, destinationSyncer DestinationSyncer, tenantID string) {
-	err := destinationSyncer.SyncSubaccountDestinations(ctx, tenantID)
+	err := destinationSyncer.SyncTenantDestinations(ctx, tenantID)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Could not resync destinations for tenant %s", tenantID)
 	} else {

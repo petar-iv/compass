@@ -66,11 +66,11 @@ func TestDestinationSyncJob(t *testing.T) {
 			Return(tenantsToResync, nil)
 
 		destinationSyncer := &automock.DestinationSyncer{}
-		destinationSyncer.Mock.On("SyncSubaccountDestinations",
+		destinationSyncer.Mock.On("SyncTenantDestinations",
 			mock.Anything, tenantsToResync[0].ExternalTenant).Return(nil).Run(addDone)
-		destinationSyncer.Mock.On("SyncSubaccountDestinations",
+		destinationSyncer.Mock.On("SyncTenantDestinations",
 			mock.Anything, tenantsToResync[1].ExternalTenant).Return(nil).Run(addDone)
-		destinationSyncer.Mock.On("SyncSubaccountDestinations",
+		destinationSyncer.Mock.On("SyncTenantDestinations",
 			mock.Anything, tenantsToResync[2].ExternalTenant).Return(nil).Run(addDone)
 
 		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, subscribedTenantFetcher, destinationSyncer)
@@ -93,11 +93,11 @@ func TestDestinationSyncJob(t *testing.T) {
 			Return(tenantsToResync, nil)
 
 		destinationSyncer := &automock.DestinationSyncer{}
-		destinationSyncer.Mock.On("SyncSubaccountDestinations",
+		destinationSyncer.Mock.On("SyncTenantDestinations",
 			mock.Anything, tenantsToResync[0].ExternalTenant).Return(nil).Run(addDone)
-		destinationSyncer.Mock.On("SyncSubaccountDestinations",
+		destinationSyncer.Mock.On("SyncTenantDestinations",
 			mock.Anything, tenantsToResync[1].ExternalTenant).Return(expectedError).Run(addDone)
-		destinationSyncer.Mock.On("SyncSubaccountDestinations",
+		destinationSyncer.Mock.On("SyncTenantDestinations",
 			mock.Anything, tenantsToResync[2].ExternalTenant).Return(nil).Run(addDone)
 
 		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, subscribedTenantFetcher, destinationSyncer)

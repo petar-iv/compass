@@ -40,17 +40,17 @@ func TestClient_SubaccountEndpoint(t *testing.T) {
 	defer mockServerCloseFn()
 
 	apiConfig := destinationfetchersvc.APIConfig{
-		GoroutineLimit:                    10,
-		RetryInterval:                     time.Duration(100 * time.Millisecond),
-		RetryAttempts:                     3,
-		EndpointGetSubbacountDestinations: endpoint + subaccountEndpoint,
-		EndpointFindDestination:           "",
-		Timeout:                           time.Duration(100 * time.Millisecond),
-		PageSize:                          100,
-		PagingPageParam:                   "$page",
-		PagingSizeParam:                   "$pageSize",
-		PagingCountParam:                  "$pageCount",
-		PagingCountHeader:                 "Page-Count",
+		GoroutineLimit:                10,
+		RetryInterval:                 time.Duration(100 * time.Millisecond),
+		RetryAttempts:                 3,
+		EndpointGetTenantDestinations: endpoint + subaccountEndpoint,
+		EndpointFindDestination:       "",
+		Timeout:                       time.Duration(100 * time.Millisecond),
+		PageSize:                      100,
+		PagingPageParam:               "$page",
+		PagingSizeParam:               "$pageSize",
+		PagingCountParam:              "$pageCount",
+		PagingCountHeader:             "Page-Count",
 	}
 
 	cert, key := generateTestCertAndKey(t, "test")
@@ -101,7 +101,7 @@ func TestClient_SenstiveDataEndpoint(t *testing.T) {
 
 	apiConfig := destinationfetchersvc.APIConfig{}
 	apiConfig.EndpointFindDestination = endpoint + sensitiveEndpoint
-	apiConfig.EndpointGetSubbacountDestinations = endpoint + subaccountEndpoint
+	apiConfig.EndpointGetTenantDestinations = endpoint + subaccountEndpoint
 	apiConfig.RetryAttempts = 3
 	apiConfig.RetryInterval = time.Duration(100 * time.Millisecond)
 
@@ -179,7 +179,7 @@ func fixHTTPClientSubaccount(t *testing.T) (*http.Client, func(), string) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		_, err := io.WriteString(w, fixSubaccountDestinationsEndpoint())
+		_, err := io.WriteString(w, fixTenantDestinationsEndpoint())
 		require.NoError(t, err)
 	})
 
@@ -284,7 +284,7 @@ func fixSesnitiveDataJSON() string {
   }`
 }
 
-func fixSubaccountDestinationsEndpoint() string {
+func fixTenantDestinationsEndpoint() string {
 	return `
   [
     {

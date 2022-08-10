@@ -50,31 +50,17 @@ type TenantRepo interface {
 }
 
 type DestinationService struct {
-	transact           persistence.Transactioner
-	uuidSvc            UUIDService
-	repo               DestinationRepo
-	bundleRepo         BundleRepo
-	labelRepo          LabelRepo
-	tenantRepo         TenantRepo
-	destinationsConfig config.DestinationsConfig
-	apiConfig          APIConfig
+	Transactioner      persistence.Transactioner
+	UUIDSvc            UUIDService
+	Repo               DestinationRepo
+	BundleRepo         BundleRepo
+	LabelRepo          LabelRepo
+	TenantRepo         TenantRepo
+	DestinationsConfig config.DestinationsConfig
+	APIConfig          APIConfig
 }
 
-func NewDestinationService(transact persistence.Transactioner, uuidSvc UUIDService, destRepo DestinationRepo,
-	bundleRepo BundleRepo, labelRepo LabelRepo, tenantRepo TenantRepo, destinationsConfig config.DestinationsConfig, apiConfig APIConfig) *DestinationService {
-	return &DestinationService{
-		transact:           transact,
-		uuidSvc:            uuidSvc,
-		repo:               destRepo,
-		bundleRepo:         bundleRepo,
-		labelRepo:          labelRepo,
-		tenantRepo:         tenantRepo,
-		destinationsConfig: destinationsConfig,
-		apiConfig:          apiConfig,
-	}
-}
-
-func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, subaccountID string) error {
+func (d DestinationService) SyncTenantDestinations(ctx context.Context, subaccountID string) error {
 	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
 	if err != nil {
 		return err
@@ -88,13 +74,13 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 	subdomain := subdomainLabel.Value.(string)
 	region := regionLabel.Value.(string)
 
-	instanceConfig, ok := d.destinationsConfig.RegionToInstanceConfig[region]
+	instanceConfig, ok := d.DestinationsConfig.RegionToInstanceConfig[region]
 	if !ok {
 		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
 		return errors.New(fmt.Sprintf("No destination instance credentials found for region '%s'", region))
 	}
 
-	client, err := NewClient(instanceConfig, d.apiConfig, d.destinationsConfig.OauthTokenPath, subdomain)
+	client, err := NewClient(instanceConfig, d.APIConfig, d.DestinationsConfig.OauthTokenPath, subdomain)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to create Destination API client: %v", err)
 		return err
@@ -112,17 +98,17 @@ func (d DestinationService) SyncSubaccountDestinations(ctx context.Context, suba
 }
 
 func (d DestinationService) mapDestinationsToTenant(ctx context.Context, tenant string, destinations []model.DestinationInput) error {
-	tx, err := d.transact.Begin()
+	tx, err := d.Transactioner.Begin()
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
 		return err
 	}
 	ctx = persistence.SaveToContext(ctx, tx)
-	defer d.transact.RollbackUnlessCommitted(ctx, tx)
+	defer d.Transactioner.RollbackUnlessCommitted(ctx, tx)
 
 	for _, destination := range destinations {
 		correlationID := correlationIDPrefix + destination.CommunicationScenarioId
-		bundles, err := d.bundleRepo.GetBySystemAndCorrelationId(ctx, tenant, destination.XFSystemName, destination.URL, correlationID)
+		bundles, err := d.BundleRepo.GetBySystemAndCorrelationId(ctx, tenant, destination.XFSystemName, destination.URL, correlationID)
 
 		if len(bundles) == 0 {
 			log.C(ctx).Infof("No bundles found for system '%s', url '%s', correlation id '%s'", destination.XFSystemName, destination.URL, correlationID)
@@ -136,9 +122,9 @@ func (d DestinationService) mapDestinationsToTenant(ctx context.Context, tenant 
 		}
 
 		for _, bundle := range bundles {
-			id := d.uuidSvc.Generate()
-			revision := d.uuidSvc.Generate()
-			if err := d.repo.Upsert(ctx, destination, id, tenant, bundle.ID, revision); err != nil {
+			id := d.UUIDSvc.Generate()
+			revision := d.UUIDSvc.Generate()
+			if err := d.Repo.Upsert(ctx, destination, id, tenant, bundle.ID, revision); err != nil {
 				log.C(ctx).WithError(err).Errorf("Failed to insert destination with name '%s' for bunlde '%s' and tenant '%s' to DB: %v", destination.Name, bundle.ID, tenant, err)
 				continue
 			}
@@ -189,12 +175,12 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 	region := regionLabel.Value.(string)
 	log.C(ctx).Infof("Fetching data for subdomain: %s \n", subdomain)
 
-	instanceConfig, ok := d.destinationsConfig.RegionToInstanceConfig[region]
+	instanceConfig, ok := d.DestinationsConfig.RegionToInstanceConfig[region]
 	if !ok {
 		log.C(ctx).Errorf("No destination instance credentials found for region '%s'", region)
 		return nil, errors.New(fmt.Sprintf("No destination instance credentials found for region '%s'", region))
 	}
-	client, err := NewClient(instanceConfig, d.apiConfig, d.destinationsConfig.OauthTokenPath, subdomain)
+	client, err := NewClient(instanceConfig, d.APIConfig, d.DestinationsConfig.OauthTokenPath, subdomain)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to create Destination API client: %v", err)
 		return nil, err
@@ -202,7 +188,7 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 
 	nameCount := len(destinationNames)
 	results := make([][]byte, nameCount)
-	weighted := semaphore.NewWeighted(d.apiConfig.GoroutineLimit)
+	weighted := semaphore.NewWeighted(d.APIConfig.GoroutineLimit)
 	resChan := make(chan []byte)
 	errChan := make(chan error)
 
@@ -247,15 +233,15 @@ func fetchDestination(ctx context.Context, dest string, weighted *semaphore.Weig
 }
 
 func (d DestinationService) getSubscribedSubdomainLabel(ctx context.Context, subaccountID string) (*model.Label, error) {
-	tx, err := d.transact.Begin()
+	tx, err := d.Transactioner.Begin()
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
 		return nil, err
 	}
 	ctx = persistence.SaveToContext(ctx, tx)
-	defer d.transact.RollbackUnlessCommitted(ctx, tx)
+	defer d.Transactioner.RollbackUnlessCommitted(ctx, tx)
 
-	label, err := d.labelRepo.GetSubdomainLabelForSubscribedRuntime(ctx, subaccountID)
+	label, err := d.LabelRepo.GetSubdomainLabelForSubscribedRuntime(ctx, subaccountID)
 	if err != nil {
 		if apperrors.IsNotFoundError(err) {
 			log.C(ctx).Errorf("No subscribed subdomain found for subbaccount '%s'", subaccountID)
@@ -274,15 +260,15 @@ func (d DestinationService) getSubscribedSubdomainLabel(ctx context.Context, sub
 }
 
 func (d DestinationService) getRegionLabel(ctx context.Context, tenantID string) (*model.Label, error) {
-	tx, err := d.transact.Begin()
+	tx, err := d.Transactioner.Begin()
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
 		return nil, err
 	}
 	ctx = persistence.SaveToContext(ctx, tx)
-	defer d.transact.RollbackUnlessCommitted(ctx, tx)
+	defer d.Transactioner.RollbackUnlessCommitted(ctx, tx)
 
-	region, err := d.labelRepo.GetByKey(ctx, tenantID, model.TenantLabelableObject, tenantID, regionLabelKey)
+	region, err := d.LabelRepo.GetByKey(ctx, tenantID, model.TenantLabelableObject, tenantID, regionLabelKey)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to fetch region for tenant '%s': %v", tenantID, err)
 		return nil, err

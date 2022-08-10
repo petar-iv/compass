@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	subaccountIdKey    = "subaccountId"
+	tenantIDKey        = "subaccountId"
 	regionKey          = "region"
 	destQueryParameter = "dest"
 )
@@ -30,8 +30,8 @@ type handler struct {
 
 //go:generate mockery --name=DestinationManager --output=automock --outpkg=automock --case=underscore --disable-version-string
 type DestinationManager interface {
-	SyncSubaccountDestinations(ctx context.Context, subaccountID string) error
-	FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error)
+	SyncTenantDestinations(ctx context.Context, tenantID string) error
+	FetchDestinationsSensitiveData(ctx context.Context, tenantID string, destinationNames []string) ([]byte, error)
 }
 
 // NewDestinationsHTTPHandler returns a new HTTP handler, responsible for handling HTTP requests
@@ -42,23 +42,23 @@ func NewDestinationsHTTPHandler(fetcher DestinationManager, config HandlerConfig
 	}
 }
 
-func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request *http.Request) {
+func (h *handler) SyncTenantDestinations(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
 
 	userContextHeader := request.Header.Get(h.config.UserContextHeader)
-	subaccountID, err := h.readSubaccountFromHeader(userContextHeader)
+	tenantID, err := h.readTenantFromHeader(userContextHeader)
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := h.fetcher.SyncSubaccountDestinations(ctx, subaccountID); err != nil {
+	if err := h.fetcher.SyncTenantDestinations(ctx, tenantID); err != nil {
 		if apperrors.IsNotFoundError(err) {
 			http.Error(writer, err.Error(), http.StatusBadRequest)
 			return
 		}
-		http.Error(writer, fmt.Sprintf("Failed to fetch destinations for subaccount %s",
-			subaccountID), http.StatusInternalServerError)
+		http.Error(writer, fmt.Sprintf("Failed to fetch destinations for tenant %s",
+			tenantID), http.StatusInternalServerError)
 		return
 	}
 	writer.WriteHeader(http.StatusOK)
@@ -89,7 +89,7 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 	ctx := request.Context()
 
 	userContextHeader := request.Header.Get(h.config.UserContextHeader)
-	subaccountID, err := h.readSubaccountFromHeader(userContextHeader)
+	tenantID, err := h.readTenantFromHeader(userContextHeader)
 	if err != nil {
 		log.C(ctx).Errorf("Failed to read userContext header with error: %s", err.Error())
 		http.Error(writer, err.Error(), http.StatusBadRequest)
@@ -104,11 +104,11 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 		return
 	}
 
-	json, err := h.fetcher.FetchDestinationsSensitiveData(ctx, subaccountID, names)
+	json, err := h.fetcher.FetchDestinationsSensitiveData(ctx, tenantID, names)
 
 	if err != nil {
-		log.C(ctx).Errorf("Failed to fetch sensitive data for destinations %s and subaccount %s: %v",
-			namesRaw, subaccountID, err)
+		log.C(ctx).Errorf("Failed to fetch sensitive data for destinations %s and tenant %s: %v",
+			namesRaw, tenantID, err)
 		if apperrors.IsNotFoundError(err) {
 			http.Error(writer, err.Error(), http.StatusNotFound)
 			return
@@ -132,7 +132,7 @@ func sliceContainsEmptyString(s []string) bool {
 	return false
 }
 
-func (h *handler) readSubaccountFromHeader(header string) (string, error) {
+func (h *handler) readTenantFromHeader(header string) (string, error) {
 	if header == "" {
 		return "", fmt.Errorf("%s header is missing", h.config.UserContextHeader)
 	}
@@ -142,10 +142,10 @@ func (h *handler) readSubaccountFromHeader(header string) (string, error) {
 		return "", fmt.Errorf("failed to parse %s header", h.config.UserContextHeader)
 	}
 
-	subaccountId, ok := headerMap[subaccountIdKey]
+	tenantId, ok := headerMap[tenantIDKey]
 	if !ok {
-		return "", fmt.Errorf("%s not found in %s header", subaccountIdKey, h.config.UserContextHeader)
+		return "", fmt.Errorf("%s not found in %s header", tenantIDKey, h.config.UserContextHeader)
 	}
 
-	return subaccountId, nil
+	return tenantId, nil
 }

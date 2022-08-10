@@ -13,13 +13,13 @@ type DestinationManager struct {
 	mock.Mock
 }
 
-// FetchDestinationsSensitiveData provides a mock function with given fields: ctx, subaccountID, destinationNames
-func (_m *DestinationManager) FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error) {
-	ret := _m.Called(ctx, subaccountID, destinationNames)
+// FetchDestinationsSensitiveData provides a mock function with given fields: ctx, tenantID, destinationNames
+func (_m *DestinationManager) FetchDestinationsSensitiveData(ctx context.Context, tenantID string, destinationNames []string) ([]byte, error) {
+	ret := _m.Called(ctx, tenantID, destinationNames)
 
 	var r0 []byte
 	if rf, ok := ret.Get(0).(func(context.Context, string, []string) []byte); ok {
-		r0 = rf(ctx, subaccountID, destinationNames)
+		r0 = rf(ctx, tenantID, destinationNames)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
@@ -28,7 +28,7 @@ func (_m *DestinationManager) FetchDestinationsSensitiveData(ctx context.Context
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, string, []string) error); ok {
-		r1 = rf(ctx, subaccountID, destinationNames)
+		r1 = rf(ctx, tenantID, destinationNames)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -36,13 +36,13 @@ func (_m *DestinationManager) FetchDestinationsSensitiveData(ctx context.Context
 	return r0, r1
 }
 
-// SyncSubaccountDestinations provides a mock function with given fields: ctx, subaccountID
-func (_m *DestinationManager) SyncSubaccountDestinations(ctx context.Context, subaccountID string) error {
-	ret := _m.Called(ctx, subaccountID)
+// SyncTenantDestinations provides a mock function with given fields: ctx, tenantID
+func (_m *DestinationManager) SyncTenantDestinations(ctx context.Context, tenantID string) error {
+	ret := _m.Called(ctx, tenantID)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, subaccountID)
+		r0 = rf(ctx, tenantID)
 	} else {
 		r0 = ret.Error(0)
 	}

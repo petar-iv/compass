@@ -24,17 +24,17 @@ import (
 )
 
 type APIConfig struct {
-	GoroutineLimit                    int64         `envconfig:"APP_DESTINATIONS_SENSITIVE_GOROUTINE_LIMIT,default=10"`
-	RetryInterval                     time.Duration `envconfig:"APP_DESTINATIONS_RETRY_INTERVAL,default=100ms"`
-	RetryAttempts                     uint          `envconfig:"APP_DESTINATIONS_RETRY_ATTEMPTS,default=3"`
-	EndpointGetSubbacountDestinations string        `envconfig:"APP_ENDPOINT_GET_SUBACCOUNT_DESTINATIONS"`
-	EndpointFindDestination           string        `envconfig:"APP_ENDPOINT_FIND_DESTINATION"`
-	Timeout                           time.Duration `envconfig:"APP_DESTINATIONS_TIMEOUT,default=30s"`
-	PageSize                          int           `envconfig:"APP_DESTINATIONS_PAGE_SIZE,default=100"`
-	PagingPageParam                   string        `envconfig:"APP_DESTINATIONS_PAGE_PARAM,default=$page"`
-	PagingSizeParam                   string        `envconfig:"APP_DESTINATIONS_PAGE_SIZE_PARAM,default=$pageSize"`
-	PagingCountParam                  string        `envconfig:"APP_DESTINATIONS_PAGE_COUNT_PARAM,default=$pageCount"`
-	PagingCountHeader                 string        `envconfig:"APP_DESTINATIONS_PAGE_COUNT_HEADER,default=Page-Count"`
+	GoroutineLimit                int64         `envconfig:"APP_DESTINATIONS_SENSITIVE_GOROUTINE_LIMIT,default=10"`
+	RetryInterval                 time.Duration `envconfig:"APP_DESTINATIONS_RETRY_INTERVAL,default=100ms"`
+	RetryAttempts                 uint          `envconfig:"APP_DESTINATIONS_RETRY_ATTEMPTS,default=3"`
+	EndpointGetTenantDestinations string        `envconfig:"APP_ENDPOINT_GET_TENANT_DESTINATIONS"`
+	EndpointFindDestination       string        `envconfig:"APP_ENDPOINT_FIND_DESTINATION"`
+	Timeout                       time.Duration `envconfig:"APP_DESTINATIONS_TIMEOUT,default=30s"`
+	PageSize                      int           `envconfig:"APP_DESTINATIONS_PAGE_SIZE,default=100"`
+	PagingPageParam               string        `envconfig:"APP_DESTINATIONS_PAGE_PARAM,default=$page"`
+	PagingSizeParam               string        `envconfig:"APP_DESTINATIONS_PAGE_SIZE_PARAM,default=$pageSize"`
+	PagingCountParam              string        `envconfig:"APP_DESTINATIONS_PAGE_COUNT_PARAM,default=$pageCount"`
+	PagingCountHeader             string        `envconfig:"APP_DESTINATIONS_PAGE_COUNT_HEADER,default=Page-Count"`
 }
 
 type Client struct {
@@ -93,7 +93,7 @@ func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, tokenP
 }
 
 func (c *Client) FetchSubbacountDestinationsPage(ctx context.Context, page string) (*DestinationResponse, error) {
-	url := c.apiURL + c.apiConfig.EndpointGetSubbacountDestinations
+	url := c.apiURL + c.apiConfig.EndpointGetTenantDestinations
 	req, err := c.buildRequest(url, page)
 	if err != nil {
 		return nil, err

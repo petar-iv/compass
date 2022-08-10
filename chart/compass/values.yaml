@@ -526,7 +526,7 @@ global:
       appDestinationsOnDemandScope: "destinations_on_demand"
       appDetinationsSensitiveDataScope: "destinations_sensitive_data"
     server:
-      subaccountDestinationsEndpoint: "/v1/subaccountDestinations"
+      tenantDestinationsEndpoint: "/v1/tenantDestinations"
       sensitiveDataEndpoint: "/v1/destinations"
     request:
       retry_interval: "100ms"

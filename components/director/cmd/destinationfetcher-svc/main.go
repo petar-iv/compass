@@ -96,7 +96,7 @@ func main() {
 	ctx, err = log.Configure(ctx, &cfg.Log)
 	exitOnError(err, "Failed to configure Logger")
 
-	transact, closeFunc, err := persistence.Configure(ctx, cfg.Database)
+	transactioner, closeFunc, err := persistence.Configure(ctx, cfg.Database)
 	exitOnError(err, "Error while establishing the connection to the database")
 
 	defer func() {
@@ -111,8 +111,8 @@ func main() {
 		},
 	}
 
-	svcs := getServices(cfg, transact)
-	handler := initAPIHandler(ctx, httpClient, cfg, svcs.destinationManager)
+	destinationServices := getServices(cfg, transactioner)
+	handler := initAPIHandler(ctx, httpClient, cfg, destinationServices.destinationManager)
 	runMainSrv, shutdownMainSrv := createServer(ctx, cfg, handler, "main")
 
 	go func() {
@@ -121,14 +121,14 @@ func main() {
 		shutdownMainSrv()
 	}()
 
-	resyncJobConfig := destinationfetcher.SyncJobConfig{
+	syncJobConfig := destinationfetcher.SyncJobConfig{
 		ElectionCfg:       cfg.ElectionConfig,
 		JobSchedulePeriod: cfg.DestinationFetcherSchedule,
 		ParallelTenants:   cfg.ParallelTenantResyncs,
 	}
 	go func() {
 		err := destinationfetcher.StartDestinationFetcherSyncJob(
-			ctx, resyncJobConfig, svcs.subscribedTenantFetcher, svcs.destinationManager)
+			ctx, syncJobConfig, destinationServices.subscribedTenantFetcher, destinationServices.destinationManager)
 		if err != nil {
 			log.C(ctx).WithError(err).Error("Failed to start destination fetcher cronjob. Stopping app...")
 			cancel()
@@ -178,8 +178,16 @@ func getServices(cfg config, transact persistence.Transactioner) services {
 	err := cfg.DestinationsConfig.MapInstanceConfigs()
 	exitOnError(err, "error while loading destination instances config")
 
-	svc := destinationfetcher.NewDestinationService(transact, uuidSvc, destRepo, bundleRepo, labelRepo, tenantRepo, cfg.DestinationsConfig, cfg.APIConfig)
-	fetcher := destinationfetcher.NewFetcher(*svc)
+	fetcher := destinationfetcher.NewFetcher(destinationfetcher.DestinationService{
+		Transactioner:      transact,
+		UUIDSvc:            uuidSvc,
+		Repo:               destRepo,
+		BundleRepo:         bundleRepo,
+		LabelRepo:          labelRepo,
+		TenantRepo:         tenantRepo,
+		DestinationsConfig: cfg.DestinationsConfig,
+		APIConfig:          cfg.APIConfig,
+	})
 
 	return services{
 		destinationManager:      fetcher,
@@ -202,7 +210,7 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client,
 	configureAuthMiddleware(ctx, httpClient, destinationsOnDemandAPIRouter,
 		cfg.SecurityConfig, cfg.SecurityConfig.DestinationsOnDemandScope)
 
-	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.FetchDestinationsOnDemand).
+	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.SyncTenantDestinations).
 		Methods(http.MethodPut)
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsSensitiveEndpoint)
