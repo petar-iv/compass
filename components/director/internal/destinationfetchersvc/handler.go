@@ -24,18 +24,18 @@ type HandlerConfig struct {
 }
 
 type handler struct {
-	fetcher DestinationFetcher
+	fetcher DestinationManager
 	config  HandlerConfig
 }
 
-//go:generate mockery --name=DestinationFetcher --output=automock --outpkg=automock --case=underscore --disable-version-string
-type DestinationFetcher interface {
-	FetchDestinationsOnDemand(ctx context.Context, subaccountID string) error
+//go:generate mockery --name=DestinationManager --output=automock --outpkg=automock --case=underscore --disable-version-string
+type DestinationManager interface {
+	SyncSubaccountDestinations(ctx context.Context, subaccountID string) error
 	FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error)
 }
 
 // NewDestinationsHTTPHandler returns a new HTTP handler, responsible for handling HTTP requests
-func NewDestinationsHTTPHandler(fetcher DestinationFetcher, config HandlerConfig) *handler {
+func NewDestinationsHTTPHandler(fetcher DestinationManager, config HandlerConfig) *handler {
 	return &handler{
 		fetcher: fetcher,
 		config:  config,
@@ -52,7 +52,7 @@ func (h *handler) FetchDestinationsOnDemand(writer http.ResponseWriter, request 
 		return
 	}
 
-	if err := h.fetcher.FetchDestinationsOnDemand(ctx, subaccountID); err != nil {
+	if err := h.fetcher.SyncSubaccountDestinations(ctx, subaccountID); err != nil {
 		if apperrors.IsNotFoundError(err) {
 			http.Error(writer, err.Error(), http.StatusBadRequest)
 			return

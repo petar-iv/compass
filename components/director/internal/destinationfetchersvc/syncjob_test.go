@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func TestDestinationResyncJob(t *testing.T) {
+func TestDestinationSyncJob(t *testing.T) {
 	const testTimeout = time.Second * 5
 
 	var (
@@ -28,7 +28,7 @@ func TestDestinationResyncJob(t *testing.T) {
 				ExternalTenant: "t3",
 			},
 		}
-		cfg = destinationfetchersvc.ResyncJobConfig{
+		cfg = destinationfetchersvc.SyncJobConfig{
 			ParallelTenants:   2,
 			JobSchedulePeriod: time.Minute,
 			ElectionCfg: cronjob.ElectionConfig{
@@ -65,18 +65,18 @@ func TestDestinationResyncJob(t *testing.T) {
 		subscribedTenantFetcher.Mock.On("GetBySubscribedRuntimes", mock.Anything).
 			Return(tenantsToResync, nil)
 
-		destinationResyncer := &automock.DestinationResyncer{}
-		destinationResyncer.Mock.On("FetchDestinationsOnDemand",
+		destinationSyncer := &automock.DestinationSyncer{}
+		destinationSyncer.Mock.On("SyncSubaccountDestinations",
 			mock.Anything, tenantsToResync[0].ExternalTenant).Return(nil).Run(addDone)
-		destinationResyncer.Mock.On("FetchDestinationsOnDemand",
+		destinationSyncer.Mock.On("SyncSubaccountDestinations",
 			mock.Anything, tenantsToResync[1].ExternalTenant).Return(nil).Run(addDone)
-		destinationResyncer.Mock.On("FetchDestinationsOnDemand",
+		destinationSyncer.Mock.On("SyncSubaccountDestinations",
 			mock.Anything, tenantsToResync[2].ExternalTenant).Return(nil).Run(addDone)
 
-		err := destinationfetchersvc.StartDestinationFetcherResyncJob(ctx, cfg, subscribedTenantFetcher, destinationResyncer)
+		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, subscribedTenantFetcher, destinationSyncer)
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(subscribedTenantFetcher.Calls))
-		assert.Equal(t, len(tenantsToResync), len(destinationResyncer.Calls))
+		assert.Equal(t, len(tenantsToResync), len(destinationSyncer.Calls))
 	})
 
 	t.Run("Should not fail on one tenant re-sync failure", func(t *testing.T) {
@@ -92,18 +92,18 @@ func TestDestinationResyncJob(t *testing.T) {
 		subscribedTenantFetcher.Mock.On("GetBySubscribedRuntimes", mock.Anything).
 			Return(tenantsToResync, nil)
 
-		destinationResyncer := &automock.DestinationResyncer{}
-		destinationResyncer.Mock.On("FetchDestinationsOnDemand",
+		destinationSyncer := &automock.DestinationSyncer{}
+		destinationSyncer.Mock.On("SyncSubaccountDestinations",
 			mock.Anything, tenantsToResync[0].ExternalTenant).Return(nil).Run(addDone)
-		destinationResyncer.Mock.On("FetchDestinationsOnDemand",
+		destinationSyncer.Mock.On("SyncSubaccountDestinations",
 			mock.Anything, tenantsToResync[1].ExternalTenant).Return(expectedError).Run(addDone)
-		destinationResyncer.Mock.On("FetchDestinationsOnDemand",
+		destinationSyncer.Mock.On("SyncSubaccountDestinations",
 			mock.Anything, tenantsToResync[2].ExternalTenant).Return(nil).Run(addDone)
 
-		err := destinationfetchersvc.StartDestinationFetcherResyncJob(ctx, cfg, subscribedTenantFetcher, destinationResyncer)
+		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, subscribedTenantFetcher, destinationSyncer)
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(subscribedTenantFetcher.Calls))
-		assert.Equal(t, len(tenantsToResync), len(destinationResyncer.Calls))
+		assert.Equal(t, len(tenantsToResync), len(destinationSyncer.Calls))
 	})
 
 	t.Run("Should not re-sync if subscribed tenants could not be fetched", func(t *testing.T) {
@@ -113,12 +113,12 @@ func TestDestinationResyncJob(t *testing.T) {
 		subscribedTenantFetcher.Mock.On("GetBySubscribedRuntimes", mock.Anything).
 			Return(nil, expectedError).Run(func(args mock.Arguments) { cancel() })
 
-		destinationResyncer := &automock.DestinationResyncer{}
+		destinationSyncer := &automock.DestinationSyncer{}
 
-		err := destinationfetchersvc.StartDestinationFetcherResyncJob(ctx, cfg, subscribedTenantFetcher, destinationResyncer)
+		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, subscribedTenantFetcher, destinationSyncer)
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(subscribedTenantFetcher.Calls))
-		assert.Equal(t, 0, len(destinationResyncer.Calls))
+		assert.Equal(t, 0, len(destinationSyncer.Calls))
 	})
 
 	t.Run("Should not re-sync if there are no subscribed tenants", func(t *testing.T) {
@@ -128,12 +128,12 @@ func TestDestinationResyncJob(t *testing.T) {
 		subscribedTenantFetcher.Mock.On("GetBySubscribedRuntimes", mock.Anything).
 			Return(nil, nil).Run(func(args mock.Arguments) { cancel() })
 
-		destinationResyncer := &automock.DestinationResyncer{}
+		destinationSyncer := &automock.DestinationSyncer{}
 
-		err := destinationfetchersvc.StartDestinationFetcherResyncJob(ctx, cfg, subscribedTenantFetcher, destinationResyncer)
+		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, subscribedTenantFetcher, destinationSyncer)
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(subscribedTenantFetcher.Calls))
-		assert.Equal(t, 0, len(destinationResyncer.Calls))
+		assert.Equal(t, 0, len(destinationSyncer.Calls))
 	})
 
 }

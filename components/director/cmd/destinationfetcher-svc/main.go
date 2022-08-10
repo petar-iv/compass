@@ -112,7 +112,7 @@ func main() {
 	}
 
 	svcs := getServices(cfg, transact)
-	handler := initAPIHandler(ctx, httpClient, cfg, svcs.destFetcher)
+	handler := initAPIHandler(ctx, httpClient, cfg, svcs.destinationManager)
 	runMainSrv, shutdownMainSrv := createServer(ctx, cfg, handler, "main")
 
 	go func() {
@@ -121,16 +121,16 @@ func main() {
 		shutdownMainSrv()
 	}()
 
-	resyncJobConfig := destinationfetcher.ResyncJobConfig{
+	resyncJobConfig := destinationfetcher.SyncJobConfig{
 		ElectionCfg:       cfg.ElectionConfig,
 		JobSchedulePeriod: cfg.DestinationFetcherSchedule,
 		ParallelTenants:   cfg.ParallelTenantResyncs,
 	}
 	go func() {
-		err := destinationfetcher.StartDestinationFetcherResyncJob(
-			ctx, resyncJobConfig, svcs.subscribedTenantFetcher, svcs.destFetcher)
+		err := destinationfetcher.StartDestinationFetcherSyncJob(
+			ctx, resyncJobConfig, svcs.subscribedTenantFetcher, svcs.destinationManager)
 		if err != nil {
-			log.C(ctx).WithError(err).Error("Failed to start destination fetcher job. Stopping app...")
+			log.C(ctx).WithError(err).Error("Failed to start destination fetcher cronjob. Stopping app...")
 			cancel()
 		}
 	}()
@@ -138,7 +138,6 @@ func main() {
 	runMainSrv()
 }
 
-// TODO: fix code duplication with tenant fetcher
 func configureAuthMiddleware(ctx context.Context, httpClient *http.Client, router *mux.Router, cfg securityConfig, requiredScopes ...string) {
 	scopeValidator := claims.NewScopesValidator(requiredScopes)
 	middleware := authenticator.New(httpClient, cfg.JwksEndpoint, cfg.AllowJWTSigningNone, "", scopeValidator)
@@ -161,7 +160,7 @@ func exitOnError(err error, context string) {
 }
 
 type services struct {
-	destFetcher             destinationfetcher.DestinationFetcher
+	destinationManager      destinationfetcher.DestinationManager
 	subscribedTenantFetcher destinationfetcher.SubscribedTenantFetcher
 }
 
@@ -183,13 +182,13 @@ func getServices(cfg config, transact persistence.Transactioner) services {
 	fetcher := destinationfetcher.NewFetcher(*svc)
 
 	return services{
-		destFetcher:             fetcher,
+		destinationManager:      fetcher,
 		subscribedTenantFetcher: tenantRepo,
 	}
 }
 
-func initAPIHandler(
-	ctx context.Context, httpClient *http.Client, cfg config, fetcher destinationfetcher.DestinationFetcher) http.Handler {
+func initAPIHandler(ctx context.Context, httpClient *http.Client,
+	cfg config, fetcher destinationfetcher.DestinationManager) http.Handler {
 
 	logger := log.C(ctx)
 	mainRouter := mux.NewRouter()
@@ -200,8 +199,11 @@ func initAPIHandler(
 	sensitiveDataAPIRouter := destinationsOnDemandAPIRouter
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsEndpoint)
-	configureAuthMiddleware(ctx, httpClient, destinationsOnDemandAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.DestinationsOnDemandScope)
-	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.FetchDestinationsOnDemand).Methods(http.MethodPut)
+	configureAuthMiddleware(ctx, httpClient, destinationsOnDemandAPIRouter,
+		cfg.SecurityConfig, cfg.SecurityConfig.DestinationsOnDemandScope)
+
+	destinationsOnDemandAPIRouter.HandleFunc(cfg.Handler.DestinationsEndpoint, destinationHandler.FetchDestinationsOnDemand).
+		Methods(http.MethodPut)
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsSensitiveEndpoint)
 	configureAuthMiddleware(ctx, httpClient, sensitiveDataAPIRouter, cfg.SecurityConfig, cfg.SecurityConfig.DestinationsSensitiveDataScope)

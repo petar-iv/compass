@@ -10,10 +10,10 @@ import (
 	"time"
 )
 
-// DestinationResyncer missing godoc
-//go:generate mockery --name=DestinationResyncer --output=automock --outpkg=automock --case=underscore --disable-version-string
-type DestinationResyncer interface {
-	FetchDestinationsOnDemand(ctx context.Context, subaccountID string) error
+// DestinationSyncer missing godoc
+//go:generate mockery --name=DestinationSyncer --output=automock --outpkg=automock --case=underscore --disable-version-string
+type DestinationSyncer interface {
+	SyncSubaccountDestinations(ctx context.Context, subaccountID string) error
 }
 
 // SubscribedTenantFetcher missing godoc
@@ -22,17 +22,17 @@ type SubscribedTenantFetcher interface {
 	GetBySubscribedRuntimes(ctx context.Context) ([]*model.BusinessTenantMapping, error)
 }
 
-type ResyncJobConfig struct {
+type SyncJobConfig struct {
 	ElectionCfg       cronjob.ElectionConfig
 	JobSchedulePeriod time.Duration
 	ParallelTenants   int64
 }
 
-func StartDestinationFetcherResyncJob(ctx context.Context, cfg ResyncJobConfig,
-	tenantFetcher SubscribedTenantFetcher, destinationResyncer DestinationResyncer) error {
+func StartDestinationFetcherSyncJob(ctx context.Context, cfg SyncJobConfig,
+	tenantFetcher SubscribedTenantFetcher, destinationSyncer DestinationSyncer) error {
 
 	resyncJob := cronjob.CronJob{
-		Name: "DestinationFetcherResync",
+		Name: "DestinationFetcherSync",
 		Fn: func(jobCtx context.Context) {
 			subscribedTenants, err := tenantFetcher.GetBySubscribedRuntimes(jobCtx)
 			if err != nil {
@@ -50,7 +50,7 @@ func StartDestinationFetcherResyncJob(ctx context.Context, cfg ResyncJobConfig,
 						return
 					}
 					defer sem.Release(1)
-					resyncTenantDestinations(jobCtx, destinationResyncer, tenantID)
+					resyncTenantDestinations(jobCtx, destinationSyncer, tenantID)
 				}(tenant.ExternalTenant)
 			}
 			wg.Wait()
@@ -60,8 +60,8 @@ func StartDestinationFetcherResyncJob(ctx context.Context, cfg ResyncJobConfig,
 	return cronjob.RunCronJob(ctx, cfg.ElectionCfg, resyncJob)
 }
 
-func resyncTenantDestinations(ctx context.Context, destinationResyncer DestinationResyncer, tenantID string) {
-	err := destinationResyncer.FetchDestinationsOnDemand(ctx, tenantID)
+func resyncTenantDestinations(ctx context.Context, destinationSyncer DestinationSyncer, tenantID string) {
+	err := destinationSyncer.SyncSubaccountDestinations(ctx, tenantID)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Could not resync destinations for tenant %s", tenantID)
 	} else {
