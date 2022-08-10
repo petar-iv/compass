@@ -22,24 +22,29 @@ const (
 	regionLabelKey      = "region"
 )
 
+//go:generate mockery --name=UUIDService --output=automock --outpkg=automock --case=underscore --disable-version-string
 type UUIDService interface {
 	Generate() string
 }
 
+//go:generate mockery --name=DestinationRepo --output=automock --outpkg=automock --case=underscore --disable-version-string
 type DestinationRepo interface {
 	Upsert(ctx context.Context, in model.DestinationInput, id, tenantID, bundleID, revision string) error
 	Delete(ctx context.Context, revision string) error
 }
 
+//go:generate mockery --name=LabelRepo --output=automock --outpkg=automock --case=underscore --disable-version-string
 type LabelRepo interface {
 	GetSubdomainLabelForSubscribedRuntime(ctx context.Context, subaccountId string) (*model.Label, error)
 	GetByKey(ctx context.Context, tenant string, objectType model.LabelableObject, objectID, key string) (*model.Label, error)
 }
 
+//go:generate mockery --name=BundleRepo --output=automock --outpkg=automock --case=underscore --disable-version-string
 type BundleRepo interface {
 	GetBySystemAndCorrelationId(ctx context.Context, tenantId, systemName, systemURL, correlationId string) ([]*model.Bundle, error)
 }
 
+//go:generate mockery --name=TenantRepo --output=automock --outpkg=automock --case=underscore --disable-version-string
 type TenantRepo interface {
 	GetBySubscribedRuntimes(ctx context.Context) ([]*model.BusinessTenantMapping, error)
 }
