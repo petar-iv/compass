@@ -34,7 +34,7 @@ type DestinationFetcher interface {
 	FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error)
 }
 
-// NewDestinationsHTTPHandler returns a new HTTP handler, responsible for handleing HTTP requests
+// NewDestinationsHTTPHandler returns a new HTTP handler, responsible for handling HTTP requests
 func NewDestinationsHTTPHandler(fetcher DestinationFetcher, config HandlerConfig) *handler {
 	return &handler{
 		fetcher: fetcher,
