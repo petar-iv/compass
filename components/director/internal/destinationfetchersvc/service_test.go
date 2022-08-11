@@ -44,37 +44,8 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 	defer destinationServer.server.Close()
 
 	txGen := txtest.NewTransactionContextGenerator(testErr)
-
-	cert, key := generateTestCertAndKey(t, "test")
-	instanceConfig := config.InstanceConfig{
-		ClientID:     tenantID,
-		ClientSecret: "secret",
-		URL:          destinationServer.server.URL,
-		TokenURL:     destinationServer.server.URL + "/oauth/token",
-		Cert:         string(cert),
-		Key:          string(key),
-	}
-
-	destAPIConfig := destinationfetchersvc.APIConfig{
-		GoroutineLimit:                2,
-		RetryInterval:                 0,
-		RetryAttempts:                 2,
-		EndpointGetTenantDestinations: "/subaccountDestinations",
-		EndpointFindDestination:       "/destinations",
-		Timeout:                       time.Second * 10,
-		PageSize:                      1,
-		PagingPageParam:               "$page",
-		PagingSizeParam:               "$pageSize",
-		PagingCountParam:              "$pageCount",
-		PagingCountHeader:             "Page-Count",
-	}
-
-	destConfig := config.DestinationsConfig{
-		RegionToInstanceConfig: map[string]config.InstanceConfig{
-			region: instanceConfig,
-		},
-		OauthTokenPath: "/oauth-path",
-	}
+	destAPIConfig := defaultApiConfig()
+	destConfig := defaultDestinationConfig(t, destinationServer.server.URL)
 
 	testCases := []struct {
 		Name                string
@@ -223,37 +194,8 @@ func TestService_FetchDestinationsSensitiveData(t *testing.T) {
 	defer destinationServer.server.Close()
 
 	txGen := txtest.NewTransactionContextGenerator(testErr)
-
-	cert, key := generateTestCertAndKey(t, "test")
-	instanceConfig := config.InstanceConfig{
-		ClientID:     tenantID,
-		ClientSecret: "secret",
-		URL:          destinationServer.server.URL,
-		TokenURL:     destinationServer.server.URL + "/oauth/token",
-		Cert:         string(cert),
-		Key:          string(key),
-	}
-
-	destAPIConfig := destinationfetchersvc.APIConfig{
-		GoroutineLimit:                2,
-		RetryInterval:                 0,
-		RetryAttempts:                 2,
-		EndpointGetTenantDestinations: "/subaccountDestinations",
-		EndpointFindDestination:       "/destinations",
-		Timeout:                       time.Second * 10,
-		PageSize:                      1,
-		PagingPageParam:               "$page",
-		PagingSizeParam:               "$pageSize",
-		PagingCountParam:              "$pageCount",
-		PagingCountHeader:             "Page-Count",
-	}
-
-	destConfig := config.DestinationsConfig{
-		RegionToInstanceConfig: map[string]config.InstanceConfig{
-			region: instanceConfig,
-		},
-		OauthTokenPath: "/oauth-path",
-	}
+	destAPIConfig := defaultApiConfig()
+	destConfig := defaultDestinationConfig(t, destinationServer.server.URL)
 
 	testCases := []struct {
 		Name                string
@@ -411,4 +353,38 @@ func failingDestinationRepo() *automock.DestinationRepo {
 	destinationRepo.On("Upsert",
 		mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testErr)
 	return destinationRepo
+}
+
+func defaultApiConfig() destinationfetchersvc.APIConfig {
+	return destinationfetchersvc.APIConfig{
+		GoroutineLimit:                2,
+		RetryInterval:                 0,
+		RetryAttempts:                 2,
+		EndpointGetTenantDestinations: "/subaccountDestinations",
+		EndpointFindDestination:       "/destinations",
+		Timeout:                       time.Second * 10,
+		PageSize:                      1,
+		PagingPageParam:               "$page",
+		PagingSizeParam:               "$pageSize",
+		PagingCountParam:              "$pageCount",
+		PagingCountHeader:             "Page-Count",
+	}
+}
+
+func defaultDestinationConfig(t *testing.T, destinationServerURL string) config.DestinationsConfig {
+	cert, key := generateTestCertAndKey(t, "test")
+	instanceConfig := config.InstanceConfig{
+		ClientID:     tenantID,
+		ClientSecret: "secret",
+		URL:          destinationServerURL,
+		TokenURL:     destinationServerURL + "/oauth/token",
+		Cert:         string(cert),
+		Key:          string(key),
+	}
+	return config.DestinationsConfig{
+		RegionToInstanceConfig: map[string]config.InstanceConfig{
+			region: instanceConfig,
+		},
+		OauthTokenPath: "/oauth-path",
+	}
 }
