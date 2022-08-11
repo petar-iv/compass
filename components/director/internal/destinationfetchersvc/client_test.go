@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -33,7 +34,7 @@ const (
 	noPageCountHeader = "noPageCount"
 )
 
-func TestClient_SubaccountEndpoint(t *testing.T) {
+func TestClient_TenantEndpoint(t *testing.T) {
 	// GIVEN
 	ctx := context.Background()
 	mockClient, mockServerCloseFn, endpoint := fixHTTPClientTenant(t)
@@ -54,7 +55,9 @@ func TestClient_SubaccountEndpoint(t *testing.T) {
 	}
 
 	cert, key := generateTestCertAndKey(t, "test")
-	instanceCfg := config.InstanceConfig{}
+	instanceCfg := config.InstanceConfig{
+		TokenURL: "http://subdomain.tokenurl",
+	}
 	instanceCfg.Cert = string(cert)
 	instanceCfg.Key = string(key)
 	client, err := destinationfetchersvc.NewClient(instanceCfg, apiConfig, tokenPath, subdomain)
@@ -64,7 +67,7 @@ func TestClient_SubaccountEndpoint(t *testing.T) {
 
 	t.Run("Success fetching data page 3", func(t *testing.T) {
 		// WHEN
-		res, err := client.FetchSubbacountDestinationsPage(ctx, "3")
+		res, err := client.FetchTenantDestinationsPage(ctx, "3")
 		// THEN
 		require.NoError(t, err)
 		assert.NotEmpty(t, res)
@@ -72,14 +75,14 @@ func TestClient_SubaccountEndpoint(t *testing.T) {
 
 	t.Run("Success fetching data page but no Page-Count header is in response", func(t *testing.T) {
 		// WHEN
-		_, err := client.FetchSubbacountDestinationsPage(ctx, noPageCountHeader)
+		_, err := client.FetchTenantDestinationsPage(ctx, noPageCountHeader)
 		// THEN
 		require.ErrorContains(t, err, "failed to extract header")
 	})
 
 	t.Run("Fetch should fail with status code 500, but do three attempts", func(t *testing.T) {
 		// WHEN
-		_, err := client.FetchSubbacountDestinationsPage(ctx, "internalServerError")
+		_, err := client.FetchTenantDestinationsPage(ctx, "internalServerError")
 		// THEN
 		require.ErrorContains(t, err, "#3")
 		require.ErrorContains(t, err, "status code 500")
@@ -87,13 +90,13 @@ func TestClient_SubaccountEndpoint(t *testing.T) {
 
 	t.Run("Fetch should fail with status code 4xx", func(t *testing.T) {
 		// WHEN
-		_, err := client.FetchSubbacountDestinationsPage(ctx, "forbidden")
+		_, err := client.FetchTenantDestinationsPage(ctx, "forbidden")
 		// THEN
 		require.ErrorContains(t, err, "status code 403")
 	})
 }
 
-func TestClient_SenstiveDataEndpoint(t *testing.T) {
+func TestClient_SensitiveDataEndpoint(t *testing.T) {
 	// GIVEN
 	ctx := context.Background()
 	mockClient, mockServerCloseFn, endpoint := fixHTTPClientSensitive(t)
@@ -106,7 +109,9 @@ func TestClient_SenstiveDataEndpoint(t *testing.T) {
 	apiConfig.RetryInterval = time.Duration(100 * time.Millisecond)
 
 	cert, key := generateTestCertAndKey(t, "test")
-	instanceCfg := config.InstanceConfig{}
+	instanceCfg := config.InstanceConfig{
+		TokenURL: "https://domain.tokenurl",
+	}
 	instanceCfg.Cert = string(cert)
 	instanceCfg.Key = string(key)
 	client, err := destinationfetchersvc.NewClient(instanceCfg, apiConfig, tokenPath, subdomain)
@@ -194,7 +199,7 @@ func fixHTTPClientSensitive(t *testing.T) (*http.Client, func(), string) {
 	mux.HandleFunc(sensitiveEndpoint+"/s4ext", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, err := io.WriteString(w, fixSesnitiveDataJSON())
+		_, err := io.WriteString(w, fixSensitiveDataJSON())
 		require.NoError(t, err)
 	})
 	mux.HandleFunc(sensitiveEndpoint+"/internalServerError", func(w http.ResponseWriter, r *http.Request) {
@@ -222,7 +227,7 @@ func TestNewClient(t *testing.T) {
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			URL:          "url",
-			TokenURL:     "tokenURL",
+			TokenURL:     "https://subdomain.tokenurl",
 			Cert:         string(cert),
 			Key:          string(key),
 		}
@@ -249,9 +254,29 @@ func TestNewClient(t *testing.T) {
 		}
 		require.Equal(t, tr.Base, expectedTransport)
 	})
+
+	t.Run("token url with no subdomain", func(t *testing.T) {
+		instanceCfg := config.InstanceConfig{
+			TokenURL: "https://nosubdomaintokenurl",
+		}
+
+		_, err := destinationfetchersvc.NewClient(
+			instanceCfg, destinationfetchersvc.APIConfig{}, "/oauth/token", "subdomain")
+		require.Error(t, err, fmt.Sprintf("auth url '%s' should have a subdomain", instanceCfg.TokenURL))
+	})
+
+	t.Run("invalid token url", func(t *testing.T) {
+		instanceCfg := config.InstanceConfig{
+			TokenURL: ":invalid",
+		}
+
+		_, err := destinationfetchersvc.NewClient(
+			instanceCfg, destinationfetchersvc.APIConfig{}, "/oauth/token", "subdomain")
+		require.ErrorContains(t, err, "failed to parse auth url")
+	})
 }
 
-func fixSesnitiveDataJSON() string {
+func fixSensitiveDataJSON() string {
 	return `{
 		"s4ext": {
       "owner": {

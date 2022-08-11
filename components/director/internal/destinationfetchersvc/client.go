@@ -51,11 +51,14 @@ type DestinationResponse struct {
 func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, tokenPath, subdomain string) (*Client, error) {
 	ctx := context.Background()
 
-	u, err := url.Parse(instanceConfig.TokenURL)
+	baseTokenURL, err := url.Parse(instanceConfig.TokenURL)
 	if err != nil {
 		return nil, errors.Errorf("failed to parse auth url '%s': %v", instanceConfig.TokenURL, err)
 	}
-	parts := strings.Split(u.Hostname(), ".")
+	parts := strings.Split(baseTokenURL.Hostname(), ".")
+	if len(parts) < 2 {
+		return nil, errors.Errorf("auth url '%s' should have a subdomain", instanceConfig.TokenURL)
+	}
 	originalSubdomain := parts[0]
 
 	tokenURL := strings.Replace(instanceConfig.TokenURL, originalSubdomain, subdomain, 1) + tokenPath
@@ -75,12 +78,12 @@ func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, tokenP
 		},
 	}
 
-	mtlClient := &http.Client{
+	mtlsClient := &http.Client{
 		Transport: transport,
 		Timeout:   apiConfig.Timeout,
 	}
 
-	ctx = context.WithValue(ctx, oauth2.HTTPClient, mtlClient)
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, mtlsClient)
 
 	httpClient := cfg.Client(ctx)
 	httpClient.Timeout = apiConfig.Timeout
@@ -92,16 +95,16 @@ func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, tokenP
 	}, nil
 }
 
-func (c *Client) FetchSubbacountDestinationsPage(ctx context.Context, page string) (*DestinationResponse, error) {
+func (c *Client) FetchTenantDestinationsPage(ctx context.Context, page string) (*DestinationResponse, error) {
 	url := c.apiURL + c.apiConfig.EndpointGetTenantDestinations
-	req, err := c.buildRequest(url, page)
+	req, err := c.buildRequest(ctx, url, page)
 	if err != nil {
 		return nil, err
 	}
 
-	log.C(ctx).Infof("Getting destinations page: %s data from: %s \n", page, url)
+	log.C(ctx).Infof("Getting destinations page: %s data from: %s\n", page, url)
 
-	res, err := c.sendRequestWithRetry(ctx, req)
+	res, err := c.sendRequestWithRetry(req)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +129,8 @@ func (c *Client) FetchSubbacountDestinationsPage(ctx context.Context, page strin
 	}, nil
 }
 
-func (c *Client) buildRequest(url string, page string) (*http.Request, error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+func (c *Client) buildRequest(ctx context.Context, url string, page string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build request")
 	}
@@ -148,7 +151,7 @@ func (c *Client) FetchDestinationSensitiveData(ctx context.Context, destinationN
 		return nil, errors.Wrapf(err, "failed to build request")
 	}
 
-	res, err := c.sendRequestWithRetry(ctx, req)
+	res, err := c.sendRequestWithRetry(req)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +173,7 @@ func (c *Client) FetchDestinationSensitiveData(ctx context.Context, destinationN
 	return body, nil
 }
 
-func (c *Client) sendRequestWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
+func (c *Client) sendRequestWithRetry(req *http.Request) (*http.Response, error) {
 	var response *http.Response
 	err := retry.Do(func() error {
 		res, err := c.httpClient.Do(req)
@@ -189,6 +192,7 @@ func (c *Client) sendRequestWithRetry(ctx context.Context, req *http.Request) (*
 		}
 		return errors.Errorf("request failed with status code %d, error message: %v", res.StatusCode, string(body))
 	}, retry.Attempts(c.apiConfig.RetryAttempts), retry.Delay(c.apiConfig.RetryInterval))
+
 	if err != nil {
 		return nil, err
 	}

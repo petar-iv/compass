@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/kyma-incubator/compass/components/director/internal/destinationfetchersvc"
 	"github.com/kyma-incubator/compass/components/director/internal/destinationfetchersvc/automock"
@@ -20,12 +21,14 @@ import (
 )
 
 const (
-	tenantID           = "f09ba084-0e82-49ab-ab2e-b7ecc988312d"
-	userContextHeader  = "user_context"
-	runtimeID          = "d09ba084-0e82-49ab-ab2e-b7ecc988312d"
-	subaccountLabelKey = "subaccount"
-	regionLabelKey     = "region"
-	region             = "region1"
+	tenantID          = "f09ba084-0e82-49ab-ab2e-b7ecc988312d"
+	userContextHeader = "user_context"
+	runtimeID         = "d09ba084-0e82-49ab-ab2e-b7ecc988312d"
+	tenantLabelKey    = "subaccount"
+	regionLabelKey    = "region"
+	region            = "region1"
+
+	subdomainLabelValue = "127" // will be replaced in 127.0.0.1 when fetching token for destination service
 )
 
 var (
@@ -33,8 +36,10 @@ var (
 	testErr       = errors.New("test error")
 )
 
-func TestService_SyncSubaccountDestinations(t *testing.T) {
+func TestService_SyncTenantDestinations(t *testing.T) {
 	//GIVEN
+	destinationServer := newDestinationServer(t)
+	destinationServer.server.Start()
 
 	txGen := txtest.NewTransactionContextGenerator(testErr)
 
@@ -42,14 +47,24 @@ func TestService_SyncSubaccountDestinations(t *testing.T) {
 	instanceConfig := config.InstanceConfig{
 		ClientID:     tenantID,
 		ClientSecret: "secret",
-		URL:          "https://destination-configuration.com",
-		TokenURL:     "https://test.auth.com",
+		URL:          destinationServer.server.URL,
+		TokenURL:     destinationServer.server.URL + "/oauth/token",
 		Cert:         string(cert),
 		Key:          string(key),
 	}
 
 	destAPIConfig := destinationfetchersvc.APIConfig{
-		GoroutineLimit: 10,
+		GoroutineLimit:                2,
+		RetryInterval:                 0,
+		RetryAttempts:                 2,
+		EndpointGetTenantDestinations: "/subaccountDestinations",
+		EndpointFindDestination:       "/destinations",
+		Timeout:                       time.Second * 10,
+		PageSize:                      1,
+		PagingPageParam:               "$page",
+		PagingSizeParam:               "$pageSize",
+		PagingCountParam:              "$pageCount",
+		PagingCountHeader:             "Page-Count",
 	}
 
 	destConfig := config.DestinationsConfig{
@@ -69,6 +84,17 @@ func TestService_SyncSubaccountDestinations(t *testing.T) {
 		UUIDService         func() *automock.UUIDService
 		ExpectedErrorOutput string
 	}{
+		{
+			Name: "Sync tenant destinations",
+			Transactioner: func() (*persistenceAutomock.PersistenceTx, *persistenceAutomock.Transactioner) {
+				return txGen.ThatSucceedsMultipleTimes(4)
+			},
+			LabelRepo:   successfulLabelRegionAndSubdomainRequest,
+			TenantRepo:  unusedTenantRepo,
+			BundleRepo:  successfulBundleRepo("bundleID"),
+			DestRepo:    successfulDestinationRepo("bundleID"),
+			UUIDService: successfulUUIDService,
+		},
 		{
 			Name:                "Failed to begin transaction to database",
 			Transactioner:       txGen.ThatFailsOnBegin,
@@ -92,7 +118,7 @@ func TestService_SyncSubaccountDestinations(t *testing.T) {
 			BundleRepo:          unusedBundleRepo,
 			DestRepo:            unusedDestinationsRepo,
 			UUIDService:         unusedUUIDService,
-			ExpectedErrorOutput: fmt.Sprintf("subaccount %s not found", tenantID),
+			ExpectedErrorOutput: fmt.Sprintf("tenant %s not found", tenantID),
 		},
 		{
 			Name:          "Error while getting subdomain label",
@@ -112,7 +138,7 @@ func TestService_SyncSubaccountDestinations(t *testing.T) {
 		{
 			Name:                "Failed to commit transaction",
 			Transactioner:       txGen.ThatFailsOnCommit,
-			LabelRepo:           successfullLabelSubdomainRequest,
+			LabelRepo:           successfulLabelSubdomainRequest,
 			TenantRepo:          unusedTenantRepo,
 			BundleRepo:          unusedBundleRepo,
 			DestRepo:            unusedDestinationsRepo,
@@ -124,7 +150,7 @@ func TestService_SyncSubaccountDestinations(t *testing.T) {
 			Transactioner: func() (*persistenceAutomock.PersistenceTx, *persistenceAutomock.Transactioner) {
 				return txGen.ThatSucceedsMultipleTimes(2)
 			},
-			LabelRepo:           failedLabelRegionAndSuccesfullSubdomainRequest,
+			LabelRepo:           failedLabelRegionAndSuccessfulSubdomainRequest,
 			TenantRepo:          unusedTenantRepo,
 			BundleRepo:          unusedBundleRepo,
 			DestRepo:            unusedDestinationsRepo,
@@ -172,45 +198,61 @@ func unusedTenantRepo() *automock.TenantRepo            { return &automock.Tenan
 func unusedDestinationsRepo() *automock.DestinationRepo { return &automock.DestinationRepo{} }
 func unusedBundleRepo() *automock.BundleRepo            { return &automock.BundleRepo{} }
 func unusedUUIDService() *automock.UUIDService          { return &automock.UUIDService{} }
-func usedUUIDService() *automock.UUIDService {
+
+func successfulUUIDService() *automock.UUIDService {
 	uuidService := &automock.UUIDService{}
 	uuidService.On("Generate").Return("9b26a428-d526-469c-a5ef-2856f3ce0430")
 	return uuidService
 }
-func successfullLabelSubdomainRequest() *automock.LabelRepo {
-	labelValue := "ta-subdomain"
+func successfulLabelSubdomainRequest() *automock.LabelRepo {
 	repo := &automock.LabelRepo{}
-	label := model.NewLabelForRuntime(runtimeID, labelTenantID, subaccountLabelKey, labelValue)
+	label := model.NewLabelForRuntime(runtimeID, labelTenantID, tenantLabelKey, subdomainLabelValue)
 	label.Tenant = &labelTenantID
-	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, tenantID).
-		Return(label, nil)
+	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, tenantID).Return(label, nil)
 	return repo
 }
 
-func failedLabelRegionAndSuccesfullSubdomainRequest() *automock.LabelRepo {
-	labelValue := "ta-subdomain"
+func failedLabelRegionAndSuccessfulSubdomainRequest() *automock.LabelRepo {
 	repo := &automock.LabelRepo{}
-	label := model.NewLabelForRuntime(runtimeID, labelTenantID, subaccountLabelKey, labelValue)
+	label := model.NewLabelForRuntime(runtimeID, labelTenantID, tenantLabelKey, subdomainLabelValue)
 	label.Tenant = &labelTenantID
-	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, tenantID).
-		Return(label, nil)
+	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, tenantID).Return(label, nil)
 	repo.On("GetByKey", mock.Anything, labelTenantID, model.TenantLabelableObject, labelTenantID, regionLabelKey).
 		Return(nil, testErr)
-
 	return repo
 }
 
-func successfullLabelRegionAndSubdomainRequest() *automock.LabelRepo {
-	labelValue := "ta-subdomain"
+func successfulLabelRegionAndSubdomainRequest() *automock.LabelRepo {
 	repo := &automock.LabelRepo{}
-	label := model.NewLabelForRuntime(runtimeID, labelTenantID, subaccountLabelKey, labelValue)
+	label := model.NewLabelForRuntime(runtimeID, labelTenantID, tenantLabelKey, subdomainLabelValue)
 	label.Tenant = &labelTenantID
-	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, tenantID).
-		Return(label, nil)
+	repo.On("GetSubdomainLabelForSubscribedRuntime", mock.Anything, tenantID).Return(label, nil)
 	label = model.NewLabelForRuntime(runtimeID, labelTenantID, regionLabelKey, region)
 	label.Tenant = &labelTenantID
 	repo.On("GetByKey", mock.Anything, labelTenantID, model.TenantLabelableObject, labelTenantID, regionLabelKey).
 		Return(label, nil)
-
 	return repo
+}
+
+func successfulBundleRepo(bundleID string) func() *automock.BundleRepo {
+	return func() *automock.BundleRepo {
+		bundleRepo := unusedBundleRepo()
+		bundleRepo.On("GetBySystemAndCorrelationId",
+			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+			[]*model.Bundle{{
+				BaseEntity: &model.BaseEntity{
+					ID: bundleID,
+				},
+			}}, nil)
+		return bundleRepo
+	}
+}
+
+func successfulDestinationRepo(bundleID string) func() *automock.DestinationRepo {
+	return func() *automock.DestinationRepo {
+		destinationRepo := unusedDestinationsRepo()
+		destinationRepo.On("Upsert",
+			mock.Anything, mock.Anything, mock.Anything, mock.Anything, bundleID, mock.Anything).Return(nil)
+		return destinationRepo
+	}
 }

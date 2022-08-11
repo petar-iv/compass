@@ -35,7 +35,7 @@ type DestinationRepo interface {
 
 //go:generate mockery --name=LabelRepo --output=automock --outpkg=automock --case=underscore --disable-version-string
 type LabelRepo interface {
-	GetSubdomainLabelForSubscribedRuntime(ctx context.Context, subaccountId string) (*model.Label, error)
+	GetSubdomainLabelForSubscribedRuntime(ctx context.Context, tenantId string) (*model.Label, error)
 	GetByKey(ctx context.Context, tenant string, objectType model.LabelableObject, objectID, key string) (*model.Label, error)
 }
 
@@ -60,8 +60,8 @@ type DestinationService struct {
 	APIConfig          APIConfig
 }
 
-func (d DestinationService) SyncTenantDestinations(ctx context.Context, subaccountID string) error {
-	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
+func (d DestinationService) SyncTenantDestinations(ctx context.Context, tenantID string) error {
+	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, tenantID)
 	if err != nil {
 		return err
 	}
@@ -86,11 +86,12 @@ func (d DestinationService) SyncTenantDestinations(ctx context.Context, subaccou
 		return err
 	}
 
-	if err := d.walkthroughPages(ctx, client, func(destinations []model.DestinationInput) error {
-		log.C(ctx).Infof("Found %d destinations in subaccount '%s'", len(destinations), subaccountID)
+	err = d.walkthroughPages(ctx, client, func(destinations []model.DestinationInput) error {
+		log.C(ctx).Infof("Found %d destinations in tenant '%s'", len(destinations), tenantID)
 		return d.mapDestinationsToTenant(ctx, *subdomainLabel.Tenant, destinations)
-	}); err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to sync destinations for subaccount '%s': %v", subaccountID, err)
+	})
+	if err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to sync destinations for tenant '%s': %v", tenantID, err)
 		return err
 	}
 
@@ -145,7 +146,7 @@ func (d DestinationService) walkthroughPages(ctx context.Context, client *Client
 
 	for page := 1; hasMorePages; page++ {
 		pageString := strconv.Itoa(page)
-		resp, err := client.FetchSubbacountDestinationsPage(ctx, pageString)
+		resp, err := client.FetchTenantDestinationsPage(ctx, pageString)
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch destinations page")
 		}
@@ -160,8 +161,8 @@ func (d DestinationService) walkthroughPages(ctx context.Context, client *Client
 	return nil
 }
 
-func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, subaccountID string, destinationNames []string) ([]byte, error) {
-	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, subaccountID)
+func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, tenantID string, destinationNames []string) ([]byte, error) {
+	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +233,7 @@ func fetchDestination(ctx context.Context, dest string, weighted *semaphore.Weig
 	resChan <- result
 }
 
-func (d DestinationService) getSubscribedSubdomainLabel(ctx context.Context, subaccountID string) (*model.Label, error) {
+func (d DestinationService) getSubscribedSubdomainLabel(ctx context.Context, tenantID string) (*model.Label, error) {
 	tx, err := d.Transactioner.Begin()
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
@@ -241,13 +242,13 @@ func (d DestinationService) getSubscribedSubdomainLabel(ctx context.Context, sub
 	ctx = persistence.SaveToContext(ctx, tx)
 	defer d.Transactioner.RollbackUnlessCommitted(ctx, tx)
 
-	label, err := d.LabelRepo.GetSubdomainLabelForSubscribedRuntime(ctx, subaccountID)
+	label, err := d.LabelRepo.GetSubdomainLabelForSubscribedRuntime(ctx, tenantID)
 	if err != nil {
 		if apperrors.IsNotFoundError(err) {
-			log.C(ctx).Errorf("No subscribed subdomain found for subbaccount '%s'", subaccountID)
-			return nil, apperrors.NewNotFoundErrorWithMessage(resource.Label, subaccountID, fmt.Sprintf("subaccount %s not found", subaccountID))
+			log.C(ctx).Errorf("No subscribed subdomain found for tenant '%s'", tenantID)
+			return nil, apperrors.NewNotFoundErrorWithMessage(resource.Label, tenantID, fmt.Sprintf("tenant %s not found", tenantID))
 		}
-		log.C(ctx).WithError(err).Errorf("Failed to get subdomain for subaccount '%s' from db: %v", subaccountID, err)
+		log.C(ctx).WithError(err).Errorf("Failed to get subdomain for tenant '%s' from db: %v", tenantID, err)
 		return nil, err
 	}
 

@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestService_FetchDestinationsOnDemand(t *testing.T) {
+func TestService_SyncDestinations(t *testing.T) {
 	const (
 		tenantID          = "f09ba084-0e82-49ab-ab2e-b7ecc988312d"
 		userContextHeader = "user_context"
