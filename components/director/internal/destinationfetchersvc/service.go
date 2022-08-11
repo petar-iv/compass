@@ -207,7 +207,7 @@ func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, 
 	combinedInfoJSON := bytes.Join(results, []byte(","))
 	combinedInfoJSON = append(combinedInfoJSON, '}', '}')
 
-	return append([]byte("{ \"destinations\": {"), combinedInfoJSON...), nil
+	return append([]byte(`{ "destinations": {`), combinedInfoJSON...), nil
 }
 
 func fetchDestination(ctx context.Context, dest string, weighted *semaphore.Weighted,

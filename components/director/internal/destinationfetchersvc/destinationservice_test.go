@@ -69,25 +69,38 @@ func (dh *destinationHandler) defaultTenantDestinationHandler(w http.ResponseWri
 	}
 }
 
+var defaultDestinations = map[string]string{
+	"dest1": `{"name": "dest1", "destinationConfiguration": {}}`,
+	"dest2": `{"name": "dest2", "destinationConfiguration": {}}`,
+}
+
 func (dh *destinationHandler) defaultFetchDestinationHandler(w http.ResponseWriter, req *http.Request) {
-	w.WriteHeader(500)
+	path := req.URL.Path
+	w.Header().Set("Content-Type", "application/json")
+	for destinationName, destination := range defaultDestinations {
+		if strings.HasSuffix(path, "/"+destinationName) {
+			w.Write([]byte(destination))
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNotFound)
 }
 
 func (dh *destinationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	path := req.URL.Path
 	if strings.HasPrefix(path, "/subaccountDestinations") {
-		if dh.tenantDestinationHandler == nil {
-			dh.defaultTenantDestinationHandler(w, req)
-		} else {
+		if dh.tenantDestinationHandler != nil {
 			dh.tenantDestinationHandler(w, req)
+		} else {
+			dh.defaultTenantDestinationHandler(w, req)
 		}
 		return
 	}
 	if strings.HasPrefix(path, "/destinations") {
-		if dh.tenantDestinationHandler == nil {
-			dh.defaultTenantDestinationHandler(w, req)
+		if dh.fetchDestinationHandler != nil {
+			dh.fetchDestinationHandler(w, req)
 		} else {
-			dh.tenantDestinationHandler(w, req)
+			dh.defaultFetchDestinationHandler(w, req)
 		}
 		return
 	}

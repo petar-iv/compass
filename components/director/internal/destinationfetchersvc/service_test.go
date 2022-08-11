@@ -3,6 +3,8 @@ package destinationfetchersvc_test
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/json"
 	"testing"
 	"time"
 
@@ -16,7 +18,6 @@ import (
 	persistenceAutomock "github.com/kyma-incubator/compass/components/director/pkg/persistence/automock"
 	"github.com/kyma-incubator/compass/components/director/pkg/persistence/txtest"
 	"github.com/kyma-incubator/compass/components/director/pkg/resource"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -40,6 +41,7 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 	//GIVEN
 	destinationServer := newDestinationServer(t)
 	destinationServer.server.Start()
+	defer destinationServer.server.Close()
 
 	txGen := txtest.NewTransactionContextGenerator(testErr)
 
@@ -206,9 +208,122 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 
 			// THEN
 			if len(testCase.ExpectedErrorOutput) > 0 {
-				assert.ErrorContains(t, err, testCase.ExpectedErrorOutput)
+				require.ErrorContains(t, err, testCase.ExpectedErrorOutput)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestService_FetchDestinationsSensitiveData(t *testing.T) {
+	//GIVEN
+	destinationServer := newDestinationServer(t)
+	destinationServer.server.Start()
+	defer destinationServer.server.Close()
+
+	txGen := txtest.NewTransactionContextGenerator(testErr)
+
+	cert, key := generateTestCertAndKey(t, "test")
+	instanceConfig := config.InstanceConfig{
+		ClientID:     tenantID,
+		ClientSecret: "secret",
+		URL:          destinationServer.server.URL,
+		TokenURL:     destinationServer.server.URL + "/oauth/token",
+		Cert:         string(cert),
+		Key:          string(key),
+	}
+
+	destAPIConfig := destinationfetchersvc.APIConfig{
+		GoroutineLimit:                2,
+		RetryInterval:                 0,
+		RetryAttempts:                 2,
+		EndpointGetTenantDestinations: "/subaccountDestinations",
+		EndpointFindDestination:       "/destinations",
+		Timeout:                       time.Second * 10,
+		PageSize:                      1,
+		PagingPageParam:               "$page",
+		PagingSizeParam:               "$pageSize",
+		PagingCountParam:              "$pageCount",
+		PagingCountHeader:             "Page-Count",
+	}
+
+	destConfig := config.DestinationsConfig{
+		RegionToInstanceConfig: map[string]config.InstanceConfig{
+			region: instanceConfig,
+		},
+		OauthTokenPath: "/oauth-path",
+	}
+
+	testCases := []struct {
+		Name                string
+		DestinationNames    []string
+		TenantID            string
+		LabelRepo           func() *automock.LabelRepo
+		Transactioner       func() (*persistenceAutomock.PersistenceTx, *persistenceAutomock.Transactioner)
+		ExpectedErrorOutput string
+	}{
+		{
+			Name:             "Fetch with empty destination list",
+			DestinationNames: []string{},
+			TenantID:         tenantID,
+			LabelRepo:        successfulLabelRegionAndSubdomainRequest,
+			Transactioner: func() (*persistenceAutomock.PersistenceTx, *persistenceAutomock.Transactioner) {
+				return txGen.ThatSucceedsMultipleTimes(2)
+			},
+		},
+		{
+			Name:             "Fetch with existing destinations list",
+			DestinationNames: []string{"dest1", "dest2"},
+			TenantID:         tenantID,
+			LabelRepo:        successfulLabelRegionAndSubdomainRequest,
+			Transactioner: func() (*persistenceAutomock.PersistenceTx, *persistenceAutomock.Transactioner) {
+				return txGen.ThatSucceedsMultipleTimes(2)
+			},
+		},
+		{
+			Name:             "Fetch with one non-existing destination",
+			DestinationNames: []string{"dest1", "missing"},
+			TenantID:         tenantID,
+			LabelRepo:        successfulLabelRegionAndSubdomainRequest,
+			Transactioner: func() (*persistenceAutomock.PersistenceTx, *persistenceAutomock.Transactioner) {
+				return txGen.ThatSucceedsMultipleTimes(2)
+			},
+			ExpectedErrorOutput: "Object not found",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			_, tx := testCase.Transactioner()
+			labelRepo := testCase.LabelRepo()
+			defer mock.AssertExpectationsForObjects(t, tx, labelRepo)
+
+			destSvc := destinationfetchersvc.DestinationService{
+				Transactioner:      tx,
+				UUIDSvc:            unusedUUIDService(),
+				Repo:               unusedDestinationsRepo(),
+				BundleRepo:         unusedBundleRepo(),
+				LabelRepo:          labelRepo,
+				DestinationsConfig: destConfig,
+				APIConfig:          destAPIConfig,
+			}
+
+			ctx := context.Background()
+			// WHEN
+			resp, err := destSvc.FetchDestinationsSensitiveData(ctx, testCase.TenantID, testCase.DestinationNames)
+
+			// THEN
+			if len(testCase.ExpectedErrorOutput) > 0 {
+				require.ErrorContains(t, err, testCase.ExpectedErrorOutput)
+			} else {
+				require.NoError(t, err)
+				var parsedResponse map[string]map[string]interface{}
+				require.NoError(t, json.Unmarshal(resp, &parsedResponse))
+				destinations := parsedResponse["destinations"]
+				require.NotNil(t, destinations)
+				for _, expectedDestinationName := range testCase.DestinationNames {
+					require.Contains(t, destinations, expectedDestinationName)
+				}
 			}
 		})
 	}
