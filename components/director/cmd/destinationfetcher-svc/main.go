@@ -185,7 +185,6 @@ func getServices(cfg config, transact persistence.Transactioner) services {
 			Repo:               destRepo,
 			BundleRepo:         bundleRepo,
 			LabelRepo:          labelRepo,
-			TenantRepo:         tenantRepo,
 			DestinationsConfig: cfg.DestinationsConfig,
 			APIConfig:          cfg.APIConfig,
 		},

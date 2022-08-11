@@ -44,18 +44,12 @@ type BundleRepo interface {
 	GetBySystemAndCorrelationId(ctx context.Context, tenantId, systemName, systemURL, correlationId string) ([]*model.Bundle, error)
 }
 
-//go:generate mockery --name=TenantRepo --output=automock --outpkg=automock --case=underscore --disable-version-string
-type TenantRepo interface {
-	GetBySubscribedRuntimes(ctx context.Context) ([]*model.BusinessTenantMapping, error)
-}
-
 type DestinationService struct {
 	Transactioner      persistence.Transactioner
 	UUIDSvc            UUIDService
 	Repo               DestinationRepo
 	BundleRepo         BundleRepo
 	LabelRepo          LabelRepo
-	TenantRepo         TenantRepo
 	DestinationsConfig config.DestinationsConfig
 	APIConfig          APIConfig
 }

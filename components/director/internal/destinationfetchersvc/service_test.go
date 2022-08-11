@@ -79,7 +79,6 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 		LabelRepo           func() *automock.LabelRepo
 		DestRepo            func() *automock.DestinationRepo
 		Transactioner       func() (*persistenceAutomock.PersistenceTx, *persistenceAutomock.Transactioner)
-		TenantRepo          func() *automock.TenantRepo
 		BundleRepo          func() *automock.BundleRepo
 		UUIDService         func() *automock.UUIDService
 		ExpectedErrorOutput string
@@ -90,16 +89,44 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 				return txGen.ThatSucceedsMultipleTimes(4)
 			},
 			LabelRepo:   successfulLabelRegionAndSubdomainRequest,
-			TenantRepo:  unusedTenantRepo,
 			BundleRepo:  successfulBundleRepo("bundleID"),
 			DestRepo:    successfulDestinationRepo("bundleID"),
+			UUIDService: successfulUUIDService,
+		},
+		{
+			Name: "When getting bundles fails should continue to process destinations",
+			Transactioner: func() (*persistenceAutomock.PersistenceTx, *persistenceAutomock.Transactioner) {
+				return txGen.ThatSucceedsMultipleTimes(4)
+			},
+			LabelRepo:   successfulLabelRegionAndSubdomainRequest,
+			BundleRepo:  failingBundleRepo,
+			DestRepo:    unusedDestinationsRepo,
+			UUIDService: unusedUUIDService,
+		},
+		{
+			Name: "When getting bundles fails should continue to process destinations",
+			Transactioner: func() (*persistenceAutomock.PersistenceTx, *persistenceAutomock.Transactioner) {
+				return txGen.ThatSucceedsMultipleTimes(4)
+			},
+			LabelRepo:   successfulLabelRegionAndSubdomainRequest,
+			BundleRepo:  bundleRepoWithNoBundles,
+			DestRepo:    unusedDestinationsRepo,
+			UUIDService: unusedUUIDService,
+		},
+		{
+			Name: "When destination upsert fails should continue to process destinations",
+			Transactioner: func() (*persistenceAutomock.PersistenceTx, *persistenceAutomock.Transactioner) {
+				return txGen.ThatSucceedsMultipleTimes(4)
+			},
+			LabelRepo:   successfulLabelRegionAndSubdomainRequest,
+			BundleRepo:  successfulBundleRepo("bundleID"),
+			DestRepo:    failingDestinationRepo,
 			UUIDService: successfulUUIDService,
 		},
 		{
 			Name:                "Failed to begin transaction to database",
 			Transactioner:       txGen.ThatFailsOnBegin,
 			LabelRepo:           unusedLabelRepo,
-			TenantRepo:          unusedTenantRepo,
 			BundleRepo:          unusedBundleRepo,
 			DestRepo:            unusedDestinationsRepo,
 			UUIDService:         unusedUUIDService,
@@ -114,7 +141,6 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 					Return(nil, apperrors.NewNotFoundError(resource.Label, "id"))
 				return repo
 			},
-			TenantRepo:          unusedTenantRepo,
 			BundleRepo:          unusedBundleRepo,
 			DestRepo:            unusedDestinationsRepo,
 			UUIDService:         unusedUUIDService,
@@ -129,7 +155,6 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 					Return(nil, testErr)
 				return repo
 			},
-			TenantRepo:          unusedTenantRepo,
 			BundleRepo:          unusedBundleRepo,
 			DestRepo:            unusedDestinationsRepo,
 			UUIDService:         unusedUUIDService,
@@ -139,7 +164,6 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 			Name:                "Failed to commit transaction",
 			Transactioner:       txGen.ThatFailsOnCommit,
 			LabelRepo:           successfulLabelSubdomainRequest,
-			TenantRepo:          unusedTenantRepo,
 			BundleRepo:          unusedBundleRepo,
 			DestRepo:            unusedDestinationsRepo,
 			UUIDService:         unusedUUIDService,
@@ -151,7 +175,6 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 				return txGen.ThatSucceedsMultipleTimes(2)
 			},
 			LabelRepo:           failedLabelRegionAndSuccessfulSubdomainRequest,
-			TenantRepo:          unusedTenantRepo,
 			BundleRepo:          unusedBundleRepo,
 			DestRepo:            unusedDestinationsRepo,
 			UUIDService:         unusedUUIDService,
@@ -163,10 +186,9 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 			_, tx := testCase.Transactioner()
 			destRepo := testCase.DestRepo()
 			labelRepo := testCase.LabelRepo()
-			tenantRepo := testCase.TenantRepo()
 			bundleRepo := testCase.BundleRepo()
 			uuidService := testCase.UUIDService()
-			defer mock.AssertExpectationsForObjects(t, tx, destRepo, labelRepo, uuidService, tenantRepo, bundleRepo)
+			defer mock.AssertExpectationsForObjects(t, tx, destRepo, labelRepo, uuidService, bundleRepo)
 
 			destSvc := destinationfetchersvc.DestinationService{
 				Transactioner:      tx,
@@ -174,7 +196,6 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 				Repo:               destRepo,
 				BundleRepo:         bundleRepo,
 				LabelRepo:          labelRepo,
-				TenantRepo:         tenantRepo,
 				DestinationsConfig: destConfig,
 				APIConfig:          destAPIConfig,
 			}
@@ -194,7 +215,6 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 }
 
 func unusedLabelRepo() *automock.LabelRepo              { return &automock.LabelRepo{} }
-func unusedTenantRepo() *automock.TenantRepo            { return &automock.TenantRepo{} }
 func unusedDestinationsRepo() *automock.DestinationRepo { return &automock.DestinationRepo{} }
 func unusedBundleRepo() *automock.BundleRepo            { return &automock.BundleRepo{} }
 func unusedUUIDService() *automock.UUIDService          { return &automock.UUIDService{} }
@@ -248,6 +268,20 @@ func successfulBundleRepo(bundleID string) func() *automock.BundleRepo {
 	}
 }
 
+func failingBundleRepo() *automock.BundleRepo {
+	bundleRepo := unusedBundleRepo()
+	bundleRepo.On("GetBySystemAndCorrelationId",
+		mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, testErr)
+	return bundleRepo
+}
+
+func bundleRepoWithNoBundles() *automock.BundleRepo {
+	bundleRepo := unusedBundleRepo()
+	bundleRepo.On("GetBySystemAndCorrelationId",
+		mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]*model.Bundle{}, nil)
+	return bundleRepo
+}
+
 func successfulDestinationRepo(bundleID string) func() *automock.DestinationRepo {
 	return func() *automock.DestinationRepo {
 		destinationRepo := unusedDestinationsRepo()
@@ -255,4 +289,11 @@ func successfulDestinationRepo(bundleID string) func() *automock.DestinationRepo
 			mock.Anything, mock.Anything, mock.Anything, mock.Anything, bundleID, mock.Anything).Return(nil)
 		return destinationRepo
 	}
+}
+
+func failingDestinationRepo() *automock.DestinationRepo {
+	destinationRepo := unusedDestinationsRepo()
+	destinationRepo.On("Upsert",
+		mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testErr)
+	return destinationRepo
 }
