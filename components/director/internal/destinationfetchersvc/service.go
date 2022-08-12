@@ -44,6 +44,11 @@ type BundleRepo interface {
 	GetBySystemAndCorrelationId(ctx context.Context, tenantId, systemName, systemURL, correlationId string) ([]*model.Bundle, error)
 }
 
+//go:generate mockery --name=TenantRepo --output=automock --outpkg=automock --case=underscore --disable-version-string
+type TenantRepo interface {
+	GetBySubscribedRuntimes(ctx context.Context) ([]*model.BusinessTenantMapping, error)
+}
+
 type DestinationService struct {
 	Transactioner      persistence.Transactioner
 	UUIDSvc            UUIDService
@@ -51,10 +56,35 @@ type DestinationService struct {
 	BundleRepo         BundleRepo
 	LabelRepo          LabelRepo
 	DestinationsConfig config.DestinationsConfig
-	APIConfig          APIConfig
+	APIConfig          DestinationServiceAPIConfig
+	TenantRepo         TenantRepo
 }
 
-func (d DestinationService) SyncTenantDestinations(ctx context.Context, tenantID string) error {
+func (d *DestinationService) GetSubscribedTenantIDs(ctx context.Context) ([]string, error) {
+	tenants, err := d.getSubscribedTenants(ctx)
+	if err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to get subscribed tenants: %v", err)
+		return nil, err
+	}
+	tenantIDs := make([]string, 0, len(tenants))
+	for _, tenant := range tenants {
+		tenantIDs = append(tenantIDs, tenant.ExternalTenant)
+	}
+	return tenantIDs, nil
+}
+
+func (d *DestinationService) getSubscribedTenants(ctx context.Context) ([]*model.BusinessTenantMapping, error) {
+	tx, err := d.Transactioner.Begin()
+	if err != nil {
+		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
+		return nil, err
+	}
+	ctx = persistence.SaveToContext(ctx, tx)
+	defer d.Transactioner.RollbackUnlessCommitted(ctx, tx)
+	return d.TenantRepo.GetBySubscribedRuntimes(ctx)
+}
+
+func (d *DestinationService) SyncTenantDestinations(ctx context.Context, tenantID string) error {
 	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, tenantID)
 	if err != nil {
 		return err
@@ -92,7 +122,7 @@ func (d DestinationService) SyncTenantDestinations(ctx context.Context, tenantID
 	return nil
 }
 
-func (d DestinationService) mapDestinationsToTenant(ctx context.Context, tenant string, destinations []model.DestinationInput) error {
+func (d *DestinationService) mapDestinationsToTenant(ctx context.Context, tenant string, destinations []model.DestinationInput) error {
 	tx, err := d.Transactioner.Begin()
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
@@ -135,7 +165,7 @@ func (d DestinationService) mapDestinationsToTenant(ctx context.Context, tenant 
 
 type processFunc func([]model.DestinationInput) error
 
-func (d DestinationService) walkthroughPages(ctx context.Context, client *Client, process processFunc) error {
+func (d *DestinationService) walkthroughPages(ctx context.Context, client *Client, process processFunc) error {
 	hasMorePages := true
 
 	for page := 1; hasMorePages; page++ {
@@ -155,7 +185,7 @@ func (d DestinationService) walkthroughPages(ctx context.Context, client *Client
 	return nil
 }
 
-func (d DestinationService) FetchDestinationsSensitiveData(ctx context.Context, tenantID string, destinationNames []string) ([]byte, error) {
+func (d *DestinationService) FetchDestinationsSensitiveData(ctx context.Context, tenantID string, destinationNames []string) ([]byte, error) {
 	subdomainLabel, err := d.getSubscribedSubdomainLabel(ctx, tenantID)
 	if err != nil {
 		return nil, err
@@ -227,7 +257,7 @@ func fetchDestination(ctx context.Context, dest string, weighted *semaphore.Weig
 	resChan <- result
 }
 
-func (d DestinationService) getSubscribedSubdomainLabel(ctx context.Context, tenantID string) (*model.Label, error) {
+func (d *DestinationService) getSubscribedSubdomainLabel(ctx context.Context, tenantID string) (*model.Label, error) {
 	tx, err := d.Transactioner.Begin()
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
@@ -254,7 +284,7 @@ func (d DestinationService) getSubscribedSubdomainLabel(ctx context.Context, ten
 	return label, nil
 }
 
-func (d DestinationService) getRegionLabel(ctx context.Context, tenantID string) (*model.Label, error) {
+func (d *DestinationService) getRegionLabel(ctx context.Context, tenantID string) (*model.Label, error) {
 	tx, err := d.Transactioner.Begin()
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")

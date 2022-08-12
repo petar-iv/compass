@@ -541,10 +541,10 @@ global:
       oauthTokenPath: "/oauth/token"
     containerName: "destination-fetcher"
     instance:
-      clientIdPath: "client_id"
-      clientSecretPath: "client_secret"
+      clientIdPath: "clientid"
+      clientSecretPath: "clientsecret"
       urlPath: "uri"
-      tokenUrlPath: "certurl"
+      tokenUrlPath: "url"
       x509CertPath: "certificate"
       x509KeyPath: "key"
     secretPath: "/etc/instances/config.json"

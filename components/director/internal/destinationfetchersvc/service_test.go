@@ -22,13 +22,11 @@ import (
 )
 
 const (
-	tenantID          = "f09ba084-0e82-49ab-ab2e-b7ecc988312d"
-	userContextHeader = "user_context"
-	runtimeID         = "d09ba084-0e82-49ab-ab2e-b7ecc988312d"
-	tenantLabelKey    = "subaccount"
-	regionLabelKey    = "region"
-	region            = "region1"
-
+	tenantID            = "f09ba084-0e82-49ab-ab2e-b7ecc988312d"
+	runtimeID           = "d09ba084-0e82-49ab-ab2e-b7ecc988312d"
+	tenantLabelKey      = "subaccount"
+	regionLabelKey      = "region"
+	region              = "region1"
 	subdomainLabelValue = "127" // will be replaced in 127.0.0.1 when fetching token for destination service
 )
 
@@ -355,8 +353,8 @@ func failingDestinationRepo() *automock.DestinationRepo {
 	return destinationRepo
 }
 
-func defaultApiConfig() destinationfetchersvc.APIConfig {
-	return destinationfetchersvc.APIConfig{
+func defaultApiConfig() destinationfetchersvc.DestinationServiceAPIConfig {
+	return destinationfetchersvc.DestinationServiceAPIConfig{
 		GoroutineLimit:                2,
 		RetryInterval:                 0,
 		RetryAttempts:                 2,

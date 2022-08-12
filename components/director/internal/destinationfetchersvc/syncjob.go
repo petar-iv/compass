@@ -2,7 +2,6 @@ package destinationfetchersvc
 
 import (
 	"context"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/cronjob"
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 	"golang.org/x/sync/semaphore"
@@ -14,12 +13,7 @@ import (
 //go:generate mockery --name=DestinationSyncer --output=automock --outpkg=automock --case=underscore --disable-version-string
 type DestinationSyncer interface {
 	SyncTenantDestinations(ctx context.Context, tenantID string) error
-}
-
-// SubscribedTenantFetcher missing godoc
-//go:generate mockery --name=SubscribedTenantFetcher --output=automock --outpkg=automock --case=underscore --disable-version-string
-type SubscribedTenantFetcher interface {
-	GetBySubscribedRuntimes(ctx context.Context) ([]*model.BusinessTenantMapping, error)
+	GetSubscribedTenantIDs(ctx context.Context) ([]string, error)
 }
 
 type SyncJobConfig struct {
@@ -28,20 +22,22 @@ type SyncJobConfig struct {
 	ParallelTenants   int64
 }
 
-func StartDestinationFetcherSyncJob(ctx context.Context, cfg SyncJobConfig,
-	tenantFetcher SubscribedTenantFetcher, destinationSyncer DestinationSyncer) error {
-
+func StartDestinationFetcherSyncJob(ctx context.Context, cfg SyncJobConfig, destinationSyncer DestinationSyncer) error {
 	resyncJob := cronjob.CronJob{
 		Name: "DestinationFetcherSync",
 		Fn: func(jobCtx context.Context) {
-			subscribedTenants, err := tenantFetcher.GetBySubscribedRuntimes(jobCtx)
+			subscribedTenants, err := destinationSyncer.GetSubscribedTenantIDs(jobCtx)
 			if err != nil {
 				log.C(jobCtx).WithError(err).Errorf("Could not fetch subscribed tenants for destination resync")
 				return
 			}
+			if len(subscribedTenants) == 0 {
+				log.C(jobCtx).Info("No subscribed tenants found. Skipping sync job")
+				return
+			}
 			sem := semaphore.NewWeighted(cfg.ParallelTenants)
 			wg := &sync.WaitGroup{}
-			for _, tenant := range subscribedTenants {
+			for _, tenantID := range subscribedTenants {
 				wg.Add(1)
 				go func(tenantID string) {
 					defer wg.Done()
@@ -50,8 +46,8 @@ func StartDestinationFetcherSyncJob(ctx context.Context, cfg SyncJobConfig,
 						return
 					}
 					defer sem.Release(1)
-					resyncTenantDestinations(jobCtx, destinationSyncer, tenantID)
-				}(tenant.ExternalTenant)
+					syncTenantDestinations(jobCtx, destinationSyncer, tenantID)
+				}(tenantID)
 			}
 			wg.Wait()
 		},
@@ -60,7 +56,7 @@ func StartDestinationFetcherSyncJob(ctx context.Context, cfg SyncJobConfig,
 	return cronjob.RunCronJob(ctx, cfg.ElectionCfg, resyncJob)
 }
 
-func resyncTenantDestinations(ctx context.Context, destinationSyncer DestinationSyncer, tenantID string) {
+func syncTenantDestinations(ctx context.Context, destinationSyncer DestinationSyncer, tenantID string) {
 	err := destinationSyncer.SyncTenantDestinations(ctx, tenantID)
 	if err != nil {
 		log.C(ctx).WithError(err).Errorf("Could not resync destinations for tenant %s", tenantID)

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/kyma-incubator/compass/components/director/internal/destinationfetchersvc"
 	"github.com/kyma-incubator/compass/components/director/internal/destinationfetchersvc/automock"
-	"github.com/kyma-incubator/compass/components/director/internal/model"
 	"github.com/kyma-incubator/compass/components/director/pkg/cronjob"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -17,17 +16,8 @@ func TestDestinationSyncJob(t *testing.T) {
 	const testTimeout = time.Second * 5
 
 	var (
-		tenantsToResync = []*model.BusinessTenantMapping{
-			{
-				ExternalTenant: "t1",
-			},
-			{
-				ExternalTenant: "t2",
-			},
-			{
-				ExternalTenant: "t3",
-			},
-		}
+		tenantsToResync = []string{"t1", "t2", "t3"}
+
 		cfg = destinationfetchersvc.SyncJobConfig{
 			ParallelTenants:   2,
 			JobSchedulePeriod: time.Minute,
@@ -61,22 +51,21 @@ func TestDestinationSyncJob(t *testing.T) {
 		}
 		cancelCtxAfterAllDoneReceived(done, len(tenantsToResync), cancel)
 
-		subscribedTenantFetcher := &automock.SubscribedTenantFetcher{}
-		subscribedTenantFetcher.Mock.On("GetBySubscribedRuntimes", mock.Anything).
-			Return(tenantsToResync, nil)
-
 		destinationSyncer := &automock.DestinationSyncer{}
 		destinationSyncer.Mock.On("SyncTenantDestinations",
-			mock.Anything, tenantsToResync[0].ExternalTenant).Return(nil).Run(addDone)
+			mock.Anything, tenantsToResync[0]).Return(nil).Run(addDone)
 		destinationSyncer.Mock.On("SyncTenantDestinations",
-			mock.Anything, tenantsToResync[1].ExternalTenant).Return(nil).Run(addDone)
+			mock.Anything, tenantsToResync[1]).Return(nil).Run(addDone)
 		destinationSyncer.Mock.On("SyncTenantDestinations",
-			mock.Anything, tenantsToResync[2].ExternalTenant).Return(nil).Run(addDone)
+			mock.Anything, tenantsToResync[2]).Return(nil).Run(addDone)
+		destinationSyncer.Mock.On("GetSubscribedTenantIDs", mock.Anything).
+			Return(tenantsToResync, nil)
 
-		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, subscribedTenantFetcher, destinationSyncer)
+		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, destinationSyncer)
 		assert.Nil(t, err)
-		assert.Equal(t, 1, len(subscribedTenantFetcher.Calls))
-		assert.Equal(t, len(tenantsToResync), len(destinationSyncer.Calls))
+		destinationSyncer.Mock.AssertNumberOfCalls(t, "GetSubscribedTenantIDs", 1)
+		destinationSyncer.Mock.AssertNumberOfCalls(t, "SyncTenantDestinations", len(tenantsToResync))
+		destinationSyncer.AssertExpectations(t)
 	})
 
 	t.Run("Should not fail on one tenant re-sync failure", func(t *testing.T) {
@@ -88,52 +77,47 @@ func TestDestinationSyncJob(t *testing.T) {
 		}
 		cancelCtxAfterAllDoneReceived(done, len(tenantsToResync), cancel)
 
-		subscribedTenantFetcher := &automock.SubscribedTenantFetcher{}
-		subscribedTenantFetcher.Mock.On("GetBySubscribedRuntimes", mock.Anything).
-			Return(tenantsToResync, nil)
-
 		destinationSyncer := &automock.DestinationSyncer{}
 		destinationSyncer.Mock.On("SyncTenantDestinations",
-			mock.Anything, tenantsToResync[0].ExternalTenant).Return(nil).Run(addDone)
+			mock.Anything, tenantsToResync[0]).Return(nil).Run(addDone)
 		destinationSyncer.Mock.On("SyncTenantDestinations",
-			mock.Anything, tenantsToResync[1].ExternalTenant).Return(expectedError).Run(addDone)
+			mock.Anything, tenantsToResync[1]).Return(expectedError).Run(addDone)
 		destinationSyncer.Mock.On("SyncTenantDestinations",
-			mock.Anything, tenantsToResync[2].ExternalTenant).Return(nil).Run(addDone)
+			mock.Anything, tenantsToResync[2]).Return(nil).Run(addDone)
+		destinationSyncer.Mock.On("GetSubscribedTenantIDs", mock.Anything).
+			Return(tenantsToResync, nil)
 
-		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, subscribedTenantFetcher, destinationSyncer)
+		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, destinationSyncer)
 		assert.Nil(t, err)
-		assert.Equal(t, 1, len(subscribedTenantFetcher.Calls))
-		assert.Equal(t, len(tenantsToResync), len(destinationSyncer.Calls))
+		destinationSyncer.Mock.AssertNumberOfCalls(t, "GetSubscribedTenantIDs", 1)
+		destinationSyncer.Mock.AssertNumberOfCalls(t, "SyncTenantDestinations", len(tenantsToResync))
+		destinationSyncer.AssertExpectations(t)
 	})
 
 	t.Run("Should not re-sync if subscribed tenants could not be fetched", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 
-		subscribedTenantFetcher := &automock.SubscribedTenantFetcher{}
-		subscribedTenantFetcher.Mock.On("GetBySubscribedRuntimes", mock.Anything).
+		destinationSyncer := &automock.DestinationSyncer{}
+		destinationSyncer.Mock.On("GetSubscribedTenantIDs", mock.Anything).
 			Return(nil, expectedError).Run(func(args mock.Arguments) { cancel() })
 
-		destinationSyncer := &automock.DestinationSyncer{}
-
-		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, subscribedTenantFetcher, destinationSyncer)
+		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, destinationSyncer)
 		assert.Nil(t, err)
-		assert.Equal(t, 1, len(subscribedTenantFetcher.Calls))
-		assert.Equal(t, 0, len(destinationSyncer.Calls))
+		destinationSyncer.Mock.AssertNumberOfCalls(t, "GetSubscribedTenantIDs", 1)
+		destinationSyncer.AssertExpectations(t)
 	})
 
 	t.Run("Should not re-sync if there are no subscribed tenants", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 
-		subscribedTenantFetcher := &automock.SubscribedTenantFetcher{}
-		subscribedTenantFetcher.Mock.On("GetBySubscribedRuntimes", mock.Anything).
+		destinationSyncer := &automock.DestinationSyncer{}
+		destinationSyncer.Mock.On("GetSubscribedTenantIDs", mock.Anything).
 			Return(nil, nil).Run(func(args mock.Arguments) { cancel() })
 
-		destinationSyncer := &automock.DestinationSyncer{}
-
-		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, subscribedTenantFetcher, destinationSyncer)
+		err := destinationfetchersvc.StartDestinationFetcherSyncJob(ctx, cfg, destinationSyncer)
 		assert.Nil(t, err)
-		assert.Equal(t, 1, len(subscribedTenantFetcher.Calls))
-		assert.Equal(t, 0, len(destinationSyncer.Calls))
+		destinationSyncer.Mock.AssertNumberOfCalls(t, "GetSubscribedTenantIDs", 1)
+		destinationSyncer.AssertExpectations(t)
 	})
 
 }

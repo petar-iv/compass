@@ -23,12 +23,12 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-type APIConfig struct {
+type DestinationServiceAPIConfig struct {
 	GoroutineLimit                int64         `envconfig:"APP_DESTINATIONS_SENSITIVE_GOROUTINE_LIMIT,default=10"`
 	RetryInterval                 time.Duration `envconfig:"APP_DESTINATIONS_RETRY_INTERVAL,default=100ms"`
 	RetryAttempts                 uint          `envconfig:"APP_DESTINATIONS_RETRY_ATTEMPTS,default=3"`
-	EndpointGetTenantDestinations string        `envconfig:"APP_ENDPOINT_GET_TENANT_DESTINATIONS"`
-	EndpointFindDestination       string        `envconfig:"APP_ENDPOINT_FIND_DESTINATION"`
+	EndpointGetTenantDestinations string        `envconfig:"APP_ENDPOINT_GET_TENANT_DESTINATIONS,default=/destination-configuration/v1/subaccountDestinations"`
+	EndpointFindDestination       string        `envconfig:"APP_ENDPOINT_FIND_DESTINATION,default=/destination-configuration/v1/destinations"`
 	Timeout                       time.Duration `envconfig:"APP_DESTINATIONS_TIMEOUT,default=30s"`
 	PageSize                      int           `envconfig:"APP_DESTINATIONS_PAGE_SIZE,default=100"`
 	PagingPageParam               string        `envconfig:"APP_DESTINATIONS_PAGE_PARAM,default=$page"`
@@ -39,7 +39,7 @@ type APIConfig struct {
 
 type Client struct {
 	httpClient *http.Client
-	apiConfig  APIConfig
+	apiConfig  DestinationServiceAPIConfig
 	apiURL     string
 }
 
@@ -48,7 +48,9 @@ type DestinationResponse struct {
 	pageCount    string
 }
 
-func NewClient(instanceConfig config.InstanceConfig, apiConfig APIConfig, tokenPath, subdomain string) (*Client, error) {
+func NewClient(instanceConfig config.InstanceConfig, apiConfig DestinationServiceAPIConfig,
+	tokenPath, subdomain string) (*Client, error) {
+
 	ctx := context.Background()
 
 	baseTokenURL, err := url.Parse(instanceConfig.TokenURL)
@@ -166,6 +168,7 @@ func (c *Client) FetchDestinationSensitiveData(ctx context.Context, destinationN
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
+
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read body of response")
 	}
@@ -187,6 +190,7 @@ func (c *Client) sendRequestWithRetry(req *http.Request) (*http.Response, error)
 		}
 
 		body, err := ioutil.ReadAll(res.Body)
+
 		if err != nil {
 			return errors.Wrap(err, "failed to read response body")
 		}

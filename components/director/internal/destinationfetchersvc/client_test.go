@@ -40,7 +40,7 @@ func TestClient_TenantEndpoint(t *testing.T) {
 	mockClient, mockServerCloseFn, endpoint := fixHTTPClientTenant(t)
 	defer mockServerCloseFn()
 
-	apiConfig := destinationfetchersvc.APIConfig{
+	apiConfig := destinationfetchersvc.DestinationServiceAPIConfig{
 		GoroutineLimit:                10,
 		RetryInterval:                 100 * time.Millisecond,
 		RetryAttempts:                 3,
@@ -102,7 +102,7 @@ func TestClient_SensitiveDataEndpoint(t *testing.T) {
 	mockClient, mockServerCloseFn, endpoint := fixHTTPClientSensitive(t)
 	defer mockServerCloseFn()
 
-	apiConfig := destinationfetchersvc.APIConfig{}
+	apiConfig := destinationfetchersvc.DestinationServiceAPIConfig{}
 	apiConfig.EndpointFindDestination = endpoint + sensitiveEndpoint
 	apiConfig.EndpointGetTenantDestinations = endpoint + syncEndpoint
 	apiConfig.RetryAttempts = 3
@@ -232,7 +232,7 @@ func TestNewClient(t *testing.T) {
 			Key:          string(key),
 		}
 
-		client, err := destinationfetchersvc.NewClient(instanceCfg, destinationfetchersvc.APIConfig{}, "/oauth/token", "subdomain")
+		client, err := destinationfetchersvc.NewClient(instanceCfg, destinationfetchersvc.DestinationServiceAPIConfig{}, "/oauth/token", "subdomain")
 		require.NoError(t, err)
 
 		httpClient := client.GetHTTPClient()
@@ -261,7 +261,7 @@ func TestNewClient(t *testing.T) {
 		}
 
 		_, err := destinationfetchersvc.NewClient(
-			instanceCfg, destinationfetchersvc.APIConfig{}, "/oauth/token", "subdomain")
+			instanceCfg, destinationfetchersvc.DestinationServiceAPIConfig{}, "/oauth/token", "subdomain")
 		require.Error(t, err, fmt.Sprintf("auth url '%s' should have a subdomain", instanceCfg.TokenURL))
 	})
 
@@ -271,7 +271,7 @@ func TestNewClient(t *testing.T) {
 		}
 
 		_, err := destinationfetchersvc.NewClient(
-			instanceCfg, destinationfetchersvc.APIConfig{}, "/oauth/token", "subdomain")
+			instanceCfg, destinationfetchersvc.DestinationServiceAPIConfig{}, "/oauth/token", "subdomain")
 		require.ErrorContains(t, err, "failed to parse auth url")
 	})
 }

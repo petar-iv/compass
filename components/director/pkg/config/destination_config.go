@@ -7,17 +7,17 @@ import (
 )
 
 type DestinationsConfig struct {
-	InstanceClientIDPath     string `envconfig:"APP_DESTINATION_INSTANCE_CLIENT_ID_PATH"`
-	InstanceClientSecretPath string `envconfig:"APP_DESTINATION_INSTANCE_CLIENT_SECRET_PATH"`
-	InstanceURLPath          string `envconfig:"APP_DESTINATION_INSTANCE_URL_PATH"`
-	InstanceTokenURLPath     string `envconfig:"APP_DESTINATION_INSTANCE_TOKEN_URL_PATH"`
-	InstanceCertPath         string `envconfig:"APP_DESTINATION_INSTANCE_X509_CERT_PATH"`
-	InstanceKeyPath          string `envconfig:"APP_DESTINATION_INSTANCE_X509_KEY_PATH"`
+	InstanceClientIDPath     string `envconfig:"APP_DESTINATION_INSTANCE_CLIENT_ID_PATH,default=clientid"`
+	InstanceClientSecretPath string `envconfig:"APP_DESTINATION_INSTANCE_CLIENT_SECRET_PATH,default=clientsecret"`
+	InstanceURLPath          string `envconfig:"APP_DESTINATION_INSTANCE_URL_PATH,default=uri"`
+	InstanceTokenURLPath     string `envconfig:"APP_DESTINATION_INSTANCE_TOKEN_URL_PATH,default=certurl"`
+	InstanceCertPath         string `envconfig:"APP_DESTINATION_INSTANCE_X509_CERT_PATH,default=certificate"`
+	InstanceKeyPath          string `envconfig:"APP_DESTINATION_INSTANCE_X509_KEY_PATH,default=key"`
 
 	DestinationSecretPath  string                    `envconfig:"APP_DESTINATION_SECRET_PATH"`
 	RegionToInstanceConfig map[string]InstanceConfig `envconfig:"-"`
 
-	OauthTokenPath string         `envconfig:"APP_DESTINATION_OAUTH_TOKEN_PATH,optional"`
+	OauthTokenPath string         `envconfig:"APP_DESTINATION_OAUTH_TOKEN_PATH,default=/oauth/token"`
 	OAuthMode      oauth.AuthMode `envconfig:"APP_DESTINATION_OAUTH_MODE,default=oauth-mtls"`
 }
 
