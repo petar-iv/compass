@@ -159,7 +159,8 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 			labelRepo := testCase.LabelRepo()
 			bundleRepo := testCase.BundleRepo()
 			uuidService := testCase.UUIDService()
-			defer mock.AssertExpectationsForObjects(t, tx, destRepo, labelRepo, uuidService, bundleRepo)
+			tenantRepo := unusedTenantRepo()
+			defer mock.AssertExpectationsForObjects(t, tx, destRepo, labelRepo, uuidService, bundleRepo, tenantRepo)
 
 			destSvc := destinationfetchersvc.DestinationService{
 				Transactioner:      tx,
@@ -167,6 +168,7 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 				Repo:               destRepo,
 				BundleRepo:         bundleRepo,
 				LabelRepo:          labelRepo,
+				TenantRepo:         tenantRepo,
 				DestinationsConfig: destConfig,
 				APIConfig:          destAPIConfig,
 			}
@@ -235,14 +237,20 @@ func TestService_FetchDestinationsSensitiveData(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			_, tx := testCase.Transactioner()
+			destRepo := unusedDestinationsRepo()
 			labelRepo := testCase.LabelRepo()
-			defer mock.AssertExpectationsForObjects(t, tx, labelRepo)
+			uuidService := unusedUUIDService()
+			bundleRepo := unusedBundleRepo()
+			tenantRepo := unusedTenantRepo()
+
+			defer mock.AssertExpectationsForObjects(t, tx, destRepo, labelRepo, uuidService, bundleRepo, tenantRepo)
 
 			destSvc := destinationfetchersvc.DestinationService{
 				Transactioner:      tx,
-				UUIDSvc:            unusedUUIDService(),
-				Repo:               unusedDestinationsRepo(),
-				BundleRepo:         unusedBundleRepo(),
+				UUIDSvc:            uuidService,
+				Repo:               destRepo,
+				BundleRepo:         bundleRepo,
+				TenantRepo:         tenantRepo,
 				LabelRepo:          labelRepo,
 				DestinationsConfig: destConfig,
 				APIConfig:          destAPIConfig,
@@ -269,9 +277,93 @@ func TestService_FetchDestinationsSensitiveData(t *testing.T) {
 	}
 }
 
+func TestService_GetSubscribedTenantIDs(t *testing.T) {
+	//GIVEN
+	txGen := txtest.NewTransactionContextGenerator(testErr)
+	destAPIConfig := defaultApiConfig()
+	destConfig := defaultDestinationConfig(t, "invalid")
+
+	testCases := []struct {
+		Name                string
+		ExpectedTenantIDs   []string
+		TenantRepo          func() *automock.TenantRepo
+		Transactioner       func() (*persistenceAutomock.PersistenceTx, *persistenceAutomock.Transactioner)
+		ExpectedErrorOutput string
+	}{
+		{
+			Name:              "Fetch subscribed tenants",
+			ExpectedTenantIDs: []string{"a", "b"},
+			TenantRepo:        successfulTenantRepo([]string{"b", "a"}),
+			Transactioner:     txGen.ThatSucceeds,
+		},
+		{
+			Name:                "Tenant repo returns error",
+			TenantRepo:          failingTenantRepo,
+			Transactioner:       txGen.ThatSucceeds,
+			ExpectedErrorOutput: testErr.Error(),
+		},
+		{
+			Name:                "Tenant repo returns error on Begin",
+			TenantRepo:          unusedTenantRepo,
+			Transactioner:       txGen.ThatFailsOnBegin,
+			ExpectedErrorOutput: testErr.Error(),
+		},
+		{
+			Name:                "Tenant repo returns error on Commit",
+			TenantRepo:          successfulTenantRepo([]string{}),
+			Transactioner:       txGen.ThatFailsOnCommit,
+			ExpectedErrorOutput: testErr.Error(),
+		},
+		{
+			Name:              "Tenant repo returns no tenants",
+			ExpectedTenantIDs: []string{},
+			TenantRepo:        successfulTenantRepo([]string{}),
+			Transactioner:     txGen.ThatSucceeds,
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			_, tx := testCase.Transactioner()
+			destRepo := unusedDestinationsRepo()
+			labelRepo := unusedLabelRepo()
+			uuidService := unusedUUIDService()
+			bundleRepo := unusedBundleRepo()
+			tenantRepo := testCase.TenantRepo()
+
+			defer mock.AssertExpectationsForObjects(t, tx, destRepo, labelRepo, uuidService, bundleRepo, tenantRepo)
+
+			destSvc := destinationfetchersvc.DestinationService{
+				Transactioner:      tx,
+				UUIDSvc:            uuidService,
+				Repo:               destRepo,
+				BundleRepo:         bundleRepo,
+				TenantRepo:         tenantRepo,
+				LabelRepo:          labelRepo,
+				DestinationsConfig: destConfig,
+				APIConfig:          destAPIConfig,
+			}
+
+			ctx := context.Background()
+			// WHEN
+			tenantIDs, err := destSvc.GetSubscribedTenantIDs(ctx)
+
+			// THEN
+			if len(testCase.ExpectedErrorOutput) > 0 {
+				require.ErrorContains(t, err, testCase.ExpectedErrorOutput)
+			} else {
+				require.NoError(t, err)
+				for _, expectedTenantID := range testCase.ExpectedTenantIDs {
+					require.Contains(t, tenantIDs, expectedTenantID)
+				}
+			}
+		})
+	}
+}
+
 func unusedLabelRepo() *automock.LabelRepo              { return &automock.LabelRepo{} }
 func unusedDestinationsRepo() *automock.DestinationRepo { return &automock.DestinationRepo{} }
 func unusedBundleRepo() *automock.BundleRepo            { return &automock.BundleRepo{} }
+func unusedTenantRepo() *automock.TenantRepo            { return &automock.TenantRepo{} }
 func unusedUUIDService() *automock.UUIDService          { return &automock.UUIDService{} }
 
 func successfulUUIDService() *automock.UUIDService {
@@ -279,6 +371,7 @@ func successfulUUIDService() *automock.UUIDService {
 	uuidService.On("Generate").Return("9b26a428-d526-469c-a5ef-2856f3ce0430")
 	return uuidService
 }
+
 func successfulLabelSubdomainRequest() *automock.LabelRepo {
 	repo := &automock.LabelRepo{}
 	label := model.NewLabelForRuntime(runtimeID, labelTenantID, tenantLabelKey, subdomainLabelValue)
@@ -351,6 +444,26 @@ func failingDestinationRepo() *automock.DestinationRepo {
 	destinationRepo.On("Upsert",
 		mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testErr)
 	return destinationRepo
+}
+
+func successfulTenantRepo(tenantIDs []string) func() *automock.TenantRepo {
+	return func() *automock.TenantRepo {
+		tenantRepo := unusedTenantRepo()
+		tenants := make([]*model.BusinessTenantMapping, 0, len(tenantIDs))
+		for _, tenantID := range tenantIDs {
+			tenants = append(tenants, &model.BusinessTenantMapping{
+				ExternalTenant: tenantID,
+			})
+		}
+		tenantRepo.On("GetBySubscribedRuntimes", mock.Anything).Return(tenants, nil)
+		return tenantRepo
+	}
+}
+
+func failingTenantRepo() *automock.TenantRepo {
+	tenantRepo := unusedTenantRepo()
+	tenantRepo.On("GetBySubscribedRuntimes", mock.Anything).Return(nil, testErr)
+	return tenantRepo
 }
 
 func defaultApiConfig() destinationfetchersvc.DestinationServiceAPIConfig {

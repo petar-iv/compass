@@ -63,7 +63,7 @@ type DestinationService struct {
 func (d *DestinationService) GetSubscribedTenantIDs(ctx context.Context) ([]string, error) {
 	tenants, err := d.getSubscribedTenants(ctx)
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to get subscribed tenants: %v", err)
+		log.C(ctx).WithError(err).Error("Failed to get subscribed tenants")
 		return nil, err
 	}
 	tenantIDs := make([]string, 0, len(tenants))
@@ -76,12 +76,22 @@ func (d *DestinationService) GetSubscribedTenantIDs(ctx context.Context) ([]stri
 func (d *DestinationService) getSubscribedTenants(ctx context.Context) ([]*model.BusinessTenantMapping, error) {
 	tx, err := d.Transactioner.Begin()
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
+		log.C(ctx).WithError(err).Error("Failed to begin db transaction")
 		return nil, err
 	}
-	ctx = persistence.SaveToContext(ctx, tx)
 	defer d.Transactioner.RollbackUnlessCommitted(ctx, tx)
-	return d.TenantRepo.GetBySubscribedRuntimes(ctx)
+	ctx = persistence.SaveToContext(ctx, tx)
+
+	tenants, err := d.TenantRepo.GetBySubscribedRuntimes(ctx)
+	if err != nil {
+		log.C(ctx).WithError(err).Error("An error occurred while getting subscribed tenants")
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		log.C(ctx).WithError(err).Error("An error occurred while committing database transaction")
+		return nil, err
+	}
+	return tenants, nil
 }
 
 func (d *DestinationService) SyncTenantDestinations(ctx context.Context, tenantID string) error {
@@ -106,7 +116,7 @@ func (d *DestinationService) SyncTenantDestinations(ctx context.Context, tenantI
 
 	client, err := NewClient(instanceConfig, d.APIConfig, d.DestinationsConfig.OauthTokenPath, subdomain)
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to create Destination API client: %v", err)
+		log.C(ctx).WithError(err).Error("Failed to create Destination API client")
 		return err
 	}
 
@@ -115,7 +125,7 @@ func (d *DestinationService) SyncTenantDestinations(ctx context.Context, tenantI
 		return d.mapDestinationsToTenant(ctx, *subdomainLabel.Tenant, destinations)
 	})
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to sync destinations for tenant '%s': %v", tenantID, err)
+		log.C(ctx).WithError(err).Errorf("Failed to sync destinations for tenant '%s'", tenantID)
 		return err
 	}
 
@@ -125,7 +135,7 @@ func (d *DestinationService) SyncTenantDestinations(ctx context.Context, tenantI
 func (d *DestinationService) mapDestinationsToTenant(ctx context.Context, tenant string, destinations []model.DestinationInput) error {
 	tx, err := d.Transactioner.Begin()
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
+		log.C(ctx).WithError(err).Error("Failed to begin db transaction")
 		return err
 	}
 	ctx = persistence.SaveToContext(ctx, tx)
@@ -141,8 +151,8 @@ func (d *DestinationService) mapDestinationsToTenant(ctx context.Context, tenant
 		}
 
 		if err != nil {
-			log.C(ctx).WithError(err).Errorf("Failed to fetch bundle for system '%s', url '%s', correlation id '%s', tenant id '%s': %v",
-				destination.XFSystemName, destination.URL, correlationID, tenant, err)
+			log.C(ctx).WithError(err).Errorf("Failed to fetch bundle for system '%s', url '%s', correlation id '%s', tenant id '%s'",
+				destination.XFSystemName, destination.URL, correlationID, tenant)
 			continue
 		}
 
@@ -150,14 +160,16 @@ func (d *DestinationService) mapDestinationsToTenant(ctx context.Context, tenant
 			id := d.UUIDSvc.Generate()
 			revision := d.UUIDSvc.Generate()
 			if err := d.Repo.Upsert(ctx, destination, id, tenant, bundle.ID, revision); err != nil {
-				log.C(ctx).WithError(err).Errorf("Failed to insert destination with name '%s' for bunlde '%s' and tenant '%s' to DB: %v", destination.Name, bundle.ID, tenant, err)
+				log.C(ctx).WithError(err).Errorf(
+					"Failed to insert destination with name '%s' for bunlde '%s' and tenant '%s' to DB",
+					destination.Name, bundle.ID, tenant)
 				continue
 			}
 		}
 	}
 
 	if err = tx.Commit(); err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to commit database transaction %v", err)
+		log.C(ctx).WithError(err).Error("Failed to commit database transaction")
 		return err
 	}
 	return nil
@@ -207,7 +219,7 @@ func (d *DestinationService) FetchDestinationsSensitiveData(ctx context.Context,
 	}
 	client, err := NewClient(instanceConfig, d.APIConfig, d.DestinationsConfig.OauthTokenPath, subdomain)
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to create Destination API client: %v", err)
+		log.C(ctx).WithError(err).Error("Failed to create Destination API client")
 		return nil, err
 	}
 
@@ -219,7 +231,11 @@ func (d *DestinationService) FetchDestinationsSensitiveData(ctx context.Context,
 
 	go func() {
 		for _, destination := range destinationNames {
-			weighted.Acquire(ctx, 1)
+			if err := weighted.Acquire(ctx, 1); err != nil {
+				log.C(ctx).WithError(err).
+					Errorf("Could not acquire semaphore. Destination %s will not be fetched", destination)
+				return
+			}
 			go fetchDestination(ctx, destination, weighted, client, resChan, errChan)
 		}
 	}()
@@ -247,7 +263,7 @@ func fetchDestination(ctx context.Context, dest string, weighted *semaphore.Weig
 	defer weighted.Release(1)
 	result, err := client.FetchDestinationSensitiveData(ctx, dest)
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to fetch data for destination %s: %v", dest, err)
+		log.C(ctx).WithError(err).Errorf("Failed to fetch data for destination %s", dest)
 		errChan <- err
 		return
 	}
@@ -260,7 +276,7 @@ func fetchDestination(ctx context.Context, dest string, weighted *semaphore.Weig
 func (d *DestinationService) getSubscribedSubdomainLabel(ctx context.Context, tenantID string) (*model.Label, error) {
 	tx, err := d.Transactioner.Begin()
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
+		log.C(ctx).WithError(err).Error("Failed to begin db transaction")
 		return nil, err
 	}
 	ctx = persistence.SaveToContext(ctx, tx)
@@ -272,12 +288,12 @@ func (d *DestinationService) getSubscribedSubdomainLabel(ctx context.Context, te
 			log.C(ctx).Errorf("No subscribed subdomain found for tenant '%s'", tenantID)
 			return nil, apperrors.NewNotFoundErrorWithMessage(resource.Label, tenantID, fmt.Sprintf("tenant %s not found", tenantID))
 		}
-		log.C(ctx).WithError(err).Errorf("Failed to get subdomain for tenant '%s' from db: %v", tenantID, err)
+		log.C(ctx).WithError(err).Errorf("Failed to get subdomain for tenant '%s' from db", tenantID)
 		return nil, err
 	}
 
 	if err = tx.Commit(); err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to commit database transaction %v", err)
+		log.C(ctx).WithError(err).Error("Failed to commit database transaction")
 		return nil, err
 	}
 
@@ -287,7 +303,7 @@ func (d *DestinationService) getSubscribedSubdomainLabel(ctx context.Context, te
 func (d *DestinationService) getRegionLabel(ctx context.Context, tenantID string) (*model.Label, error) {
 	tx, err := d.Transactioner.Begin()
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to begin db transaction")
+		log.C(ctx).WithError(err).Error("Failed to begin db transaction")
 		return nil, err
 	}
 	ctx = persistence.SaveToContext(ctx, tx)
@@ -295,12 +311,12 @@ func (d *DestinationService) getRegionLabel(ctx context.Context, tenantID string
 
 	region, err := d.LabelRepo.GetByKey(ctx, tenantID, model.TenantLabelableObject, tenantID, regionLabelKey)
 	if err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to fetch region for tenant '%s': %v", tenantID, err)
+		log.C(ctx).WithError(err).Errorf("Failed to fetch region for tenant '%s'", tenantID)
 		return nil, err
 	}
 
 	if err = tx.Commit(); err != nil {
-		log.C(ctx).WithError(err).Errorf("Failed to commit database transaction %v", err)
+		log.C(ctx).WithError(err).Error("Failed to commit database transaction")
 		return nil, err
 	}
 
