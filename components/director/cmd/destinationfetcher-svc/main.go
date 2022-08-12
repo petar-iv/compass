@@ -103,7 +103,7 @@ func main() {
 	}()
 
 	httpClient := &http.Client{
-		Transport: httputil.NewCorrelationIDTransport(http.DefaultTransport),
+		Transport: httputil.NewCorrelationIDTransport(httputil.NewHTTPTransportWrapper(http.DefaultTransport.(*http.Transport))),
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
