@@ -196,15 +196,15 @@ func initAPIHandler(ctx context.Context, httpClient *http.Client,
 	sensitiveDataAPIRouter := syncDestinationsAPIRouter
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.SyncDestinationsEndpoint)
-	//configureAuthMiddleware(ctx, httpClient, syncDestinationsAPIRouter,
-	//	cfg.SecurityConfig, cfg.SecurityConfig.DestinationsOnDemandScope)
+	configureAuthMiddleware(ctx, httpClient, syncDestinationsAPIRouter,
+		cfg.SecurityConfig, cfg.SecurityConfig.DestinationsOnDemandScope)
 
 	syncDestinationsAPIRouter.HandleFunc(cfg.Handler.SyncDestinationsEndpoint, destinationHandler.SyncTenantDestinations).
 		Methods(http.MethodPut)
 
 	log.C(ctx).Infof("Registering service destinations endpoint on %s...", cfg.Handler.DestinationsSensitiveEndpoint)
-	//configureAuthMiddleware(ctx, httpClient, sensitiveDataAPIRouter,
-	//	cfg.SecurityConfig, cfg.SecurityConfig.DestinationsSensitiveDataScope)
+	configureAuthMiddleware(ctx, httpClient, sensitiveDataAPIRouter,
+		cfg.SecurityConfig, cfg.SecurityConfig.DestinationsSensitiveDataScope)
 	sensitiveDataAPIRouter.HandleFunc(cfg.Handler.DestinationsSensitiveEndpoint, destinationHandler.FetchDestinationsSensitiveData).
 		Methods(http.MethodGet)
 
