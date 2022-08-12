@@ -2,7 +2,6 @@ package tenantfetchersvc
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -174,29 +173,15 @@ func (h *handler) Dependencies(writer http.ResponseWriter, request *http.Request
 	ctx := request.Context()
 
 	vars := mux.Vars(request)
-	region, ok := vars[h.config.RegionPathParam]
+	_, ok := vars[h.config.RegionPathParam]
 	if !ok {
 		log.C(ctx).Error("Region path parameter is missing from request")
 		http.Error(writer, "Region path parameter is missing from request", http.StatusBadRequest)
 		return
 	}
 
-	dependencies, ok := h.config.RegionToDependenciesConfig[region]
-	if !ok {
-		log.C(ctx).Errorf("Invalid region provided: %s", region)
-		http.Error(writer, fmt.Sprintf("Invalid region provided: %s", region), http.StatusBadRequest)
-		return
-	}	
-
-	bytes, err := json.Marshal(dependencies)
-	if err != nil {
-		log.C(ctx).WithError(err).Error("Failed to marshal response body for dependencies request")
-		http.Error(writer, InternalServerError, http.StatusInternalServerError)
-		return
-	}
-
 	writer.Header().Set("Content-Type", "application/json")
-	if _, err := writer.Write(bytes); err != nil {
+	if _, err := writer.Write([]byte("[]")); err != nil {
 		log.C(ctx).WithError(err).Errorf("Failed to write response body for dependencies request")
 		http.Error(writer, InternalServerError, http.StatusInternalServerError)
 		return

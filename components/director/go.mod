@@ -18,13 +18,13 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/jmoiron/sqlx v1.3.5
-	github.com/kyma-incubator/compass/components/hydrator v0.0.0-20220712151113-378ab5d704dd
-	github.com/kyma-incubator/compass/components/operations-controller v0.0.0-20220712151113-378ab5d704dd
-	github.com/kyma-incubator/compass/components/system-broker v0.0.0-20220712151113-378ab5d704dd
-	github.com/lestrrat-go/iter v1.0.2
-	github.com/lestrrat-go/jwx v1.2.25
-	github.com/lib/pq v1.10.6
+	github.com/jmoiron/sqlx v1.3.4
+	github.com/kyma-incubator/compass/components/hydrator v0.0.0-20220420124254-ee69592dca21
+	github.com/kyma-incubator/compass/components/operations-controller v0.0.0-20220718091245-0570e3e974e0
+	github.com/kyma-incubator/compass/components/system-broker v0.0.0-20220327143459-11b81bddcce9
+	github.com/lestrrat-go/iter v1.0.1
+	github.com/lestrrat-go/jwx v1.2.19
+	github.com/lib/pq v1.10.4
 	github.com/machinebox/graphql v0.2.3-0.20181106130121-3a9253180225
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.4.1
 	github.com/mitchellh/hashstructure/v2 v2.0.2
@@ -50,6 +50,7 @@ require (
 
 require (
 	github.com/imdario/mergo v0.3.13
+	golang.org/x/net v0.0.0-20220708220712-1185a9018129
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/text v0.3.7
 )
@@ -115,7 +116,6 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	go.mongodb.org/mongo-driver v1.9.1 // indirect
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
-	golang.org/x/net v0.0.0-20220708220712-1185a9018129 // indirect
 	golang.org/x/sys v0.0.0-20220712014510-0a85c31ab51e // indirect
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect

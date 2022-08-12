@@ -8,7 +8,10 @@ import (
 	"os"
 	"strings"
 
+	webhookclient "github.com/kyma-incubator/compass/components/director/pkg/webhook_client"
+
 	"github.com/kyma-incubator/compass/components/director/internal/domain/formationtemplate"
+	httputildirector "github.com/kyma-incubator/compass/components/director/pkg/auth"
 
 	"github.com/kyma-incubator/compass/components/director/internal/domain/formation"
 	runtimectx "github.com/kyma-incubator/compass/components/director/internal/domain/runtime_context"
@@ -47,7 +50,6 @@ import (
 	"github.com/kyma-incubator/compass/components/director/internal/systemfetcher"
 	"github.com/kyma-incubator/compass/components/director/internal/uid"
 	"github.com/kyma-incubator/compass/components/director/pkg/accessstrategy"
-	"github.com/kyma-incubator/compass/components/director/pkg/apperrors"
 	"github.com/kyma-incubator/compass/components/director/pkg/certloader"
 	"github.com/kyma-incubator/compass/components/director/pkg/correlation"
 	directorHandler "github.com/kyma-incubator/compass/components/director/pkg/handler"
@@ -83,6 +85,9 @@ func main() {
 
 	certCache, err := certloader.StartCertLoader(ctx, conf.CertLoaderConfig)
 	exitOnError(err, "Failed to initialize certificate loader")
+
+	securedHTTPClient := httputildirector.PrepareHTTPClient(conf.ClientTimeout)
+	mtlsHTTPClient := httputildirector.PrepareMTLSClient(conf.ClientTimeout, certCache)
 
 	uidSvc := uid.NewService()
 
@@ -138,12 +143,14 @@ func main() {
 	bundleSvc := bundleutil.NewService(bundleRepo, apiSvc, eventAPISvc, docSvc, uidSvc)
 	scenarioAssignmentSvc := scenarioassignment.NewService(scenarioAssignmentRepo, scenariosSvc)
 	tntSvc := tenant.NewServiceWithLabels(tenantRepo, uidSvc, labelRepo, labelSvc)
-	formationSvc := formation.NewService(labelDefRepo, labelRepo, formationRepo, formationTemplateRepo, labelSvc, uidSvc, scenariosSvc, scenarioAssignmentRepo, scenarioAssignmentSvc, tntSvc, runtimeRepo, runtimeContextRepo)
-	appSvc := application.NewService(&normalizer.DefaultNormalizator{}, nil, applicationRepo, webhookRepo, runtimeRepo, labelRepo, intSysRepo, labelSvc, scenariosSvc, bundleSvc, uidSvc, formationSvc, conf.SelfRegisterDistinguishLabelKey)
+	webhookClient := webhookclient.NewClient(securedHTTPClient, mtlsHTTPClient)
 
 	appTemplateConverter := apptemplate.NewConverter(appConverter, webhookConverter)
 	appTemplateRepo := apptemplate.NewRepository(appTemplateConverter)
 	appTemplateSvc := apptemplate.NewService(appTemplateRepo, webhookRepo, uidSvc, labelSvc, labelRepo)
+
+	formationSvc := formation.NewService(labelDefRepo, labelRepo, formationRepo, formationTemplateRepo, labelSvc, uidSvc, scenariosSvc, scenarioAssignmentRepo, scenarioAssignmentSvc, tntSvc, runtimeRepo, runtimeContextRepo, webhookRepo, webhookClient, applicationRepo, appTemplateRepo, webhookConverter)
+	appSvc := application.NewService(&normalizer.DefaultNormalizator{}, nil, applicationRepo, webhookRepo, runtimeRepo, labelRepo, intSysRepo, labelSvc, scenariosSvc, bundleSvc, uidSvc, formationSvc, conf.SelfRegisterDistinguishLabelKey)
 
 	err = registerAppTemplate(ctx, transact, appTemplateSvc)
 	exitOnError(err, "while registering application template")
@@ -313,8 +320,8 @@ func calculateTemplateMappings(ctx context.Context, cfg adapter.Configuration, t
 
 	for index, tm := range systemToTemplateMappings {
 		appTemplate, err := appTemplateSvc.GetByNameAndRegion(ctx, tm.Name, nil)
-		if err != nil && !apperrors.IsNotFoundError(err) {
-			return err
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to retrieve application template with name %q and empty region", tm.Name))
 		}
 		systemToTemplateMappings[index].ID = appTemplate.ID
 	}

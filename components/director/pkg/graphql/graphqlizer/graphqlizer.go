@@ -196,6 +196,13 @@ func (g *Graphqlizer) CredentialDataInputToGQL(in *graphql.CredentialDataInput) 
 				url: "{{ .Oauth.URL }}",
 			},
 			{{- end }}
+			{{- if .CertificateOAuth }}
+			certificateOAuth: {
+				clientId: "{{ .CertificateOAuth.ClientID }}",
+				certificate: "{{ .CertificateOAuth.Certificate }}",
+				url: "{{ .CertificateOAuth.URL }}",
+			},
+			{{- end }}
 	}`)
 }
 
@@ -528,6 +535,14 @@ func (g *Graphqlizer) TemplateValueInputToGQL(in graphql.TemplateValueInput) (st
 	return g.genericToGQL(in, `{
 		placeholder: "{{.Placeholder}}"
 		value: "{{.Value}}"
+	}`)
+}
+
+// FormationInputToGQL converts go formation input structure into graphql format
+func (g *Graphqlizer) FormationInputToGQL(in graphql.FormationInput) (string, error) {
+	return g.genericToGQL(in, `{
+		name: "{{.Name}}",
+		templateName: "{{.TemplateName}}"
 	}`)
 }
 

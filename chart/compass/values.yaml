@@ -1,6 +1,7 @@
 global:
   disableLegacyConnectivity: true
   defaultTenant: 3e64ebae-38b5-46a0-b1ed-9ccee153a0ae
+  defaultTenantRegion: "eu-1"
   tenants: # tenant order matters, so new tenants should be added to the end of the list
     - name: default
       id: 3e64ebae-38b5-46a0-b1ed-9ccee153a0ae
@@ -67,6 +68,7 @@ global:
     - name: TestProviderSubaccountRegion2
       id: 731b7bc4-5472-41d2-a447-e4c0f45de739
       type: subaccount
+      region: "eu-2"
       parent: 5577cf46-4f78-45fa-b55f-a42a3bdba868
     - name: TestCertificateSubaccount
       id: 123e4567-e89b-12d3-a456-426614174001
@@ -109,34 +111,34 @@ global:
       path: eu.gcr.io/kyma-project/incubator
     connector:
       dir:
-      version: "PR-2383"
+      version: "PR-2501"
     connectivity_adapter:
       dir:
-      version: "PR-2383"
+      version: "PR-2501"
     pairing_adapter:
       dir:
-      version: "PR-2383"
+      version: "PR-2501"
     director:
       dir:
-      version: "PR-2483"
+      version: "PR-2484"
     hydrator:
       dir:
-      version: "PR-2458"
+      version: "PR-2484"
     gateway:
       dir:
-      version: "PR-2383"
+      version: "PR-2501"
     operations_controller:
       dir:
-      version: "PR-2383"
+      version: "PR-2501"
     ord_service:
       dir:
-      version: "PR-71"
+      version: "PR-72"
     schema_migrator:
       dir:
-      version: "PR-2494"
+      version: "PR-2532"
     system_broker:
       dir:
-      version: "PR-2383"
+      version: "PR-2501"
     certs_setup_job:
       containerRegistry:
         path: eu.gcr.io/kyma-project
@@ -144,16 +146,15 @@ global:
       version: "0a651695"
     external_services_mock:
       dir:
-      version: "PR-2479"
+      version: "PR-2521"
     console:
       dir:
       version: "PR-68"
     e2e_tests:
       dir:
-      version: "PR-2499"
+      version: "PR-2484"
   isLocalEnv: false
   isForTesting: false
-  enableInternalCommunicationPolicies: true
   oauth2:
     host: oauth2
   livenessProbe:
@@ -214,7 +215,7 @@ global:
       path: "/v1/info"
     subscription:
       subscriptionProviderLabelKey: "subscriptionProviderId"
-      consumerSubaccountLabelKey: "consumer_subaccount_id"
+      consumerSubaccountLabelKey: "global_subaccount_id"
       subscriptionLabelKey: "subscription"
       tokenPrefix: "sb-"
     selfRegister:
@@ -342,6 +343,11 @@ global:
     prefix: /hydrators
     subjectConsumerMappingConfig: '[{"consumer_type": "Super Admin", "tenant_access_levels": ["customer", "account","subaccount"], "subject": "C=DE, L=local, O=SAP SE, OU=Region, OU=SAP Cloud Platform Clients, OU=f8075207-1478-4a80-bd26-24a4785a2bfd, CN=compass"},{"consumer_type": "Integration System", "tenant_access_levels": ["account","subaccount"], "subject": "C=DE, L=local, O=SAP SE, OU=Region, OU=SAP Cloud Platform Clients, OU=f8075207-1478-4a80-bd26-24a4785a2bfd, CN=integration-system-test"}]'
     certificateDataHeader: "Certificate-Data"
+    consumerClaimsKeys:
+      clientIDKey: "client_id"
+      tenantIDKey: "tenantid"
+      userNameKey: "user_name"
+      subdomainKey: "subdomain"
     http:
       client:
         skipSSLValidation: false
@@ -480,7 +486,7 @@ global:
             createRule: false
             gatewayHost: "compass-gateway-sap-mtls"
             trusted_issuers: '[{"domain_url": "compass-system.svc.cluster.local:8080", "scope_prefix": "prefix.", "protocol": "http", "region": "eu-1"}]'
-            attributes: '{"uniqueAttribute": { "key": "subsc-key-test", "value": "subscription-flow" }, "tenant": { "key": "tenant" }, "identity": { "key": "identity" }, "clientid": { "key": "client_id" } }'
+            attributes: '{"uniqueAttribute": { "key": "subsc-key-test", "value": "subscription-flow" }, "tenant": { "key": "tenant" }, "identity": { "key": "user_name" }, "clientid": { "key": "client_id" } }'
             path: /<.*>
             checkSuffix: false
       tenantMappingService:
@@ -578,7 +584,7 @@ global:
     server:
       fetchTenantEndpoint: "/v1/fetch/{parentTenantId}/{tenantId}"
       regionalHandlerEndpoint: "/v1/regional/{region}/callback/{tenantId}"
-      dependenciesEndpoint: "/v1/dependencies"
+      dependenciesEndpoint: "/v1/regional/{region}/dependencies"
       tenantPathParam: "tenantId"
       regionPathParam: "region"
     containerName: "tenant-fetcher"
@@ -613,8 +619,7 @@ global:
       regionField: "region"
     regionDetails: '[{"central", ""}]'
   externalCertConfiguration:
-    issuer: "C=DE, L=local, O=SAP SE, OU=SAP Cloud Platform Clients, CN=compass-ca"
-    issuerLocality: "local" # In local setup we have manually created connector CA certificate with 'local' Locality property
+    issuerLocality: "local,local2" # In local setup we have manually created connector CA certificate with 'local' Locality property
     subjectPattern: "/C=DE/O=SAP SE/OU=SAP Cloud Platform Clients/OU=Region/OU=%s/L=%s/CN=%s"
     ouCertSubaccountID: "f8075207-1478-4a80-bd26-24a4785a2bfd"
     commonName: "compass"
@@ -793,6 +798,7 @@ global:
     ordGlobalRegistryCertPort: 8086
     ordGlobalRegistryUnsecuredPort: 8087
     unsecuredPortWithAdditionalContent: 8088
+    unsecuredMultiTenantPort: 8089
     certSecuredHost: compass-external-services-mock-sap-mtls
     ordCertSecuredHost: compass-external-services-mock-sap-mtls-ord
     ordGlobalCertSecuredHost: compass-external-services-mock-sap-mtls-global-ord-registry
@@ -830,6 +836,8 @@ global:
       externalCertIntSystemCN: "integration-system-test"
     tenantFetcher:
       tenantOnDemandID: "8d42d818-d4c4-4036-b82f-b199db7ffeb5"
+    ordAggregator:
+      skipPattern: ""
     ordService:
       accountTenantID: "5577cf46-4f78-45fa-b55f-a42a3bdba868" # testDefaultTenant from our testing tenants
       skipPattern: ""
@@ -840,11 +848,12 @@ global:
       region2: "eu-2"
     subscription:
       tenants:
-        consumerAccountID: "5984a414-1eed-4972-af2c-b2b6a415c7d7" # ApplicationsForRuntimeTenantName from our testing tenants
+        providerAccountID: "5577cf46-4f78-45fa-b55f-a42a3bdba868" # testDefaultTenant from our testing tenants
         providerSubaccountID: "f8075207-1478-4a80-bd26-24a4785a2bfd" # TestProviderSubaccount from our testing tenants
-        providerSubaccountIDRegion2: "731b7bc4-5472-41d2-a447-e4c0f45de739" # TestProviderSubaccountRegion2 from our testing tenants
+        consumerAccountID: "5984a414-1eed-4972-af2c-b2b6a415c7d7" # ApplicationsForRuntimeTenantName from our testing tenants
         consumerSubaccountID: "1f538f34-30bf-4d3d-aeaa-02e69eef84ae" # randomly chosen
         consumerTenantID: "ba49f1aa-ddc1-43ff-943c-fe949857a34a" # randomly chosen
+        providerSubaccountIDRegion2: "731b7bc4-5472-41d2-a447-e4c0f45de739" # TestProviderSubaccountRegion2 from our testing tenants
       oauthSecret:
         manage: false
         name: compass-subscription-secret
@@ -886,7 +895,7 @@ global:
       name: "compass-director-migrations"
       namespace: "compass-system"
       migrationsPath: "/compass-migrations"
-      isLocalEnv: true
+      storageClass: local-path
   http:
     client:
       skipSSLValidation: false

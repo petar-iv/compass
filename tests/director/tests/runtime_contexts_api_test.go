@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kyma-incubator/compass/tests/pkg/tenantfetcher"
+
 	"github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	"github.com/kyma-incubator/compass/tests/pkg/assertions"
 	"github.com/kyma-incubator/compass/tests/pkg/certs/certprovider"
@@ -18,7 +20,6 @@ import (
 	"github.com/kyma-incubator/compass/tests/pkg/ptr"
 	"github.com/kyma-incubator/compass/tests/pkg/subscription"
 	"github.com/kyma-incubator/compass/tests/pkg/tenant"
-	"github.com/kyma-incubator/compass/tests/pkg/tenantfetcher"
 	"github.com/kyma-incubator/compass/tests/pkg/testctx"
 	testingx "github.com/kyma-incubator/compass/tests/pkg/testing"
 	"github.com/kyma-incubator/compass/tests/pkg/token"
@@ -38,10 +39,10 @@ func TestAddRuntimeContext(t *testing.T) {
 	require.NotEmpty(t, runtime.ID)
 
 	rtmCtxInput := fixtures.FixRuntimeContextInput("create", "create")
-	rtmCtx, err := testctx.Tc.Graphqlizer.RuntimeContextInputToGQL(rtmCtxInput)
+	rtmCtxInputGQL, err := testctx.Tc.Graphqlizer.RuntimeContextInputToGQL(rtmCtxInput)
 	require.NoError(t, err)
 
-	addRtmCtxRequest := fixtures.FixAddRuntimeContextRequest(runtime.ID, rtmCtx)
+	addRtmCtxRequest := fixtures.FixAddRuntimeContextRequest(runtime.ID, rtmCtxInputGQL)
 	output := graphql.RuntimeContextExt{}
 
 	// WHEN
@@ -175,7 +176,7 @@ func TestRuntimeContextSubscriptionFlows(stdT *testing.T) {
 		providerRuntimeInput := graphql.RuntimeRegisterInput{
 			Name:        "providerRuntime",
 			Description: ptr.String("providerRuntime-description"),
-			Labels:      graphql.Labels{conf.SubscriptionConfig.SelfRegDistinguishLabelKey: conf.SubscriptionConfig.SelfRegDistinguishLabelValue, tenantfetcher.RegionKey: conf.SubscriptionConfig.SelfRegRegion},
+			Labels:      graphql.Labels{conf.SubscriptionConfig.SelfRegDistinguishLabelKey: conf.SubscriptionConfig.SelfRegDistinguishLabelValue},
 		}
 
 		providerRuntime := fixtures.RegisterRuntimeFromInputWithoutTenant(t, ctx, directorCertSecuredClient, &providerRuntimeInput)
@@ -185,6 +186,10 @@ func TestRuntimeContextSubscriptionFlows(stdT *testing.T) {
 		selfRegLabelValue, ok := providerRuntime.Labels[conf.SubscriptionConfig.SelfRegisterLabelKey].(string)
 		require.True(t, ok)
 		require.Contains(t, selfRegLabelValue, conf.SubscriptionConfig.SelfRegisterLabelValuePrefix+providerRuntime.ID)
+
+		regionLbl, ok := providerRuntime.Labels[tenantfetcher.RegionKey].(string)
+		require.True(t, ok)
+		require.Equal(t, conf.SubscriptionConfig.SelfRegRegion, regionLbl)
 
 		httpClient := &http.Client{
 			Timeout: 10 * time.Second,
@@ -218,6 +223,7 @@ func TestRuntimeContextSubscriptionFlows(stdT *testing.T) {
 
 		t.Logf("Creating a subscription between consumer with subaccount id: %q and tenant id: %q, and provider with name: %q, id: %q and subaccount id: %q", subscriptionConsumerSubaccountID, subscriptionConsumerTenantID, providerRuntime.Name, providerRuntime.ID, subscriptionProviderSubaccountID)
 		resp, err := httpClient.Do(subscribeReq)
+		defer subscription.BuildAndExecuteUnsubscribeRequest(t, providerRuntime.ID, providerRuntime.Name, httpClient, conf.SubscriptionConfig.URL, apiPath, subscriptionToken, conf.SubscriptionConfig.PropagatedProviderSubaccountHeader, subscriptionConsumerSubaccountID, subscriptionConsumerTenantID, subscriptionProviderSubaccountID)
 		require.NoError(t, err)
 		defer func() {
 			if err := resp.Body.Close(); err != nil {
@@ -227,8 +233,6 @@ func TestRuntimeContextSubscriptionFlows(stdT *testing.T) {
 		body, err := ioutil.ReadAll(resp.Body)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusAccepted, resp.StatusCode, fmt.Sprintf("actual status code %d is different from the expected one: %d. Reason: %v", resp.StatusCode, http.StatusAccepted, string(body)))
-
-		defer subscription.BuildAndExecuteUnsubscribeRequest(t, providerRuntime.ID, providerRuntime.Name, httpClient, conf.SubscriptionConfig.URL, apiPath, subscriptionToken, conf.SubscriptionConfig.PropagatedProviderSubaccountHeader, subscriptionConsumerSubaccountID, subscriptionConsumerTenantID, subscriptionProviderSubaccountID)
 
 		subJobStatusPath := resp.Header.Get(subscription.LocationHeader)
 		require.NotEmpty(t, subJobStatusPath)
@@ -275,9 +279,8 @@ func TestRuntimeContextSubscriptionFlows(stdT *testing.T) {
 		err = testctx.Tc.RunOperationWithCustomTenant(ctx, certSecuredGraphQLClient, subscriptionConsumerSubaccountID, deleteRuntimeReq, &rtmExt)
 		require.Empty(t, rtmExt)
 		require.Error(t, err)
-		// TODO:: Adjust external-services-mock to handle self-registration cleanup properly
-		// If we call with tenant that have owner=false, we shouldn't be able to cleanup the self-registered runtime
-		//require.Contains(t, err.Error(), "An error occurred during cleanup of self-registered runtime")
+		// We shouldn't be able cleanup the self-registered runtime if there is a subscription
+		require.Contains(t, err.Error(), "received unexpected status code 409")
 
 		subscription.BuildAndExecuteUnsubscribeRequest(t, providerRuntime.ID, providerRuntime.Name, httpClient, conf.SubscriptionConfig.URL, apiPath, subscriptionToken, conf.SubscriptionConfig.PropagatedProviderSubaccountHeader, subscriptionConsumerSubaccountID, subscriptionConsumerTenantID, subscriptionProviderSubaccountID)
 

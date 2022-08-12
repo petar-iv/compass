@@ -52,12 +52,11 @@ type ResolverRoot interface {
 }
 
 type DirectiveRoot struct {
-	AppMetadataValidation func(ctx context.Context, obj interface{}, next graphql.Resolver) (res interface{}, err error)
-	Async                 func(ctx context.Context, obj interface{}, next graphql.Resolver, operationType OperationType, webhookType *WebhookType, idField *string) (res interface{}, err error)
-	HasScenario           func(ctx context.Context, obj interface{}, next graphql.Resolver, applicationProvider string, idField string) (res interface{}, err error)
-	HasScopes             func(ctx context.Context, obj interface{}, next graphql.Resolver, path string) (res interface{}, err error)
-	Sanitize              func(ctx context.Context, obj interface{}, next graphql.Resolver, path string) (res interface{}, err error)
-	Validate              func(ctx context.Context, obj interface{}, next graphql.Resolver) (res interface{}, err error)
+	Async       func(ctx context.Context, obj interface{}, next graphql.Resolver, operationType OperationType, webhookType *WebhookType, idField *string) (res interface{}, err error)
+	HasScenario func(ctx context.Context, obj interface{}, next graphql.Resolver, applicationProvider string, idField string) (res interface{}, err error)
+	HasScopes   func(ctx context.Context, obj interface{}, next graphql.Resolver, path string) (res interface{}, err error)
+	Sanitize    func(ctx context.Context, obj interface{}, next graphql.Resolver, path string) (res interface{}, err error)
+	Validate    func(ctx context.Context, obj interface{}, next graphql.Resolver) (res interface{}, err error)
 }
 
 type ComplexityRoot struct {
@@ -233,6 +232,12 @@ type ComplexityRoot struct {
 		AdditionalQueryParamsSerialized func(childComplexity int) int
 		Credential                      func(childComplexity int) int
 		TokenEndpointURL                func(childComplexity int) int
+	}
+
+	CertificateOAuthCredentialData struct {
+		Certificate func(childComplexity int) int
+		ClientID    func(childComplexity int) int
+		URL         func(childComplexity int) int
 	}
 
 	CredentialRequestAuth struct {
@@ -582,6 +587,7 @@ type ComplexityRoot struct {
 		Labels      func(childComplexity int, key *string) int
 		Name        func(childComplexity int) int
 		ParentID    func(childComplexity int) int
+		Provider    func(childComplexity int) int
 		Type        func(childComplexity int) int
 	}
 
@@ -1678,6 +1684,27 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.CSRFTokenCredentialRequestAuth.TokenEndpointURL(childComplexity), true
+
+	case "CertificateOAuthCredentialData.certificate":
+		if e.complexity.CertificateOAuthCredentialData.Certificate == nil {
+			break
+		}
+
+		return e.complexity.CertificateOAuthCredentialData.Certificate(childComplexity), true
+
+	case "CertificateOAuthCredentialData.clientId":
+		if e.complexity.CertificateOAuthCredentialData.ClientID == nil {
+			break
+		}
+
+		return e.complexity.CertificateOAuthCredentialData.ClientID(childComplexity), true
+
+	case "CertificateOAuthCredentialData.url":
+		if e.complexity.CertificateOAuthCredentialData.URL == nil {
+			break
+		}
+
+		return e.complexity.CertificateOAuthCredentialData.URL(childComplexity), true
 
 	case "CredentialRequestAuth.csrf":
 		if e.complexity.CredentialRequestAuth.Csrf == nil {
@@ -3902,6 +3929,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Tenant.ParentID(childComplexity), true
 
+	case "Tenant.provider":
+		if e.complexity.Tenant.Provider == nil {
+			break
+		}
+
+		return e.complexity.Tenant.Provider(childComplexity), true
+
 	case "Tenant.type":
 		if e.complexity.Tenant.Type == nil {
 			break
@@ -4156,10 +4190,6 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 
 var sources = []*ast.Source{
 	&ast.Source{Name: "schema.graphql", Input: `"""
-appMetadataValidation directive is added to application metadata mutations to protect them
-"""
-directive @appMetadataValidation on FIELD_DEFINITION
-"""
 Async directive is added to mutations which are capable of being executed in asynchronious matter
 """
 directive @async(operationType: OperationType!, webhookType: WebhookType, idField: String) on FIELD_DEFINITION
@@ -4379,7 +4409,7 @@ interface SystemAuth {
 	referenceObjectId: ID
 }
 
-union CredentialData = BasicCredentialData | OAuthCredentialData
+union CredentialData = BasicCredentialData | OAuthCredentialData | CertificateOAuthCredentialData
 
 input APIDefinitionInput {
 	"""
@@ -4648,12 +4678,22 @@ input CSRFTokenCredentialRequestAuthInput {
 	additionalQueryParamsSerialized: QueryParamsSerialized
 }
 
+input CertificateOAuthCredentialDataInput {
+	clientId: ID!
+	certificate: String!
+	"""
+	**Validation:** valid URL
+	"""
+	url: String!
+}
+
 """
-**Validation:** basic or oauth field required
+**Validation:** basic or oauth or certificateOAuth field required
 """
 input CredentialDataInput {
 	basic: BasicCredentialDataInput
 	oauth: OAuthCredentialDataInput
+	certificateOAuth: CertificateOAuthCredentialDataInput
 }
 
 input CredentialRequestAuthInput {
@@ -5108,6 +5148,12 @@ type CSRFTokenCredentialRequestAuth {
 	additionalQueryParamsSerialized: QueryParamsSerialized
 }
 
+type CertificateOAuthCredentialData {
+	clientId: ID!
+	certificate: String!
+	url: String!
+}
+
 type CredentialRequestAuth {
 	csrf: CSRFTokenCredentialRequestAuth
 }
@@ -5365,6 +5411,7 @@ type Tenant {
 	parentID: ID
 	initialized: Boolean
 	labels(key: String): Labels
+	provider: String!
 }
 
 type TenantPage implements Pageable {
@@ -5643,17 +5690,17 @@ type Mutation {
 	**Examples**
 	- [add api definition to bundle](examples/add-api-definition-to-bundle/add-api-definition-to-bundle.graphql)
 	"""
-	addAPIDefinitionToBundle(bundleID: ID!, in: APIDefinitionInput! @validate): APIDefinition! @hasScopes(path: "graphql.mutation.addAPIDefinitionToBundle") @appMetadataValidation
+	addAPIDefinitionToBundle(bundleID: ID!, in: APIDefinitionInput! @validate): APIDefinition! @hasScopes(path: "graphql.mutation.addAPIDefinitionToBundle")
 	"""
 	**Examples**
 	- [update api definition](examples/update-api-definition/update-api-definition.graphql)
 	"""
-	updateAPIDefinition(id: ID!, in: APIDefinitionInput! @validate): APIDefinition! @hasScopes(path: "graphql.mutation.updateAPIDefinition") @appMetadataValidation
+	updateAPIDefinition(id: ID!, in: APIDefinitionInput! @validate): APIDefinition! @hasScopes(path: "graphql.mutation.updateAPIDefinition")
 	"""
 	**Examples**
 	- [delete api definition](examples/delete-api-definition/delete-api-definition.graphql)
 	"""
-	deleteAPIDefinition(id: ID!): APIDefinition! @hasScopes(path: "graphql.mutation.deleteAPIDefinition") @appMetadataValidation
+	deleteAPIDefinition(id: ID!): APIDefinition! @hasScopes(path: "graphql.mutation.deleteAPIDefinition")
 	"""
 	**Examples**
 	- [refetch api spec](examples/refetch-api-spec/refetch-api-spec.graphql)
@@ -5673,17 +5720,17 @@ type Mutation {
 	**Examples**
 	- [add event definition to bundle](examples/add-event-definition-to-bundle/add-event-definition-to-bundle.graphql)
 	"""
-	addEventDefinitionToBundle(bundleID: ID!, in: EventDefinitionInput! @validate): EventDefinition! @hasScopes(path: "graphql.mutation.addEventDefinitionToBundle") @appMetadataValidation
+	addEventDefinitionToBundle(bundleID: ID!, in: EventDefinitionInput! @validate): EventDefinition! @hasScopes(path: "graphql.mutation.addEventDefinitionToBundle")
 	"""
 	**Examples**
 	- [update event definition](examples/update-event-definition/update-event-definition.graphql)
 	"""
-	updateEventDefinition(id: ID!, in: EventDefinitionInput! @validate): EventDefinition! @hasScopes(path: "graphql.mutation.updateEventDefinition") @appMetadataValidation
+	updateEventDefinition(id: ID!, in: EventDefinitionInput! @validate): EventDefinition! @hasScopes(path: "graphql.mutation.updateEventDefinition")
 	"""
 	**Examples**
 	- [delete event definition](examples/delete-event-definition/delete-event-definition.graphql)
 	"""
-	deleteEventDefinition(id: ID!): EventDefinition! @hasScopes(path: "graphql.mutation.deleteEventDefinition") @appMetadataValidation
+	deleteEventDefinition(id: ID!): EventDefinition! @hasScopes(path: "graphql.mutation.deleteEventDefinition")
 	refetchEventDefinitionSpec(eventID: ID!): EventSpec! @hasScopes(path: "graphql.mutation.refetchEventDefinitionSpec")
 	"""
 	**Examples**
@@ -5787,17 +5834,17 @@ type Mutation {
 	**Examples**
 	- [add bundle](examples/add-bundle/add-bundle.graphql)
 	"""
-	addBundle(applicationID: ID!, in: BundleCreateInput! @validate): Bundle! @hasScopes(path: "graphql.mutation.addBundle") @appMetadataValidation
+	addBundle(applicationID: ID!, in: BundleCreateInput! @validate): Bundle! @hasScopes(path: "graphql.mutation.addBundle")
 	"""
 	**Examples**
 	- [update bundle](examples/update-bundle/update-bundle.graphql)
 	"""
-	updateBundle(id: ID!, in: BundleUpdateInput! @validate): Bundle! @hasScopes(path: "graphql.mutation.updateBundle") @appMetadataValidation
+	updateBundle(id: ID!, in: BundleUpdateInput! @validate): Bundle! @hasScopes(path: "graphql.mutation.updateBundle")
 	"""
 	**Examples**
 	- [delete bundle](examples/delete-bundle/delete-bundle.graphql)
 	"""
-	deleteBundle(id: ID!): Bundle! @hasScopes(path: "graphql.mutation.deleteBundle") @appMetadataValidation
+	deleteBundle(id: ID!): Bundle! @hasScopes(path: "graphql.mutation.deleteBundle")
 	"""
 	**Examples**
 	- [create automatic scenario assignment](examples/create-automatic-scenario-assignment/create-automatic-scenario-assignment.graphql)
@@ -12598,6 +12645,108 @@ func (ec *executionContext) _CSRFTokenCredentialRequestAuth_additionalQueryParam
 	return ec.marshalOQueryParamsSerialized2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐQueryParamsSerialized(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _CertificateOAuthCredentialData_clientId(ctx context.Context, field graphql.CollectedField, obj *CertificateOAuthCredentialData) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "CertificateOAuthCredentialData",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ClientID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _CertificateOAuthCredentialData_certificate(ctx context.Context, field graphql.CollectedField, obj *CertificateOAuthCredentialData) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "CertificateOAuthCredentialData",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Certificate, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _CertificateOAuthCredentialData_url(ctx context.Context, field graphql.CollectedField, obj *CertificateOAuthCredentialData) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "CertificateOAuthCredentialData",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.URL, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _CredentialRequestAuth_csrf(ctx context.Context, field graphql.CollectedField, obj *CredentialRequestAuth) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -16824,14 +16973,8 @@ func (ec *executionContext) _Mutation_addAPIDefinitionToBundle(ctx context.Conte
 			}
 			return ec.directives.HasScopes(ctx, nil, directive0, path)
 		}
-		directive2 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.AppMetadataValidation == nil {
-				return nil, errors.New("directive appMetadataValidation is not implemented")
-			}
-			return ec.directives.AppMetadataValidation(ctx, nil, directive1)
-		}
 
-		tmp, err := directive2(rctx)
+		tmp, err := directive1(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -16895,14 +17038,8 @@ func (ec *executionContext) _Mutation_updateAPIDefinition(ctx context.Context, f
 			}
 			return ec.directives.HasScopes(ctx, nil, directive0, path)
 		}
-		directive2 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.AppMetadataValidation == nil {
-				return nil, errors.New("directive appMetadataValidation is not implemented")
-			}
-			return ec.directives.AppMetadataValidation(ctx, nil, directive1)
-		}
 
-		tmp, err := directive2(rctx)
+		tmp, err := directive1(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -16966,14 +17103,8 @@ func (ec *executionContext) _Mutation_deleteAPIDefinition(ctx context.Context, f
 			}
 			return ec.directives.HasScopes(ctx, nil, directive0, path)
 		}
-		directive2 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.AppMetadataValidation == nil {
-				return nil, errors.New("directive appMetadataValidation is not implemented")
-			}
-			return ec.directives.AppMetadataValidation(ctx, nil, directive1)
-		}
 
-		tmp, err := directive2(rctx)
+		tmp, err := directive1(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -17752,14 +17883,8 @@ func (ec *executionContext) _Mutation_addEventDefinitionToBundle(ctx context.Con
 			}
 			return ec.directives.HasScopes(ctx, nil, directive0, path)
 		}
-		directive2 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.AppMetadataValidation == nil {
-				return nil, errors.New("directive appMetadataValidation is not implemented")
-			}
-			return ec.directives.AppMetadataValidation(ctx, nil, directive1)
-		}
 
-		tmp, err := directive2(rctx)
+		tmp, err := directive1(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -17823,14 +17948,8 @@ func (ec *executionContext) _Mutation_updateEventDefinition(ctx context.Context,
 			}
 			return ec.directives.HasScopes(ctx, nil, directive0, path)
 		}
-		directive2 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.AppMetadataValidation == nil {
-				return nil, errors.New("directive appMetadataValidation is not implemented")
-			}
-			return ec.directives.AppMetadataValidation(ctx, nil, directive1)
-		}
 
-		tmp, err := directive2(rctx)
+		tmp, err := directive1(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -17894,14 +18013,8 @@ func (ec *executionContext) _Mutation_deleteEventDefinition(ctx context.Context,
 			}
 			return ec.directives.HasScopes(ctx, nil, directive0, path)
 		}
-		directive2 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.AppMetadataValidation == nil {
-				return nil, errors.New("directive appMetadataValidation is not implemented")
-			}
-			return ec.directives.AppMetadataValidation(ctx, nil, directive1)
-		}
 
-		tmp, err := directive2(rctx)
+		tmp, err := directive1(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -19228,14 +19341,8 @@ func (ec *executionContext) _Mutation_addBundle(ctx context.Context, field graph
 			}
 			return ec.directives.HasScopes(ctx, nil, directive0, path)
 		}
-		directive2 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.AppMetadataValidation == nil {
-				return nil, errors.New("directive appMetadataValidation is not implemented")
-			}
-			return ec.directives.AppMetadataValidation(ctx, nil, directive1)
-		}
 
-		tmp, err := directive2(rctx)
+		tmp, err := directive1(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -19299,14 +19406,8 @@ func (ec *executionContext) _Mutation_updateBundle(ctx context.Context, field gr
 			}
 			return ec.directives.HasScopes(ctx, nil, directive0, path)
 		}
-		directive2 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.AppMetadataValidation == nil {
-				return nil, errors.New("directive appMetadataValidation is not implemented")
-			}
-			return ec.directives.AppMetadataValidation(ctx, nil, directive1)
-		}
 
-		tmp, err := directive2(rctx)
+		tmp, err := directive1(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -19370,14 +19471,8 @@ func (ec *executionContext) _Mutation_deleteBundle(ctx context.Context, field gr
 			}
 			return ec.directives.HasScopes(ctx, nil, directive0, path)
 		}
-		directive2 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.AppMetadataValidation == nil {
-				return nil, errors.New("directive appMetadataValidation is not implemented")
-			}
-			return ec.directives.AppMetadataValidation(ctx, nil, directive1)
-		}
 
-		tmp, err := directive2(rctx)
+		tmp, err := directive1(rctx)
 		if err != nil {
 			return nil, err
 		}
@@ -24161,6 +24256,40 @@ func (ec *executionContext) _Tenant_labels(ctx context.Context, field graphql.Co
 	return ec.marshalOLabels2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐLabels(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Tenant_provider(ctx context.Context, field graphql.CollectedField, obj *Tenant) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Tenant",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Provider, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _TenantPage_data(ctx context.Context, field graphql.CollectedField, obj *TenantPage) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -26850,6 +26979,36 @@ func (ec *executionContext) unmarshalInputCSRFTokenCredentialRequestAuthInput(ct
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCertificateOAuthCredentialDataInput(ctx context.Context, obj interface{}) (CertificateOAuthCredentialDataInput, error) {
+	var it CertificateOAuthCredentialDataInput
+	var asMap = obj.(map[string]interface{})
+
+	for k, v := range asMap {
+		switch k {
+		case "clientId":
+			var err error
+			it.ClientID, err = ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "certificate":
+			var err error
+			it.Certificate, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "url":
+			var err error
+			it.URL, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputCredentialDataInput(ctx context.Context, obj interface{}) (CredentialDataInput, error) {
 	var it CredentialDataInput
 	var asMap = obj.(map[string]interface{})
@@ -26865,6 +27024,12 @@ func (ec *executionContext) unmarshalInputCredentialDataInput(ctx context.Contex
 		case "oauth":
 			var err error
 			it.Oauth, err = ec.unmarshalOOAuthCredentialDataInput2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐOAuthCredentialDataInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "certificateOAuth":
+			var err error
+			it.CertificateOAuth, err = ec.unmarshalOCertificateOAuthCredentialDataInput2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐCertificateOAuthCredentialDataInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -27656,6 +27821,13 @@ func (ec *executionContext) _CredentialData(ctx context.Context, sel ast.Selecti
 			return graphql.Null
 		}
 		return ec._OAuthCredentialData(ctx, sel, obj)
+	case CertificateOAuthCredentialData:
+		return ec._CertificateOAuthCredentialData(ctx, sel, &obj)
+	case *CertificateOAuthCredentialData:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CertificateOAuthCredentialData(ctx, sel, obj)
 	default:
 		panic(fmt.Errorf("unexpected type %T", obj))
 	}
@@ -28753,6 +28925,43 @@ func (ec *executionContext) _CSRFTokenCredentialRequestAuth(ctx context.Context,
 			out.Values[i] = ec._CSRFTokenCredentialRequestAuth_additionalQueryParams(ctx, field, obj)
 		case "additionalQueryParamsSerialized":
 			out.Values[i] = ec._CSRFTokenCredentialRequestAuth_additionalQueryParamsSerialized(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var certificateOAuthCredentialDataImplementors = []string{"CertificateOAuthCredentialData", "CredentialData"}
+
+func (ec *executionContext) _CertificateOAuthCredentialData(ctx context.Context, sel ast.SelectionSet, obj *CertificateOAuthCredentialData) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, certificateOAuthCredentialDataImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CertificateOAuthCredentialData")
+		case "clientId":
+			out.Values[i] = ec._CertificateOAuthCredentialData_clientId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "certificate":
+			out.Values[i] = ec._CertificateOAuthCredentialData_certificate(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "url":
+			out.Values[i] = ec._CertificateOAuthCredentialData_url(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -30919,6 +31128,11 @@ func (ec *executionContext) _Tenant(ctx context.Context, sel ast.SelectionSet, o
 				res = ec._Tenant_labels(ctx, field, obj)
 				return res
 			})
+		case "provider":
+			out.Values[i] = ec._Tenant_provider(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&invalids, 1)
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -33668,6 +33882,18 @@ func (ec *executionContext) unmarshalOCSRFTokenCredentialRequestAuthInput2ᚖgit
 		return nil, nil
 	}
 	res, err := ec.unmarshalOCSRFTokenCredentialRequestAuthInput2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐCSRFTokenCredentialRequestAuthInput(ctx, v)
+	return &res, err
+}
+
+func (ec *executionContext) unmarshalOCertificateOAuthCredentialDataInput2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐCertificateOAuthCredentialDataInput(ctx context.Context, v interface{}) (CertificateOAuthCredentialDataInput, error) {
+	return ec.unmarshalInputCertificateOAuthCredentialDataInput(ctx, v)
+}
+
+func (ec *executionContext) unmarshalOCertificateOAuthCredentialDataInput2ᚖgithubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐCertificateOAuthCredentialDataInput(ctx context.Context, v interface{}) (*CertificateOAuthCredentialDataInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalOCertificateOAuthCredentialDataInput2githubᚗcomᚋkymaᚑincubatorᚋcompassᚋcomponentsᚋdirectorᚋpkgᚋgraphqlᚐCertificateOAuthCredentialDataInput(ctx, v)
 	return &res, err
 }
 

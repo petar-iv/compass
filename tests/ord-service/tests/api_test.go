@@ -27,8 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kyma-incubator/compass/tests/pkg/tenantfetcher"
-
 	directorSchema "github.com/kyma-incubator/compass/components/director/pkg/graphql"
 	"github.com/kyma-incubator/compass/tests/pkg/clients"
 	"github.com/kyma-incubator/compass/tests/pkg/fixtures"
@@ -269,7 +267,7 @@ func TestORDService(t *testing.T) {
 	// create automatic scenario assigment for subTenant
 	formationInput := directorSchema.FormationInput{Name: scenarioName}
 	fixtures.AssignFormationWithTenantObjectType(t, ctx, certSecuredGraphQLClient, formationInput, subTenantID, tenantFilteringTenant)
-	defer fixtures.CleanupFormationWithTenantObjectType(t, ctx, certSecuredGraphQLClient, formationInput, subTenantID, tenantFilteringTenant)
+	defer fixtures.CleanupFormationWithTenantObjectType(t, ctx, certSecuredGraphQLClient, formationInput.Name, subTenantID, tenantFilteringTenant)
 
 	// assert no system instances are visible without formation
 	respBody := makeRequestWithHeaders(t, intSystemHttpClient, conf.ORDServiceURL+"/systemInstances?$format=json", map[string][]string{tenantHeader: {subTenantID}})
@@ -682,7 +680,6 @@ func TestORDService(t *testing.T) {
 		expectedProductType := fmt.Sprintf("SAP %s", "productType")
 		appTmplInput := fixtures.FixApplicationTemplate(expectedProductType)
 		appTmplInput.Labels[conf.SubscriptionConfig.SelfRegDistinguishLabelKey] = []interface{}{conf.SubscriptionConfig.SelfRegDistinguishLabelValue}
-		appTmplInput.Labels[tenantfetcher.RegionKey] = conf.SubscriptionConfig.SelfRegRegion
 
 		appTmpl, err := fixtures.CreateApplicationTemplateFromInput(t, ctx, certSecuredGraphQLClient, defaultTestTenant, appTmplInput)
 		defer fixtures.CleanupApplicationTemplate(t, ctx, certSecuredGraphQLClient, defaultTestTenant, &appTmpl)

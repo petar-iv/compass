@@ -101,18 +101,18 @@ function cleanup() {
 
     if [[ ${DEBUG} == true ]]; then
        echo -e "${GREEN}Cleanup Director binary${NC}"
-       rm  $GOPATH/src/github.com/kyma-incubator/compass/components/director/director 
+       rm  $GOPATH/src/github.com/kyma-incubator/compass/components/director/director
     fi
 
     if [[ ${SKIP_DB_CLEANUP} = false ]]; then
         echo -e "${GREEN}Cleanup Postgres container${NC}"
-        docker rm --force ${POSTGRES_CONTAINER} 
+        docker rm --force ${POSTGRES_CONTAINER}
     else
         echo -e "${GREEN}Skipping Postgres container cleanup${NC}"
     fi
 
     echo -e "${GREEN}Destroying k3d cluster...${NC}"
-    k3d cluster delete k3d-cluster 
+    k3d cluster delete k3d-cluster
 }
 
 trap cleanup EXIT
@@ -224,8 +224,6 @@ export APP_HEALTH_CONFIG_INDICATORS="{database,5s,1s,1s,3}"
 export APP_SUGGEST_TOKEN_HTTP_HEADER=suggest_token
 export APP_SCHEMA_MIGRATION_VERSION=$(ls -lr ${ROOT_PATH}/../schema-migrator/migrations/director | head -n 2 | tail -n 1 | tr -s ' ' | cut -d ' ' -f9 | cut -d '_' -f1)
 export APP_ALLOW_JWT_SIGNING_NONE=true
-export APP_INFO_CERT_ISSUER="C=BG, L=Local, O=CMP, OU=Local, CN=CMP"
-export APP_INFO_CERT_SUBJECT="C=BG, O=CMP, OU=Local, L=Local, CN=local-clients"
 export APP_SELF_REGISTER_DISTINGUISH_LABEL_KEY="non-existent-label-key"
 export APP_EXTERNAL_CLIENT_CERT_SECRET=${CLIENT_CERT_SECRET_NAMESPACE}/${CLIENT_CERT_SECRET_NAME}
 export APP_EXTERNAL_CLIENT_CERT_KEY="tls.crt"
@@ -288,7 +286,7 @@ if [[  ${DEBUG} == true ]]; then
 else
     if [[  ${AUTO_TERMINATE} == true ]]; then
         cd ${ROOT_PATH}
-        go build ${ROOT_PATH}/cmd/${COMPONENT}/main.go 
+        go build ${ROOT_PATH}/cmd/${COMPONENT}/main.go
         MAIN_APP_LOGFILE=${ROOT_PATH}/main.log
 
         ${ROOT_PATH}/main > ${MAIN_APP_LOGFILE} &
@@ -303,7 +301,7 @@ else
             echo "[Director] left ${SECONDS_LEFT} seconds. Wait ..."
             sleep 10
         done
-        
+
         echo "Timeout of ${TERMINAION_TIMEOUT_IN_SECONDS} seconds for starting director reached. Killing the process."
         echo -e "${GREEN}Kill main process..${NC}"
         kill -SIGINT "${MAIN_PROCESS_PID}"
