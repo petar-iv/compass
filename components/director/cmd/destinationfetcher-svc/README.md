@@ -1,5 +1,0 @@
-# Destination Fetcher
-
-## Overview
-
-## Details

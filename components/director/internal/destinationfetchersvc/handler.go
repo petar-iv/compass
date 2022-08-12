@@ -122,7 +122,6 @@ func (h *handler) FetchDestinationsSensitiveData(writer http.ResponseWriter, req
 	}
 
 	writer.Write(json)
-	writer.WriteHeader(http.StatusOK)
 }
 
 func sliceContainsEmptyString(s []string) bool {
