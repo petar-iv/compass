@@ -179,7 +179,8 @@ func TestService_SyncTenantDestinations(t *testing.T) {
 
 			// THEN
 			if len(testCase.ExpectedErrorOutput) > 0 {
-				require.ErrorContains(t, err, testCase.ExpectedErrorOutput)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), testCase.ExpectedErrorOutput)
 			} else {
 				require.NoError(t, err)
 			}
@@ -262,7 +263,8 @@ func TestService_FetchDestinationsSensitiveData(t *testing.T) {
 
 			// THEN
 			if len(testCase.ExpectedErrorOutput) > 0 {
-				require.ErrorContains(t, err, testCase.ExpectedErrorOutput)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), testCase.ExpectedErrorOutput)
 			} else {
 				require.NoError(t, err)
 				var parsedResponse map[string]map[string]interface{}
@@ -349,7 +351,8 @@ func TestService_GetSubscribedTenantIDs(t *testing.T) {
 
 			// THEN
 			if len(testCase.ExpectedErrorOutput) > 0 {
-				require.ErrorContains(t, err, testCase.ExpectedErrorOutput)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), testCase.ExpectedErrorOutput)
 			} else {
 				require.NoError(t, err)
 				for _, expectedTenantID := range testCase.ExpectedTenantIDs {

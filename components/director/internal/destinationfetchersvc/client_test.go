@@ -77,22 +77,25 @@ func TestClient_TenantEndpoint(t *testing.T) {
 		// WHEN
 		_, err := client.FetchTenantDestinationsPage(ctx, noPageCountHeader)
 		// THEN
-		require.ErrorContains(t, err, "failed to extract header")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to extract header")
 	})
 
 	t.Run("Fetch should fail with status code 500, but do three attempts", func(t *testing.T) {
 		// WHEN
 		_, err := client.FetchTenantDestinationsPage(ctx, "internalServerError")
 		// THEN
-		require.ErrorContains(t, err, "#3")
-		require.ErrorContains(t, err, "status code 500")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "#3")
+		require.Contains(t, err.Error(), "status code 500")
 	})
 
 	t.Run("Fetch should fail with status code 4xx", func(t *testing.T) {
 		// WHEN
 		_, err := client.FetchTenantDestinationsPage(ctx, "forbidden")
 		// THEN
-		require.ErrorContains(t, err, "status code 403")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "status code 403")
 	})
 }
 
@@ -131,8 +134,9 @@ func TestClient_SensitiveDataEndpoint(t *testing.T) {
 		// WHEN
 		_, err := client.FetchDestinationSensitiveData(ctx, "internalServerError")
 		// THEN
-		require.ErrorContains(t, err, "#3")
-		require.ErrorContains(t, err, "status code 500")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "#3")
+		require.Contains(t, err.Error(), "status code 500")
 	})
 
 	t.Run("NewNotFoundError should be returned for status 404", func(t *testing.T) {
@@ -146,7 +150,8 @@ func TestClient_SensitiveDataEndpoint(t *testing.T) {
 		// WHEN
 		_, err := client.FetchDestinationSensitiveData(ctx, "badRequest")
 		// THEN
-		require.ErrorContains(t, err, "400")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "400")
 	})
 }
 
@@ -272,7 +277,8 @@ func TestNewClient(t *testing.T) {
 
 		_, err := destinationfetchersvc.NewClient(
 			instanceCfg, destinationfetchersvc.DestinationServiceAPIConfig{}, "/oauth/token", "subdomain")
-		require.ErrorContains(t, err, "failed to parse auth url")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse auth url")
 	})
 }
 
