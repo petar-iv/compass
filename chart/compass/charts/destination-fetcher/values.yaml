@@ -24,3 +24,5 @@ database:
     maxOpenConnections: 2
     maxIdleConnections: 1
 
+rbac:
+  create: true
