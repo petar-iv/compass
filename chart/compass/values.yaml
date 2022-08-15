@@ -120,10 +120,10 @@ global:
       version: "PR-2501"
     director:
       dir:
-      version: "PR-2550"
+      version: "PR-2553"
     hydrator:
       dir:
-      version: "PR-2555"
+      version: "PR-2484"
     gateway:
       dir:
       version: "PR-2501"
@@ -135,7 +135,7 @@ global:
       version: "PR-72"
     schema_migrator:
       dir:
-      version: "PR-2532"
+      version: "PR-2553"
     system_broker:
       dir:
       version: "PR-2501"
@@ -146,13 +146,13 @@ global:
       version: "0a651695"
     external_services_mock:
       dir:
-      version: "PR-2554"
+      version: "PR-2521"
     console:
       dir:
       version: "PR-68"
     e2e_tests:
       dir:
-      version: "PR-2550"
+      version: "PR-2484"
   isLocalEnv: false
   isForTesting: false
   oauth2:
@@ -518,6 +518,50 @@ global:
       clientID: ""
       scopes: "openid profile email"
       path: "/oauth2/certs"
+  destinationFetcher:
+    manageSecrets: true
+    host: compass-destination-fetcher.compass-system.svc.cluster.local
+    prefix: /destination-configuration
+    port: 3000
+    jobSchedule: 10m
+    lease:
+      lockname: destinationlease
+    parallelTenants: 10
+    authentication:
+      jwksEndpoint: "http://ory-oathkeeper-api.kyma-system.svc.cluster.local:4456/.well-known/jwks.json"
+      appDestinationsSyncScope: "destinations_sync"
+      appDetinationsSensitiveDataScope: "destinations_sensitive_data"
+    server:
+      tenantDestinationsEndpoint: "/v1/syncDestinations"
+      sensitiveDataEndpoint: "/v1/destinations"
+    request:
+      retry_interval: "100ms"
+      retry_attempts: 3
+      goroutineLimit: 100
+      requestTimeout: "30s"
+      pageSize: 10
+      pageParam: "\\$page"
+      pageSizeParam: "\\$pageSize"
+      pageCountParam: "\\$pageCount"
+      pageCountHeader: "Page-Count"
+      oauthTokenPath: "/oauth/token"
+    containerName: "destination-fetcher"
+    instance:
+      clientIdPath: "clientid"
+      clientSecretPath: "clientsecret"
+      urlPath: "uri"
+      tokenUrlPath: "url"
+      x509CertPath: "certificate"
+      x509KeyPath: "key"
+    secretPath: "/etc/instances/config.json"
+    secret:
+      name: "compass-tenant-fetcher-secret"
+      clientIdKey: "client-id"
+      oauthMode: "oauth-mtls"
+      clientCertKey: "client-cert"
+      clientKeyKey: "client-key"
+      oauthUrlKey: "url"
+      skipSSLValidation: true
   tenantFetcher:
     manageSecrets: true
     host: compass-tenant-fetcher.compass-system.svc.cluster.local
@@ -836,6 +880,7 @@ global:
     ordServiceFQDN: http://compass-ord-service.compass-system.svc.cluster.local
     systemBrokerFQDN: http://compass-system-broker.compass-system.svc.cluster.local
     tenantFetcherFQDN: http://compass-tenant-fetcher.compass-system.svc.cluster.local
+    destinationFetcherFQDN: http://compass-destination-fetcher.compass-system.svc.cluster.local
     hydratorFQDN: http://compass-hydrator.compass-system.svc.cluster.local
     basicCredentials:
       manage: false

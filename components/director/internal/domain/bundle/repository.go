@@ -2,8 +2,10 @@ package bundle
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/pagination"
+	"github.com/kyma-incubator/compass/components/director/pkg/persistence"
 
 	"github.com/kyma-incubator/compass/components/director/pkg/log"
 
@@ -16,7 +18,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-const bundleTable string = `public.bundles`
+const (
+	bundleTable      string = `public.bundles`
+	applicationTable string = `public.applications`
+)
 
 var (
 	bundleColumns    = []string{"id", "app_id", "name", "description", "instance_auth_request_json_schema", "default_instance_auth", "ord_id", "short_description", "links", "labels", "credential_exchange_strategies", "ready", "created_at", "updated_at", "deleted_at", "error", "correlation_ids", "documentation_labels"}
@@ -32,27 +37,29 @@ type EntityConverter interface {
 }
 
 type pgRepository struct {
-	existQuerier repo.ExistQuerier
-	singleGetter repo.SingleGetter
-	deleter      repo.Deleter
-	lister       repo.Lister
-	unionLister  repo.UnionLister
-	creator      repo.Creator
-	updater      repo.Updater
-	conv         EntityConverter
+	existQuerier          repo.ExistQuerier
+	singleGetter          repo.SingleGetter
+	singleGlobalGetter    repo.SingleGetterGlobal
+	deleter               repo.Deleter
+	lister                repo.Lister
+	unionLister           repo.UnionLister
+	creator               repo.Creator
+	updater               repo.Updater
+	conv                  EntityConverter
 }
 
 // NewRepository missing godoc
 func NewRepository(conv EntityConverter) *pgRepository {
 	return &pgRepository{
-		existQuerier: repo.NewExistQuerier(bundleTable),
-		singleGetter: repo.NewSingleGetter(bundleTable, bundleColumns),
-		deleter:      repo.NewDeleter(bundleTable),
-		lister:       repo.NewLister(bundleTable, bundleColumns),
-		unionLister:  repo.NewUnionLister(bundleTable, bundleColumns),
-		creator:      repo.NewCreator(bundleTable, bundleColumns),
-		updater:      repo.NewUpdater(bundleTable, updatableColumns, []string{"id"}),
-		conv:         conv,
+		existQuerier:          repo.NewExistQuerier(bundleTable),
+		singleGetter:          repo.NewSingleGetter(bundleTable, bundleColumns),
+		singleGlobalGetter:    repo.NewSingleGetterGlobal(resource.Bundle, bundleTable, bundleColumns),
+		deleter:               repo.NewDeleter(bundleTable),
+		lister:                repo.NewLister(bundleTable, bundleColumns),
+		unionLister:           repo.NewUnionLister(bundleTable, bundleColumns),
+		creator:               repo.NewCreator(bundleTable, bundleColumns),
+		updater:               repo.NewUpdater(bundleTable, updatableColumns, []string{"id"}),
+		conv:                  conv,
 	}
 }
 
@@ -193,6 +200,46 @@ func (r *pgRepository) ListByApplicationIDNoPaging(ctx context.Context, tenantID
 	if err := r.lister.ListWithSelectForUpdate(ctx, resource.Bundle, tenantID, &bundleCollection, repo.NewEqualCondition("app_id", appID)); err != nil {
 		return nil, err
 	}
+	bundles := make([]*model.Bundle, 0, bundleCollection.Len())
+	for _, bundle := range bundleCollection {
+		bundleModel, err := r.conv.FromEntity(&bundle)
+		if err != nil {
+			return nil, err
+		}
+		bundles = append(bundles, bundleModel)
+	}
+	return bundles, nil
+}
+
+func (r *pgRepository) GetBySystemAndCorrelationId(ctx context.Context, tenantId, systemName, systemURL, correlationId string) ([]*model.Bundle, error) {
+	bundleCollection := BundleCollection{}
+
+	persist, err := persistence.FromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	query := fmt.Sprintf(`
+	SELECT id
+	FROM bundles
+	WHERE app_id IN (
+		SELECT id
+		FROM public.applications
+		WHERE id IN (
+			SELECT id
+			FROM tenant_applications
+			WHERE tenant_id=(SELECT parent FROM business_tenant_mappings WHERE id='%s')
+		)
+		AND name='%s'
+		AND base_url='%s'
+	)
+	AND correlation_ids::jsonb ? '%s'`, tenantId, systemName, systemURL, correlationId)
+
+	err = persist.SelectContext(ctx, &bundleCollection, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch bundles from DB")
+	}
+
 	bundles := make([]*model.Bundle, 0, bundleCollection.Len())
 	for _, bundle := range bundleCollection {
 		bundleModel, err := r.conv.FromEntity(&bundle)
