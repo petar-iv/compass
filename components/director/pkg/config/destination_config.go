@@ -27,7 +27,7 @@ func (c *DestinationsConfig) MapInstanceConfigs() error {
 		return errors.Wrapf(err, "while getting destinations secret")
 	}
 
-	bindingsMap, err := ParseConfigToJsonMap(secretData)
+	bindingsMap, err := ParseConfigToJSONMap(secretData)
 	if err != nil {
 		return err
 	}

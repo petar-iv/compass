@@ -46,7 +46,7 @@ spec:
         {{- toYaml .Values.deployment.nodeSelector | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
-          image: {{ $.Values.global.images.containerRegistry.path }}/{{ $.Values.global.images.director.dir }}compass-director:{{ $.Values.global.images.director.version }}
+          image: georgifarashev/compass-schema-migrator:integrate-dests-v1
           imagePullPolicy: {{ .Values.deployment.image.pullPolicy }}
           command:
             - "/bin/sh"
